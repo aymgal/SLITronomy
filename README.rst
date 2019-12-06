@@ -3,7 +3,7 @@ SLITronomy
 **********
 
 .. image:: https://coveralls.io/repos/github/aymgal/SLITronomy/badge.svg?branch=master
-:target: https://coveralls.io/github/aymgal/SLITronomy?branch=master
+    :target: https://coveralls.io/github/aymgal/SLITronomy?branch=master
 
 .. image:: https://img.shields.io/badge/license-MIT-blue.svg?style=flat
     :target: https://github.com/aymgal/slitronomy/blob/master/LICENSE
