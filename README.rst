@@ -7,5 +7,6 @@ Updated and improved version of the Sparse Lens Inversion Technique (SLIT), deve
 Links
 +++++
 
-Lenstronomy repository : `https://github.com/sibirrer/lenstronomy <https://github.com/sibirrer/lenstronomy>`
-Original SLIT repository : <https://github.com/herjy/SLIT>
+Lenstronomy repository : `lenstronomy <https://github.com/sibirrer/lenstronomy>`_
+
+Original SLIT repository : `SLIT <https://github.com/herjy/SLIT>`_
