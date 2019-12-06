@@ -14,7 +14,7 @@ SLITronomy
 
 Updated and improved version of the Sparse Lens Inversion Technique (SLIT), developed within the framework of lens modelling code lenstronomy.
 
-IMPORTANT : the current version of SLItronomy only works with the branch `dev_algo-slit` on `this fork <https://github.com/aymgal/lenstronomy/tree/dev_slit-algo>`_.
+IMPORTANT : the current version of SLItronomy only works with the branch ``dev_algo-slit`` on `this fork <https://github.com/aymgal/lenstronomy/tree/dev_slit-algo>`_  of lenstronomy.
 
 Links
 +++++

@@ -10,14 +10,17 @@ def prox_sparsity_wavelets(coeffs_input, step, level_const=None, level_pixels=No
     """
     Apply soft or hard threshold on all wavelets scales excepts the last one (the coarse scale)  
     """
+    if l_norm not in [0, 1]:
+        raise ValueError("Sparsity proximal operator only defined with l0- and l1-norms")
+
     coeffs = np.copy(coeffs_input)
     n_scales = coeffs.shape[0]
 
     if level_const is None:
-        level_const = np.ones(n_scales)
+        level_const = np.zeros(n_scales)
 
     if level_pixels is None:
-        level_pixels = np.ones_like(coeffs)
+        level_pixels = np.zeros_like(coeffs)
 
     # apply threshold operation to all starlet scales except the coarsest
     for s in range(n_scales-1):
