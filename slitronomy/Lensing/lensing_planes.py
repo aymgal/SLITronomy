@@ -117,9 +117,12 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         print("INFO : source grid has been reduced from {} to {} side pixels".format(self._num_pix_large, self._num_pix))
 
     def project_on_original_grid(self, image):
-        array_large = np.zeros(self._num_pix_large**2)
-        array_large[self._reduc_mask_1d] = util.image2array(image)[:]
-        return util.array2image(array_large)
+        if hasattr(self, '_num_pix_large'):
+            array_large = np.zeros(self._num_pix_large**2)
+            array_large[self._reduc_mask_1d] = util.image2array(image)[:]
+            return util.array2image(array_large)
+        else:
+            return image
 
     def _fill_mapping_holes(self, image):
         """
