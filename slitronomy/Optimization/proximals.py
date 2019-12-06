@@ -3,12 +3,14 @@ __author__ = 'aymgal'
 # implementations of proximal operators adapted to sparsity
 
 import numpy as np
-from lenstronomy.Util import util
+from slitronomy.Util import util
 
 
-def prox_sparsity_wavelets(coeffs, step, level_const=None, level_pixels=None,
-                           norm=1, force_positivity=False):
-
+def prox_sparsity_wavelets(coeffs_input, step, level_const=None, level_pixels=None, l_norm=1):
+    """
+    Apply soft or hard threshold on all wavelets scales excepts the last one (the coarse scale)  
+    """
+    coeffs = np.copy(coeffs_input)
     n_scales = coeffs.shape[0]
 
     if level_const is None:
@@ -18,16 +20,17 @@ def prox_sparsity_wavelets(coeffs, step, level_const=None, level_pixels=None,
         level_pixels = np.ones_like(coeffs)
 
     # apply threshold operation to all starlet scales except the coarsest
-    for l in range(n_scales-1):
-        level_eff = step * level_const[l] * level_pixels[l, :, :]
-        if norm == 0:
-            coeffs[l, :, :] = util.hard_threshold(coeffs[l, :, :], level_eff)
+    for s in range(n_scales-1):
+        thresh = step * level_const[s] * level_pixels[s, :, :]
+        if l_norm == 0:
+            coeffs[s, :, :] = util.hard_threshold(coeffs[s, :, :], thresh)
         else:
-            coeffs[l, :, :] = util.soft_threshold(coeffs[l, :, :], level_eff)
+            coeffs[s, :, :] = util.soft_threshold(coeffs[s, :, :], thresh)
 
     return coeffs
 
 
-def prox_positivity(image):
+def prox_positivity(image_input):
+    image = np.copy(image_input)
     image[image < 0] = 0.
     return image

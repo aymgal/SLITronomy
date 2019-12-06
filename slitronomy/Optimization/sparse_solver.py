@@ -435,7 +435,7 @@ class SparseSolver(object):
 
         alpha_S = self.Phi_T(S)
         alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step, level_const=level_const, level_pixels=level_pixels,
-                                                          force_positivity=self._force_positivity, norm=self._sparsity_prior_norm)
+                                                          force_positivity=self._force_positivity, l_norm=self._sparsity_prior_norm)
         S_proxed = self.Phi(alpha_S_proxed)
 
         if self._force_positivity:
