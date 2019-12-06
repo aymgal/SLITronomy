@@ -515,11 +515,11 @@ class SparseSolver(object):
     @property
     def noise_levels_source_plane(self):
         if not hasattr(self, '_noise_levels_src'):
-            self._noise_levels_src = self._compute_noise_levels_src()
+            self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
         return self._noise_levels_src
 
 
-    def _compute_noise_levels_src(self):
+    def _compute_noise_levels_src(self, boost_where_zero=10):
         n_img = self._lensingOperator.imagePlane.num_pix
 
         # PSF noise map
@@ -527,7 +527,7 @@ class SparseSolver(object):
         HT_power = np.sqrt(np.sum(HT**2))
         HT_noise = self._sigma_bkg * HT_power * np.ones((n_img, n_img))
         FT_HT_noise = self.F_T(HT_noise)
-        FT_HT_noise[FT_HT_noise == 0.] = np.mean(FT_HT_noise) * 10.
+        FT_HT_noise[FT_HT_noise == 0.] = np.mean(FT_HT_noise) * boost_where_zero
 
         # computes noise levels in in source plane in starlet space
         dirac = self.dirac_impulse(n_img)
