@@ -2,4 +2,3 @@ numpy
 scipy
 matplotlib
 future
--e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
