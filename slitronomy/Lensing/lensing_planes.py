@@ -75,6 +75,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         # get the coordinates arrays of source plane
         self._x_grid_1d, self._y_grid_1d = util.make_grid(numPix=self._num_pix, 
                                                           deltapix=self._delta_pix)
+        self._first_print = True  # for printing messages only once
 
     @property
     def effective_mask(self):
@@ -114,7 +115,9 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         reduc_mask, reduced_num_pix = self.reduce_plane_iterative(self.effective_mask, 
                                                                   min_num_pix=min_num_pix)
         self._update_grid_after_shrink(reduc_mask, reduced_num_pix)
-        print("INFO : source grid has been reduced from {} to {} side pixels".format(self._num_pix_large, self._num_pix))
+        if self._first_print:
+            print("INFO : source grid has been reduced from {} to {} side pixels".format(self._num_pix_large, self._num_pix))
+            self._first_print = False
 
     def project_on_original_grid(self, image):
         if hasattr(self, '_num_pix_large'):
@@ -123,6 +126,17 @@ class SourcePlaneGrid(AbstractPlaneGrid):
             return util.array2image(array_large)
         else:
             return image
+
+    def reset(self):
+        if hasattr(self, '_num_pix_large'):
+            self._num_pix = self._num_pix_large
+            self._x_grid_1d = self._x_grid_1d_large
+            self._y_grid_1d = self._y_grid_1d_large
+            self._effective_mask = self._effective_mask_large
+            del self._num_pix_large
+            del self._x_grid_1d_large
+            del self._y_grid_1d_large
+            del self._effective_mask_large
 
     def _fill_mapping_holes(self, image):
         """
@@ -162,11 +176,14 @@ class SourcePlaneGrid(AbstractPlaneGrid):
 
     @staticmethod
     def reduce_plane_iterative(effective_mask, min_num_pix=10):
+        """
+        :param min_num_pix: minimal allowed number of pixels in source plane
+        """
         num_pix_origin = len(effective_mask)
         num_pix = num_pix_origin  # start at original size
-        min_num_pix = 10  # minimal allowed number of pixels in source plane
         n_rm = 1
-        test_mask = np.zeros((num_pix, num_pix))
+        test_mask = np.ones((num_pix, num_pix))
+        reduc_mask = test_mask
         while num_pix > min_num_pix:
             # array full of zeros
             test_mask_next = np.zeros_like(effective_mask)
@@ -185,7 +202,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
                 n_rm += 1
             else:
                 # if not, then the mask at previous iteration was the correct one
-                reduc_mask = test_mask
-                red_num_pix = num_pix
                 break
+        reduc_mask = test_mask
+        red_num_pix = num_pix
         return reduc_mask.astype(bool), red_num_pix

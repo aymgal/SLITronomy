@@ -6,10 +6,8 @@ __author__ = 'aymgal'
 import numpy as np
 from scipy import sparse
 
-from lenstronomy.Util import util
-
 from slitronomy.Lensing.lensing_planes import ImagePlaneGrid, SourcePlaneGrid
-
+from slitronomy.Util import util
 
 
 class LensingOperator(object):
@@ -19,10 +17,13 @@ class LensingOperator(object):
     def __init__(self, data_class, lens_model_class, subgrid_res_source=1, 
                  likelihood_mask=None, minimal_source_plane=True, min_num_pix_source=10,
                  matrix_prod=True):
+        """
+
+        :param min_num_pix_source: miniaml number of pixels in the 
+        """
         self.lensModel = lens_model_class
         self.imagePlane  = ImagePlaneGrid(data_class)
         self.sourcePlane = SourcePlaneGrid(data_class, subgrid_res=subgrid_res_source)
-        self._subgrid_res_source = subgrid_res_source
         self._likelihood_mask = likelihood_mask
         self._minimal_source_plane = minimal_source_plane
         self._min_num_pix_source = min_num_pix_source
@@ -91,14 +92,19 @@ class LensingOperator(object):
         return self.imagePlane.theta_x, self.imagePlane.theta_y
 
     def update_mapping(self, kwargs_lens):
+        self._reset_source_plane_grid()
         self._compute_mapping(kwargs_lens)
-        self._compute_source_mask()
+        self._compute_source_mask()  # compute areas on source plane where you have want no constraint
         if self._minimal_source_plane:
             # for source plane to be reduced to minimal size
             # we compute effective source mask and shrink the grid to match it
-            self._shrink_source_plane(self._min_num_pix_source)
+            self._shrink_source_plane_grid(self._min_num_pix_source)
             # recompute the mapping with updated grid
             self._compute_mapping(kwargs_lens)
+
+    def delete_mapping(self):
+        del self._lens_mapping_matrix
+        del self._lens_mapping_list
 
     def _compute_mapping(self, kwargs_lens):
         """
@@ -168,5 +174,8 @@ class LensingOperator(object):
         # set the image to source plane for filling holes due to lensing
         self.sourcePlane.set_delensed_masks(unit_mapped, mask=mask_mapped)
 
-    def _shrink_source_plane(self, min_num_pix):
+    def _reset_source_plane_grid(self):
+        self.sourcePlane.reset()
+
+    def _shrink_source_plane_grid(self, min_num_pix):
         self.sourcePlane.shrink_grid_to_mask(min_num_pix=min_num_pix)

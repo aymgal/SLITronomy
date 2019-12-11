@@ -2,25 +2,26 @@ __author__ = 'aymgal'
 
 # class that implements SLIT algorithm
 
+import copy
 import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
-from lenstronomy.ImSim.Numerics.convolution import PixelKernelConvolution
-from lenstronomy.Util import util
-from lenstronomy.Plots import plot_util
-
+from slitronomy.Lensing.lensing_operator import LensingOperator
 from slitronomy.Optimization import algorithms
 from slitronomy.Optimization import proximals
+from slitronomy.Util import util
+from slitronomy.Util import plot_util
 
 
-
-class SparseSolver(object):
+class SparseSolverSource(object):
 
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
-    def __init__(self, data_class, source_profile_class, psf_class=None, lens_light_profile_class=None, likelihood_mask=None, 
+    def __init__(self, data_class, lens_model_class, source_model_class, psf_class=None, 
+                 convolution_class=None, likelihood_mask=None, 
+                 subgrid_res_source=1, minimal_source_plane=True, min_num_pix_source=10,
                  k_max=5, n_iter=50, n_weights=1, sparsity_prior_norm=1, force_positivity=True, 
                  formulation='analysis', verbose=False, show_steps=False):
 
@@ -42,25 +43,24 @@ class SparseSolver(object):
 
         if psf_class is not None:
             self._psf_kernel = psf_class.kernel_point_source
-            self.convolution   = PixelKernelConvolution(self._psf_kernel, convolution_type='fft_static')
-            self.convolution_T = PixelKernelConvolution(self._psf_kernel.T, convolution_type='fft_static')
+            self.convolution   = convolution_class
+            self.convolution_T = convolution_class.copy_transpose()
         else:
             self._psf_kernel = None
             self.convolution, self.convolution_T = None, None
 
-        self._source_light = source_profile_class
-        self._lens_light   = lens_light_profile_class
-        if self._lens_light is None:
-            self._solve_for_lens_light = False
-        else:
-            self._solve_for_lens_light = True
+        # consider only the first source light profile
+        self._source_light = source_model_class.func_list[0]
+
+        self.lensingOperator = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
+                                               likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
+                                               min_num_pix_source=min_num_pix_source, matrix_prod=True)
 
         self._formulation = formulation
         self._k_max = k_max
         self._n_iter = n_iter
         self._n_weights = n_weights
         # self._tau = tau
-
         if sparsity_prior_norm not in [0, 1]:
             raise ValueError("Sparsity prior norm can only be 0 or 1 (l0-norm or l1-norm)")
         self._sparsity_prior_norm = sparsity_prior_norm
@@ -69,21 +69,24 @@ class SparseSolver(object):
         self._verbose = verbose
         self._show_steps = show_steps
 
-    def solve(self, lensing_operator_class, kwargs_source_profile, kwargs_lens_light_profile):
-        self._set_cache(lensing_operator_class, kwargs_source_profile, kwargs_lens_light_profile)
-        if self._solve_for_lens_light:
-            # image, source, lens_light, coeffs_source, coeffs_lens_light = self._solve_all()
-            # TODO : concatenate coeffs_source & coeffs_lens_light
-            raise NotImplementedError("Sparse solver for source and lens light not implemented")
-        else:
-            image, source, coeffs = self._solve_source()
-            lens_light = None
-        # for potential memory issues delete heavy operators/matrices
-        # self._delete_cache()
-        return image, source, lens_light, coeffs
+    def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None):
+        """
+        main method to call from outside
 
-    def _solve_source(self):
-        """SLIT algorithm"""
+        any class that inherits SparseSolverSource should have this method updated accordingly, with same output.
+        """
+        # update image <-> source plane mapping from lens model parameters
+        self.lensingOperator.update_mapping(kwargs_lens)
+        kwargs_source_profile = kwargs_source[0]  # select first profile, should be pixel-based like 'STARLETS'
+        self._n_scales = kwargs_source_profile['n_scales']
+        image_model, source_light, coeffs = self._solve_SLIT()
+        lens_light = None
+        return image_model, source_light, lens_light, coeffs
+
+    def _solve_SLIT(self):
+        """
+        implements the SLIT algorithm
+        """
         # set the gradient step
         mu = 1. / self.spectral_norm
 
@@ -125,7 +128,7 @@ class SparseSolver(object):
                 step_diff = self.norm_diff(S, S_next)
 
                 if i % 10 == 0 and self._verbose:
-                    print("iteration {}-{} : loss = {:.4f}, red-chi2 = {:.4f}, step_diff = {:.4f}"
+                    print("iteration {}-{} : loss = {:.4f}, red-chi2 = {:.4f}, step_diff = {:.2e}"
                           .format(j, i, loss, red_chi2, step_diff))
 
                 if i % int(self._n_iter/2) == 0 and self._show_steps:
@@ -167,27 +170,11 @@ class SparseSolver(object):
         image_model = self.image_model(unconvolved=False)
         return image_model, self.source_model, source_coeffs_1d
 
-
-    def _solve_all(self):
-        """SLIT_MCA algorithm"""
-        pass
-
-
-    def _set_cache(self, lensing_operator_class, kwargs_source_profile, kwargs_lens_light_profile):
-        self._lensingOperator = lensing_operator_class
-        self._n_scales = kwargs_source_profile['n_scales']
-
-    def _delete_cache(self):
-        delattr(self, '_lensingOperator')
-        delattr(self, '_kwargs_source')
-
-
     @property
     def source_model(self):
         if not hasattr(self, '_source_model'):
             raise ValueError("You must run the optimization before accessing the source estimate")
         return self._source_model
-
 
     def image_model(self, unconvolved=False):
         if not hasattr(self, '_source_model'):
@@ -197,20 +184,17 @@ class SparseSolver(object):
             return image_model
         return self.H(image_model)
 
-
     @property
     def solve_track(self):
         if not hasattr(self, '_solve_track'):
             raise ValueError("You must run the optimization before accessing the track")
         return self._solve_track
 
-
     @property
     def best_fit_reduced_chi2(self):
         if not hasattr(self, '_solve_track'):
             raise ValueError("You must run the optimization before accessing the track")
         return self._solve_track['red_chi2'][-1]
-
 
     def plot_results(self, model_log_scale=False, model_cmap='cubehelix', res_vmin=None, res_vmax=None):
         fig, axes = plt.subplots(2, 3, figsize=(18, 10))
@@ -226,7 +210,7 @@ class SparseSolver(object):
                            norm=LogNorm(vmin=vmin, vmax=vmax))
         else:
             im = ax.imshow(src_model, origin='lower', cmap=model_cmap)
-        # ax.imshow(self._lensingOperator.sourcePlane.reduction_mask, origin='lower', cmap='gray', alpha=0.1)
+        # ax.imshow(self.lensingOperator.sourcePlane.reduction_mask, origin='lower', cmap='gray', alpha=0.1)
         plot_util.nice_colorbar(im)
         ax = axes[0, 1]
         ax.set_title("image model")
@@ -247,8 +231,9 @@ class SparseSolver(object):
                        cmap='bwr', vmin=res_vmin, vmax=res_vmax)
         frame_size = self._num_pix * self._delta_pix
         text = r"$\chi^2={:.2f}$".format(self.best_fit_reduced_chi2)
-        plot_util.text_description(ax, frame_size, text, color='black', backgroundcolor='white',
-                                   flipped=False, font_size=15)
+        ax.text(0.05, 0.05, text, color='black', fontsize=15, 
+                horizontalalignment='left', verticalalignment='bottom',
+                transform=ax.transAxes)
         plot_util.nice_colorbar(im)
         ax = axes[1, 0]
         ax.set_title("loss function")
@@ -266,7 +251,7 @@ class SparseSolver(object):
 
 
     def generate_initial_guess(self, guess_type='bkg_noise'):
-        num_pix = self._lensingOperator.sourcePlane.num_pix
+        num_pix = self.lensingOperator.sourcePlane.num_pix
         n_scales = self._n_scales, 
         if guess_type == 'null':
             X = np.zeros((num_pix, num_pix))
@@ -292,11 +277,11 @@ class SparseSolver(object):
 
 
     def apply_source_plane_mask(self, source_2d):
-        return source_2d * self._lensingOperator.sourcePlane.effective_mask
+        return source_2d * self.lensingOperator.sourcePlane.effective_mask
 
 
     def original_grid_source(self, source_2d):
-        return self._lensingOperator.sourcePlane.project_on_original_grid(source_2d)
+        return self.lensingOperator.sourcePlane.project_on_original_grid(source_2d)
 
 
     def psf_convolution(self, array_2d):
@@ -337,12 +322,12 @@ class SparseSolver(object):
 
     def F(self, source_2d):
         """alias method for lensing from source plane to image plane"""
-        return self._lensingOperator.source2image_2d(source_2d)
+        return self.lensingOperator.source2image_2d(source_2d)
 
 
     def F_T(self, image_2d):
         """alias method for ray-tracing from image plane to source plane"""
-        return self._lensingOperator.image2source_2d(image_2d)
+        return self.lensingOperator.image2source_2d(image_2d)
 
 
     def Phi(self, array_2d):
@@ -435,7 +420,7 @@ class SparseSolver(object):
 
         alpha_S = self.Phi_T(S)
         alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step, level_const=level_const, level_pixels=level_pixels,
-                                                          force_positivity=self._force_positivity, l_norm=self._sparsity_prior_norm)
+                                                          l_norm=self._sparsity_prior_norm)
         S_proxed = self.Phi(alpha_S_proxed)
 
         if self._force_positivity:
@@ -520,7 +505,7 @@ class SparseSolver(object):
 
 
     def _compute_noise_levels_src(self, boost_where_zero=10):
-        n_img = self._lensingOperator.imagePlane.num_pix
+        n_img = self.lensingOperator.imagePlane.num_pix
 
         # PSF noise map
         HT = self._psf_kernel.T
