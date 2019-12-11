@@ -56,6 +56,17 @@ def cube2array(cube):
     return array
 
 
+def dirac_impulse(num_pix):
+    """
+    returns the 1d array of a Dirac impulse at the center of the image
+
+    :return: 1d numpy array of response, 2d array of additonal errors (e.g. point source uncertainties)
+    """
+    dirac = np.zeros((num_pix, num_pix), dtype=float)
+    dirac[int(num_pix/2), int(num_pix/2)] = 1.
+    return dirac
+
+
 def soft_threshold(array, thresh):
     if len(array.shape) > 2:
         raise ValueError("Soft thresholding only supported for 1D or 2D arrays")
@@ -69,6 +80,7 @@ def hard_threshold(array, thresh):
     array_th = np.copy(array)
     array_th[np.abs(array) <= thresh] = 0.
     return array_th
+
 
 def spectral_norm(num_pix, operator, inverse_operator, num_iter=20, tol=1e-10):
     """compute spectral norm from operator and its inverse"""
@@ -88,3 +100,20 @@ def spectral_norm(num_pix, operator, inverse_operator, num_iter=20, tol=1e-10):
         norm = norm_new
         i += 1
     return norm
+
+def generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
+                           formulation='analysis', guess_type='bkg_noise',
+                           sigma_bkg=None, sigma_bkg_synthesis=None):
+    if guess_type == 'null':
+        X = np.zeros((num_pix, num_pix))
+        alpha_X = np.zeros((n_scales, num_pix, num_pix))
+    elif guess_type == 'bkg_noise':
+        if formulation == 'analysis':
+            X = sigma_bkg * np.random.randn(num_pix, num_pix)
+            alpha_X = transform(X)
+        elif formulation == 'synthesis':
+            alpha_X = sigma_bkg_synthesis * np.random.randn(num_pix, num_pix)
+            X = inverse_transform(alpha_X)
+    else:
+        raise ValueError("Initial guess type '{}' not supported".format(guess_type))
+    return X, alpha_X
