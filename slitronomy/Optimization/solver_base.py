@@ -6,29 +6,27 @@ import copy
 import numpy as np
 from scipy import signal
 
+from slitronomy.Optimization.model_operators import ModelOperators
 from slitronomy.Lensing.lensing_operator import LensingOperator
 from slitronomy.Plots.solver_plotter import SolverPlotter
 from slitronomy.Util import util
 
 
-class AbstractSolver(object):
+class SparseSolverBase(ModelOperators):
 
-    """Abstract class that generally defines a sparse solver"""
+    """Base class that generally defines a sparse solver"""
 
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
                  psf_class=None, convolution_class=None, likelihood_mask=None, 
                  subgrid_res_source=1, minimal_source_plane=True, min_num_pix_source=10,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis', 
                  verbose=False, show_steps=False):
-
-        self._image_data = data_class.data
-
         # consider only the first light profiles
-        self._source_light = source_model_class.func_list[0]
+        source_light_class = source_model_class.func_list[0]
         if lens_light_model_class is not None:
-            self._lens_light = lens_light_model_class.func_list[0]
+            lens_light_class = lens_light_model_class.func_list[0]
         else:
-            self._lens_light = None
+            lens_light_class = None
 
         (num_pix_x, num_pix_y) = data_class.num_pixel_axes
         if num_pix_x != num_pix_y:
@@ -39,22 +37,18 @@ class AbstractSolver(object):
         # self._noise_map = data_class.noise_map
         self._sigma_bkg = data_class.background_rms
 
-        if likelihood_mask is None:
-            likelihood_mask = np.ones_like(self._image_data)
-        self._mask = likelihood_mask
-        self._mask_1d = util.image2array(likelihood_mask)
-
-        self.lensingOperator = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
-                                               likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
-                                               min_num_pix_source=min_num_pix_source, matrix_prod=True)
-
         if psf_class is not None:
             self._psf_kernel = psf_class.kernel_point_source
-            self.convolution   = convolution_class
-            self.convolution_T = convolution_class.copy_transpose()
         else:
             self._psf_kernel = None
-            self.convolution, self.convolution_T = None, None
+
+        lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
+                                                 likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
+                                                 min_num_pix_source=min_num_pix_source, matrix_prod=True)
+
+        super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, 
+                                               source_light_class, lens_light_class=lens_light_class, 
+                                               convolution_class=convolution_class, likelihood_mask=likelihood_mask)
 
         self._formulation = formulation
 
@@ -82,6 +76,7 @@ class AbstractSolver(object):
             self._n_scales_lens = kwargs_lens_light[0]['n_scales']
         else:
             self._n_scales_lens = None
+        self.set_wavelet_scales(self._n_scales_source, self._n_scales_lens)
         # call solver
         image_model, source_light, lens_light, coeffs = self._solve()
         return image_model, source_light, lens_light, coeffs
@@ -133,77 +128,28 @@ class AbstractSolver(object):
         inverse_transform = self.Phi_l
         sigma_bkg_synthesis = None # TODO 
         return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
-                           formulation=self._formulation, guess_type=guess_type,
-                           sigma_bkg=self._sigma_bkg, sigma_bkg_synthesis=sigma_bkg_synthesis)
+                                           formulation=self._formulation, guess_type=guess_type,
+                                           sigma_bkg=self._sigma_bkg, sigma_bkg_synthesis=sigma_bkg_synthesis)
 
-    def apply_mask(self, image_2d):
-        # image_2d_m = image_2d.copy()
-        # image_2d_m[self._mask] = 0.
-        # return image_2d_m
-        return image_2d * self._mask
+    def apply_image_plane_mask(self, image_2d):
+        return self.M(image_2d)
 
     def apply_source_plane_mask(self, source_2d):
-        return source_2d * self.lensingOperator.sourcePlane.effective_mask
+        return self.M_s(source_2d)
 
-    def original_grid_source(self, source_2d):
+    def project_original_grid_source(self, source_2d):
         return self.lensingOperator.sourcePlane.project_on_original_grid(source_2d)
 
     def psf_convolution(self, array_2d):
-        if self.convolution is None:
-            return array_2d
-        return self.convolution.convolution2d(array_2d)
+        return self.H(array_2d)
 
     @property
     def image_data(self):
         return self._image_data
 
     @property
-    def Y(self):
-        """replace masked pixels with random gaussian noise"""
-        if not hasattr(self, '_Y'):
-            image_data = np.copy(self._image_data)
-            noise = self._sigma_bkg * np.random.randn(*image_data.shape)
-            image_data[~self._mask] = noise[~self._mask]
-            self._Y = image_data
-        return self._Y
-
-    def H(self, array_2d):
-        """alias method for convolution with the PSF kernel"""
-        if self.convolution is None:
-            return array_2d
-        return self.convolution.convolution2d(array_2d)
-
-    def H_T(self, array_2d):
-        """alias method for convolution with the transposed PSF kernel"""
-        if self.convolution_T is None:
-            return array_2d
-        return self.convolution_T.convolution2d(array_2d)
-
-    def F(self, source_2d):
-        """alias method for lensing from source plane to image plane"""
-        return self.lensingOperator.source2image_2d(source_2d)
-
-    def F_T(self, image_2d):
-        """alias method for ray-tracing from image plane to source plane"""
-        return self.lensingOperator.image2source_2d(image_2d)
-
-    def Phi_s(self, array_2d):
-        """alias method for inverse wavelet transform"""
-        return self._source_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_source,
-                                              n_pixels=np.size(array_2d))
-
-    def Phi_T_s(self, array_2d):
-        """alias method for wavelet transform"""
-        return self._source_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_source)
-
-    def Phi_l(self, array_2d):
-        """alias method for inverse wavelet transform"""
-        return self._lens_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_lens,
-                                            n_pixels=np.size(array_2d))
-
-    def Phi_T_l(self, array_2d):
-        """alias method for wavelet transform"""
-        return self._lens_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_lens)
+    def lensingOperator(self):
+        return self._lensing_op
 
     @property
     def num_data_evaluate(self):
@@ -212,6 +158,19 @@ class AbstractSolver(object):
         :return:
         """
         return int(np.sum(self._mask))
+
+    def loss(self, S, G=None):
+        """ returns f = || Y - HFS - HG ||^2_2 """
+        model = self._model_analysis(S, G=G)
+        error = self.Y - model
+        norm_error = np.linalg.norm(error, ord=2)
+        return norm_error**2
+
+    def reduced_residuals(self, S, G=None):
+        """ returns || Y - HFS - HG ||^2_2 / sigma^2 """
+        model = self._model_analysis(S, G=G)
+        error = self.Y - model
+        return (error / self._sigma_bkg) * self._mask
 
     def reduced_chi2(self, S):
         chi2 = self.reduced_residuals(S)**2
@@ -251,7 +210,10 @@ class AbstractSolver(object):
         n_img = self.lensingOperator.imagePlane.num_pix
 
         # PSF noise map
-        HT = self._psf_kernel.T
+        if self._psf_kernel is None:
+            HT = util.dirac_impulse(n_img)
+        else:
+            HT = self._psf_kernel.T
         HT_power = np.sqrt(np.sum(HT**2))
         HT_noise = self._sigma_bkg * HT_power * np.ones((n_img, n_img))
         FT_HT_noise = self.F_T(HT_noise)

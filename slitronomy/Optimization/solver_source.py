@@ -5,13 +5,13 @@ __author__ = 'aymgal'
 import copy
 import numpy as np
 
-from slitronomy.Optimization.abstract_solver import AbstractSolver
+from slitronomy.Optimization.solver_base import SparseSolverBase
 from slitronomy.Optimization import algorithms
 from slitronomy.Optimization import proximals
 from slitronomy.Util import util
 
 
-class SparseSolverSource(AbstractSolver):
+class SparseSolverSource(SparseSolverBase):
 
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
@@ -118,29 +118,22 @@ class SparseSolverSource(AbstractSolver):
         image_model = self.image_model(unconvolved=False)
         return image_model, self.source_model, None, source_coeffs_1d
 
-    def loss(self, S):
-        """ returns f = || Y - HFS ||^2_2 """
-        model = self.H(self.F(S))
-        error = self.Y - model
-        norm_error = np.linalg.norm(error, ord=2)
-        return norm_error**2
+    def _model_analysis(self, S, G=None):
+        return self.H(self.F(S))
 
-    def reduced_residuals(self, S):
-        """ returns || Y - HFS ||^2_2 / sigma^2 """
-        model = self.H(self.F(S))
-        error = self.Y - model
-        return (error / self._sigma_bkg) * self._mask
+    def _model_synthesis(self, alpha_S, alpha_G=None):
+        return self.H(self.F(self.Phi_s(alpha_S)))
 
     def _gradient_loss_analysis(self, S):
         """ returns the gradient of f = || Y - HFS ||^2_2 """
-        model = self.H(self.F(S))
+        model = self._model_analysis(S)
         error = self.Y - model
         grad  = - self.F_T(self.H_T(error))
         return grad
 
     def _gradient_loss_synthesis(self, alpha_S):
         """ returns the gradient of f = || Y - H F Phi alphaS ||^2_2 """
-        model = self.H(self.F(self.Phi_s(alpha_S)))
+        model = self._model_synthesis(alpha_S)
         error = self.Y - model
         grad  = - self.Phi_T_s(self.F_T(self.H_T(error)))
         return grad
@@ -188,5 +181,6 @@ class SparseSolverSource(AbstractSolver):
             alpha_S_proxed = proximals.prox_positivity(alpha_S_proxed)
 
         # finally, set to 0 every pixel that is outside the 'support' in source plane
-        alpha_S_proxed = self.apply_source_plane_mask(alpha_S_proxed)
+        for ns in range(n_scales):
+            alpha_S_proxed[ns, :, :] = self.apply_source_plane_mask(alpha_S_proxed[ns, :, :])
         return alpha_S_proxed
