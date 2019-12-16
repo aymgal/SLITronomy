@@ -1,5 +1,7 @@
 __auther__ = 'aymgal'
 
+import lenstronomy.Util.util as l_util  # TODO : remove dependency
+
 from slitronomy.Util import util
 
 import numpy as np
@@ -22,6 +24,26 @@ def test_hard_threshold():
     assert array_ht.shape == array.shape
     npt.assert_equal(array_ht[array > 0.5], array[array > 0.5])
     npt.assert_equal(array_ht[array <= 0.5], 0)
+
+def test_indices_conversion():
+    num_pix = 99
+
+    x, y = 34, 56
+    i = util.index_2d_to_1d(x, y, num_pix)
+    x_, y_ = util.index_1d_to_2d(i, num_pix)
+    assert x_ == x and y_ == y
+
+    i = 254
+    x, y = util.index_1d_to_2d(i, num_pix)
+    i_ = util.index_2d_to_1d(x, y, num_pix)
+    assert i_ == i
+
+    x_grid_1d, y_grid_1d = l_util.make_grid(num_pix, deltapix=1)
+    x_grid_2d, y_grid_2d = util.array2image(x_grid_1d), util.array2image(y_grid_1d)
+    i = 254
+    x, y = util.index_1d_to_2d(i, num_pix)
+    assert x_grid_1d[i] == x_grid_2d[x, y]
+    assert y_grid_1d[i] == y_grid_2d[x, y]
 
 class TestRaise(unittest.TestCase):
     def test_raise(self):

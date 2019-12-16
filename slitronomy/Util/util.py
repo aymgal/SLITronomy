@@ -56,6 +56,17 @@ def cube2array(cube):
     return array
 
 
+def index_2d_to_1d(x, y, num_pix):
+    i = y + x*num_pix
+    return i
+
+
+def index_1d_to_2d(i, num_pix):
+    x = int(i / num_pix)
+    y = int(i % num_pix)
+    return x, y
+
+
 def dirac_impulse(num_pix):
     """
     returns the 1d array of a Dirac impulse at the center of the image
