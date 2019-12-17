@@ -1,8 +1,5 @@
 __author__ = 'aymgal'
 
-# class that implements the computation of the lensing operator
-# that maps image plane pixels to source plane pixels
-
 import numpy as np
 from scipy import sparse
 
@@ -10,9 +7,10 @@ from slitronomy.Lensing.lensing_planes import ImagePlaneGrid, SourcePlaneGrid
 from slitronomy.Util import util
 
 
+
 class LensingOperator(object):
 
-    """TODO"""
+    """Defines the mapping of pixelated light profiles between image and source planes"""
 
     def __init__(self, data_class, lens_model_class, subgrid_res_source=1, 
                  likelihood_mask=None, minimal_source_plane=True, min_num_pix_source=10,
@@ -30,7 +28,7 @@ class LensingOperator(object):
         self._matrix_prod = matrix_prod
 
     def source2image(self, source_1d, kwargs_lens=None, update=False):
-        if not hasattr(self, '_lens_mapping_list') or update:
+        if (not hasattr(self, '_lens_mapping_list') or update) and kwargs_lens is not None:
             self.update_mapping(kwargs_lens)
 
         if self._matrix_prod:
@@ -40,7 +38,7 @@ class LensingOperator(object):
             # loop over source plane pixels
             for j in range(source_1d.size):
                 indices_i = np.where(self._lens_mapping_list == j)
-                image[indices_i] = source_1d[j]
+                image_1d[indices_i] = source_1d[j]
         return image_1d
 
     def _source2image_matrix(self, source_1d):
@@ -53,35 +51,38 @@ class LensingOperator(object):
 
     def image2source(self, image_1d, kwargs_lens=None, update=False, test_unit_image=False):
         """if test_unit_image is True, do not normalize light flux to better visualize the mapping"""
-        if not hasattr(self, '_lens_mapping_list') or update:
+        if (not hasattr(self, '_lens_mapping_list') or update) and kwargs_lens is not None:
             self.update_mapping(kwargs_lens)
-        source_1d = np.zeros(self.sourcePlane.grid_size)
-        # loop over source plane pixels
-        for j in range(source_1d.size):
-            # retieve corresponding pixels in image plane
-            indices_i = np.where(self._lens_mapping_list == j)
-            flux_i = image_1d[indices_i]
-            if test_unit_image:
-                norm_j = 1
-            else:
-                norm_j = max(1, flux_i.size)
-            flux_j = np.sum(flux_i) / norm_j
-            source_1d[j] = flux_j
+        if self._matrix_prod:
+            source_1d = self._image2source_matrix(image_1d, update=update, test_unit_image=test_unit_image)
+        else:
+            source_1d = np.zeros(self.sourcePlane.grid_size)
+            # loop over source plane pixels
+            for j in range(source_1d.size):
+                # retieve corresponding pixels in image plane
+                indices_i = np.where(self._lens_mapping_list == j)
+                flux_i = image_1d[indices_i]
+                flux_j = np.sum(flux_i)
+                if not test_unit_image:
+                    # normalization
+                    flux_j /= max(1, flux_i.size)
+                source_1d[j] = flux_j
+        return source_1d
+
+    def _image2source_matrix(self, image_1d, update=False, test_unit_image=False):
+        if not hasattr(self, '_norm_image2source') or update:
+            # avoid computing it each time, save normalisation factors
+            # normalization is sum of weights for each source pixel
+            self._norm_image2source = np.squeeze(np.maximum(1, self._lens_mapping_matrix.sum(axis=0)).A)
+        source_1d = self._lens_mapping_matrix.T.dot(image_1d)
+        if not test_unit_image:
+            # normalization
+            source_1d /= self._norm_image2source
         return source_1d
 
     def image2source_2d(self, image, **kwargs):
         image_1d = util.image2array(image)
         return util.array2image(self.image2source(image_1d, **kwargs))
-
-    def lens_mapping_list(self, kwargs_lens=None, update=False):
-        if not hasattr(self, '_lens_mapping_list') or update:
-            self.update_mapping(kwargs_lens)
-        return self._lens_mapping_list
-
-    def lens_mapping_matrix(self, kwargs_lens=None, update=False):
-        if not hasattr(self, '_lens_mapping_list') or update:
-            self.update_mapping(kwargs_lens)
-        return self._lens_mapping_matrix
 
     @property
     def source_plane_coordinates(self):
@@ -94,7 +95,7 @@ class LensingOperator(object):
     def update_mapping(self, kwargs_lens):
         self._reset_source_plane_grid()
         self._compute_mapping(kwargs_lens)
-        self._compute_source_mask()  # compute areas on source plane where you have want no constraint
+        self._compute_source_mask()  # compute areas on source plane where you have no constraint
         if self._minimal_source_plane:
             # for source plane to be reduced to minimal size
             # we compute effective source mask and shrink the grid to match it
@@ -103,63 +104,43 @@ class LensingOperator(object):
             self._compute_mapping(kwargs_lens)
 
     def delete_mapping(self):
-        del self._lens_mapping_matrix
-        del self._lens_mapping_list
+        if hasattr(self, '_lens_mapping_list'): delattr(self, '_lens_mapping_list')
+        if hasattr(self, '_lens_mapping_matrix'): delattr(self, '_lens_mapping_matrix')
 
     def _compute_mapping(self, kwargs_lens):
         """
         Core method that computes the mapping between image and source planes pixels
         from ray-tracing performed by the input parametric mass model
         """
+        # delete previous mapping and init the new one
+        self.delete_mapping()
+
+        # initialize matrix
         if self._matrix_prod:
-            lens_mapping_array = np.zeros((self.imagePlane.grid_size, self.sourcePlane.grid_size))
-        lens_mapping_list = []
+            lens_mapping_matrix = np.zeros((self.imagePlane.grid_size, self.sourcePlane.grid_size))
+        else:
+            lens_mapping_list = []
 
         # backward ray-tracing to get source coordinates in image plane (the 'betas')
         beta_x, beta_y = self.lensModel.ray_shooting(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
 
-        # 1. iterate through indices of image plane (indices 'i')
+        # iterate through indices of image plane (indices 'i')
         for i in range(self.imagePlane.grid_size):
-            # 2. get the coordinates of ray traced pixels (in image plane coordinates)
-            beta_i_x = beta_x[i]
-            beta_i_y = beta_y[i]
-            
-            # 3. compute the closest coordinates in source plane (indices 'j')
-            distance_on_source_grid_x = np.abs(beta_i_x - self.sourcePlane.theta_x)
-            distance_on_source_grid_y = np.abs(beta_i_y - self.sourcePlane.theta_y)
-            j_x = np.argmin(distance_on_source_grid_x)
-            j_y = np.argmin(distance_on_source_grid_y)
-            #j_x1 = int( beta_i_x / delta_pix + (num_pix - 1)/2.)
-            #j_y1 = int( beta_i_y / delta_pix + (num_pix - 1)/2.)
-            
-            if isinstance(j_x, list):
-                j_x = j_x[0]
-                print("Warning : found > 1 possible x coordinates in source plane for index i={}".format(i))
-            if isinstance(j_y, list):
-                j_y = j_y[0]
-                print("Warning : found > 1 possible y coordinates in source plane for index i={}".format(i))
-            
-            #theta_x_j = theta_x_src[j_x]
-            #theta_y_j = theta_y_src[j_y]
-            
-            # 4. find the 1D index that corresponds to these coordinates
-            # TODO : find more 'correct' way to find the index j
-            j = j_x + j_y   # WRONG ??  but it seems to work
-            #print(j_x1 + j_y1, j_x + j_y)
+            # find source pixel that corresponds to ray traced image pixel
+            j = self._find_source_pixel(i, beta_x, beta_y)
             
             # fill the mapping array
-            lens_mapping_list.append(j)
-            lens_mapping_array[i, j] = 1
-
-        # convert the list to array 
-        self._lens_mapping_list = np.array(lens_mapping_list)
+            if self._matrix_prod:
+                lens_mapping_matrix[i, j] = 1
+            else:
+                lens_mapping_list.append(j)
         
         if self._matrix_prod:
             # convert numpy array to sparse matrix, using Compressed Sparse Row (CSR) format for fast vector products
-            self._lens_mapping_matrix = sparse.csr_matrix(lens_mapping_array)
-            del lens_mapping_array
+            self._lens_mapping_matrix = sparse.csr_matrix(lens_mapping_matrix)
         else:
-            self._lens_mapping_matrix = None
+            # convert the list to array 
+            self._lens_mapping_list = np.array(lens_mapping_list)
 
     def _compute_source_mask(self):
         # de-lens a unit image it to get non-zero source plane pixel
@@ -179,3 +160,201 @@ class LensingOperator(object):
 
     def _shrink_source_plane_grid(self, min_num_pix):
         self.sourcePlane.shrink_grid_to_mask(min_num_pix=min_num_pix)
+
+    def _find_source_pixel(self, i, beta_x, beta_y):
+        dist2_map = self._distance_to_source_grid(i, beta_x, beta_y, squared=True)
+        # find the index that corresponds to the minimal distance (closest pixel)
+        j = np.argmin(dist2_map)
+        if isinstance(j, list):
+            print("WARNING : found > 1 possible coordinates in source plane for index i={}".format(i))
+            return j[0]
+        return j
+
+    def _distance_to_source_grid(self, i, beta_x, beta_y, squared=False, pixel_conversion=False):
+        # coordinate grid of source plane
+        diff_x, diff_y = self._difference_on_source_grid_axis(i, beta_x, beta_y, pixel_conversion=pixel_conversion)
+        # compute the distance between ray-traced coordinate and source plane grid
+        # (square of the distance, not required to apply sqrt operation)
+        dist_squared = diff_x**2 + diff_y**2
+        if squared:
+            return dist_squared
+        return np.sqrt(dist_squared)
+
+    def _difference_on_source_grid_axis(self, i, beta_x_image, beta_y_image, absolute=False, pixel_conversion=False):
+        # coordinate grid of source plane
+        theta_x_source = self.sourcePlane.theta_x
+        theta_y_source = self.sourcePlane.theta_y
+        if pixel_conversion:
+            num_pix = self.sourcePlane.num_pix
+            delta_pix = self.sourcePlane.delta_pix
+            theta_x_source = (theta_x_source + delta_pix*num_pix/2.) / delta_pix
+            theta_y_source = (theta_y_source + delta_pix*num_pix/2.) / delta_pix
+            beta_x_image_i = (beta_x_image[i] + delta_pix*num_pix/2.) / delta_pix
+            beta_y_image_i = (beta_y_image[i] + delta_pix*num_pix/2.) / delta_pix
+        else:
+            beta_x_image_i = beta_x_image[i]
+            beta_y_image_i = beta_y_image[i]
+        # compute the difference between ray-traced coordinate and source plane grid
+        dist_x = beta_x_image_i - theta_x_source
+        dist_y = beta_y_image_i - theta_y_source
+        if absolute:
+            return np.abs(dist_x), np.abs(dist_y)
+        return dist_x, dist_y
+
+
+class LensingOperatorInterpol(LensingOperator):
+
+    """
+    Defines the mapping of pixelated light profiles between image and source planes
+
+    Contrarily to LensingOperator, follows Treu & Koopmans 2004 to interpolate flux on source plane.
+    """
+
+    def __init__(self, data_class, lens_model_class, subgrid_res_source=1, 
+                 likelihood_mask=None, minimal_source_plane=True, min_num_pix_source=10):
+        matrix_prod = True
+        (super(LensingOperatorInterpol, self).__init__(data_class, lens_model_class, 
+            subgrid_res_source=subgrid_res_source, likelihood_mask=likelihood_mask, 
+            minimal_source_plane=minimal_source_plane, min_num_pix_source=min_num_pix_source, 
+            matrix_prod=matrix_prod))
+
+    def _compute_mapping(self, kwargs_lens):
+        theta_x_source = self.sourcePlane.theta_x
+        theta_y_source = self.sourcePlane.theta_y
+
+        # delete previous mapping and init the new one
+        if hasattr(self, '_lens_mapping_matrix'): delattr(self, '_lens_mapping_matrix')
+        lens_mapping_matrix = np.zeros((self.imagePlane.grid_size, self.sourcePlane.grid_size))
+
+        # backward ray-tracing to get source coordinates in image plane (the 'betas')
+        beta_x, beta_y = self.lensModel.ray_shooting(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
+
+        # iterate through indices of image plane (indices 'i')
+        for i in range(self.imagePlane.grid_size):
+            # find source pixel that corresponds to ray traced image pixel
+            j_list, idx_closest, dist_A_x, dist_A_y = self._find_surrounding_source_pixels(i, beta_x, beta_y)
+
+            # get interpolation weights
+            weight_list = self._bilinear_weights(dist_A_x, dist_A_y)
+
+            # fill the mapping arrays
+            lens_mapping_matrix[i, j_list] = weight_list
+
+        # convert to optimzed sparse matrix
+        self._lens_mapping_matrix = sparse.csr_matrix(lens_mapping_matrix)
+
+    def _find_surrounding_source_pixels(self, i, beta_x, beta_y, sort_distance=True):
+        # map of the distance to the ray-traced pixel, along each axis, in pixel units
+        diff_map_x_pix, diff_map_y_pix = self._difference_on_source_grid_axis(i, beta_x, beta_y, pixel_conversion=True)
+
+        # index of source pixel that is the closest to the ray-traced pixel
+        j = np.argmin(diff_map_x_pix**2 + diff_map_y_pix**2)
+
+        # find the 4 neighboring pixels
+        nb_list, nb_list_2d, idx_closest = self._neighboring_pixels(j, diff_map_x_pix, diff_map_y_pix)
+
+        # compute distance (in pixel units) to lower-left "A" neighboring pixel
+        dist_to_A_x, dist_to_A_y = self._distance_lower_left_neighbor(i, beta_x, beta_y, nb_list, pixel_conversion=True)
+
+        return nb_list, idx_closest, dist_to_A_x, dist_to_A_y
+
+    def _neighboring_pixels(self, j, difference_x, difference_y):
+        """
+        returns the 4 surrounding pixels in the following order [A, B, C, D]
+          C:(0, 1) ____ D:(1, 1)
+                  | x  |
+                  |    |
+          A:(0, 0) ---- B:(1, 0)
+
+        difference_x, difference_y should be in *pixel units*
+        """
+        diff_x_j, diff_y_j = difference_x[j], difference_y[j]
+        r, s = self._index_1d_to_2d_source(j)
+        if diff_x_j >= 0 and diff_y_j >= 0:
+            # closest pixel is A (if the pixel distance to grid is defined as "pixel - coordinates")
+            nb_list_2d = [(r, s), (r, s+1), (r+1, s), (r+1, s+1)]
+            idx_closest = 0
+        elif diff_x_j < 0 and diff_y_j >= 0:
+            # closest pixel is B
+            nb_list_2d = [(r, s-1), (r, s), (r+1, s-1), (r+1, s)]
+            idx_closest = 1
+        elif diff_x_j >= 0 and diff_y_j < 0:
+            # closest pixel is C
+            nb_list_2d = [(r-1, s), (r-1, s+1), (r, s), (r, s+1)]
+            idx_closest = 2
+        elif diff_x_j < 0 and diff_y_j < 0:
+            # closest pixel is D
+            nb_list_2d = [(r-1, s-1), (r-1, s), (r, s-1), (r, s)]
+            idx_closest = 3
+        else:
+            raise ValueError("Could not find 4 neighboring pixels for pixel {}".format(index_1d))
+        # convert indices to 1D
+        nb_list = [self._index_2d_to_1d_source(r, s) for (r, s) in nb_list_2d]
+        return nb_list, nb_list_2d, idx_closest
+
+    def _distance_lower_left_neighbor(self, i, beta_x, beta_y, neighbor_list, pixel_conversion=False):
+        nb_idx_A = 0  # following conventions of self._neighboring_pixels()
+        i_A = neighbor_list[nb_idx_A]
+        dist_to_A_x = abs(self.sourcePlane.theta_x[i_A] - beta_x[i])
+        dist_to_A_y = abs(self.sourcePlane.theta_y[i_A] - beta_y[i])
+        if pixel_conversion:
+            dist_to_A_x /= self.sourcePlane.delta_pix
+            dist_to_A_y /= self.sourcePlane.delta_pix
+        return dist_to_A_x, dist_to_A_y
+
+    def _bilinear_weights(self, distance_to_A_x, distance_to_A_y):
+        """Following Treu & Koopmans 2004, Eq. (B2)"""
+        t, u = distance_to_A_x, distance_to_A_y
+        wA = (1. - t) * (1. - u)
+        wB = t * (1. - u)
+        wC = (1. - t) * u
+        wD = t * u
+        return [wA, wB, wC, wD]
+
+    def _index_1d_to_2d_source(self, j):
+        return util.index_1d_to_2d(j, self.sourcePlane.num_pix)
+
+    def _index_2d_to_1d_source(self, x, y):
+        return util.index_2d_to_1d(x, y, self.sourcePlane.num_pix)
+
+    def plot_neighbors_map(self, kwargs_lens, num_image_pixels=100):
+        """utility for debug : visualize mapping and interpolation""" 
+        import matplotlib.pyplot as plt
+
+        theta_x_source = self.sourcePlane.theta_x
+        theta_y_source = self.sourcePlane.theta_y
+
+        # backward ray-tracing to get source coordinates in image plane (the 'betas')
+        beta_x, beta_y = self.lensModel.ray_shooting(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
+
+        zeros = np.zeros(self.sourcePlane.grid_shape)
+        plt.figure(figsize=(15,15))
+        zeros[0, 0] = 6
+        plt.plot([0], [0], '.b', zorder=2)
+
+        # iterate through indices of image plane (indices 'i')
+        for i in range(self.imagePlane.grid_size):
+            # find source pixel that corresponds to ray traced image pixel
+            j_1d_list, closest, dist_A_x, dist_A_y = self._find_surrounding_source_pixels(i, beta_x, beta_y)
+
+            # get interpolation weights
+            weight_list = self._bilinear_weights(dist_A_x, dist_A_y)
+            weight_list_print = ",".join(["{:.2f}".format(w) for w in weight_list])
+
+            j = j_1d_list[closest]
+
+            if i % num_image_pixels == 0:
+                ray_traced_pixel_x = -0.5+(beta_x[i]+self.sourcePlane.num_pix*self.sourcePlane.delta_pix/2.)/self.sourcePlane.delta_pix
+                ray_traced_pixel_y = -0.5+(beta_y[i]+self.sourcePlane.num_pix*self.sourcePlane.delta_pix/2.)/self.sourcePlane.delta_pix
+                plt.plot([ray_traced_pixel_x], [ray_traced_pixel_y], 'xw', zorder=2)
+                # plt.text(ray_traced_pixel_x, ray_traced_pixel_y, "({:.3f},{:.3f})".format(dist_A_x, dist_A_y), fontsize=8, color='white')
+                plt.text(ray_traced_pixel_x, ray_traced_pixel_y, weight_list_print, fontsize=8, color='white')
+
+                for l, (jx, jy) in enumerate(j_2d_list):
+                    zeros[jx, jy] += l+1
+                neighbor_pixel_x = -0.5+(theta_x_source[j]+self.sourcePlane.num_pix*self.sourcePlane.delta_pix/2.)/self.sourcePlane.delta_pix
+                neighbor_pixel_y = -0.5+(theta_y_source[j]+self.sourcePlane.num_pix*self.sourcePlane.delta_pix/2.)/self.sourcePlane.delta_pix
+                plt.plot([neighbor_pixel_x], [neighbor_pixel_y], '.w', zorder=1)
+                plt.imshow(zeros, origin='lower', zorder=0)
+
+        plt.show()
