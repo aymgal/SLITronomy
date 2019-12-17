@@ -3,10 +3,33 @@ __author__ = 'aymgal'
 import numpy as np
 
 
+def make_grid(numPix, deltapix, subgrid_res=1, left_lower=False):
+    """
+    Credits to S. Birrer (lenstronomy)
+
+    :param numPix: number of pixels per axis
+    :param deltapix: pixel size
+    :param subgrid_res: sub-pixel resolution (default=1)
+    :return: x, y position information in two 1d arrays
+    """
+
+    numPix_eff = numPix*subgrid_res
+    deltapix_eff = deltapix/float(subgrid_res)
+    a = np.arange(numPix_eff)
+    matrix = np.dstack(np.meshgrid(a, a)).reshape(-1, 2)
+    x_grid = matrix[:, 0] * deltapix_eff
+    y_grid = matrix[:, 1] * deltapix_eff
+    if left_lower is True:
+        shift = -1. / 2 + 1. / (2 * subgrid_res)
+    else:
+        shift = np.sum(x_grid) / numPix_eff**2
+    return x_grid - shift, y_grid - shift
+
+
 def array2image(array, nx=0, ny=0):
     """
     returns the information contained in a 1d array into an n*n 2d array (only works when lenght of array is n**2)
-    Original method implemented in lenstronomy
+    Credits to S. Birrer (lenstronomy)
 
     :param array: image values
     :type array: array of size n**2
@@ -25,7 +48,7 @@ def array2image(array, nx=0, ny=0):
 def image2array(image):
     """
     returns the information contained in a 2d array into an n*n 1d array
-    Original method implemented in lenstronomy
+    Credits to S. Birrer (lenstronomy)
 
     :param array: image values
     :type array: array of size (n,n)
