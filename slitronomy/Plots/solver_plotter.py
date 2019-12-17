@@ -19,8 +19,10 @@ class SolverPlotter(object):
         title = "initial guess"
         return self.quick_imshow(image, title=title, show_now=show_now, cmap=self._cmap_2)
 
-    def plot_step(self, image, iter_1, iter_2=None, show_now=True):
-        if iter_2 is not None:
+    def plot_step(self, image, iter_1, iter_2=None, iter_3=None, show_now=True):
+        if iter_3 is not None:
+            title = "iteration {}-{}-{}".format(iter_1, iter_2, iter_3)
+        elif iter_2 is not None:
             title = "iteration {}-{}".format(iter_1, iter_2)
         else:
             title = "iteration {}".format(iter_1)
@@ -35,7 +37,7 @@ class SolverPlotter(object):
         ax = axes[0, 0]
         ax.set_title("source model")
         src_model = self._solver.source_model
-        print("Negative source pixels ?", np.any(src_model < 0))
+        print("Negative source pixels ? {} (min = {:.2e})".format(np.any(src_model < 0), src_model.min()))
         if model_log_scale:
             vmin = max(src_model.min(), 1e-3)
             vmax = min(src_model.max(), 1e10)
@@ -49,7 +51,7 @@ class SolverPlotter(object):
         ax = axes[0, 1]
         ax.set_title("image model")
         img_model = self._solver.image_model(unconvolved=False)
-        print("Negative image pixels ?", np.any(img_model < 0))
+        print("Negative image pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
         if model_log_scale:
             vmin = max(img_model.min(), 1e-3)
             vmax = min(img_model.max(), 1e10)
@@ -61,8 +63,8 @@ class SolverPlotter(object):
         plot_util.nice_colorbar(im)
         ax = axes[0, 2]
         ax.set_title(r"(data - model)$/\sigma$")
-        im = ax.imshow(self._solver.reduced_residuals(self._solver.source_model), origin='lower',
-                       cmap='bwr', vmin=res_vmin, vmax=res_vmax)
+        im = ax.imshow(self._solver.reduced_residuals_model, 
+                       origin='lower', cmap='bwr', vmin=res_vmin, vmax=res_vmax)
         text = r"$\chi^2={:.2f}$".format(self._solver.best_fit_reduced_chi2)
         ax.text(0.05, 0.05, text, color='black', fontsize=15, 
                 horizontalalignment='left', verticalalignment='bottom',

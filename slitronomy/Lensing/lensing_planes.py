@@ -3,12 +3,16 @@ __author__ = 'aymgal'
 import numpy as np
 from scipy.ndimage import morphology
 
-from lenstronomy.Util import util
+from slitronomy.Util import util
 
 
 class AbstractPlaneGrid(object):
 
-    """Base class for image and source plane grids"""
+    """
+    Base class for image and source plane grids
+
+    TODO : use the lenstronomy's PixelGrid class instead
+    """
 
     def __init__(self, data_class):
         num_pix_x, num_pix_y = data_class.num_pixel_axes
@@ -46,8 +50,20 @@ class AbstractPlaneGrid(object):
         return self._y_grid_1d
 
     @property
+    def theta_y(self):
+        if not hasattr(self, '_y_grid_1d'):
+            raise ValueError("theta coordinates are not defined")
+        return self._y_grid_1d
+
+    @property
     def unit_image(self):
         return np.ones(self.grid_shape)
+
+    def grid_pixels(self, two_dim=False):
+        theta_x_pix, theta_y_pix = self.map_coord2pix(self.theta_x, self.theta_y)
+        if two_dim:
+            return util.array2image(theta_x_pix), util.array2image(theta_y_pix)
+        return theta_x_pix, theta_y_pix
 
 
 class ImagePlaneGrid(AbstractPlaneGrid):
@@ -73,8 +89,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         self._num_pix *= int(subgrid_res)
         self._delta_pix /= float(subgrid_res)
         # get the coordinates arrays of source plane
-        self._x_grid_1d, self._y_grid_1d = util.make_grid(numPix=self._num_pix, 
-                                                          deltapix=self._delta_pix)
+        self._x_grid_1d, self._y_grid_1d = util.make_grid(numPix=self._num_pix, deltapix=self._delta_pix)
         self._first_print = True  # for printing messages only once
 
     @property
@@ -112,8 +127,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         if min_num_pix is None:
             # kind of arbitrary as a default
             min_num_pix = int(self.num_pix / 10)
-        reduc_mask, reduced_num_pix = self.reduce_plane_iterative(self.effective_mask, 
-                                                                  min_num_pix=min_num_pix)
+        reduc_mask, reduced_num_pix = self.reduce_plane_iterative(self.effective_mask, min_num_pix=min_num_pix)
         self._update_grid_after_shrink(reduc_mask, reduced_num_pix)
         if self._first_print:
             print("INFO : source grid has been reduced from {} to {} side pixels".format(self._num_pix_large, self._num_pix))
@@ -143,9 +157,9 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         erosion operation for filling holes
 
         The higher the subgrid resolution of the source, the highest the number of holes.
-        Hence the 'strength' of the erosion is set to the subgrid resolution of the source plane 
+        Hence the 'strength' of the erosion is set to the subgrid resolution (or round up integer) of the source plane 
         """
-        strength = self._subgrid_res
+        strength = np.ceil(self._subgrid_res).astype(int)
         # invert 0s and 1s
         image = 1 - image
         # apply morphological erosion operation

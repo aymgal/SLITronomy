@@ -15,6 +15,7 @@ class ModelOperators(object):
                  source_light_class, lens_light_class=None, convolution_class=None,
                  likelihood_mask=None):
         self._image_data = data_class.data
+        self._image_data_eff = np.copy(self._image_data)
         if likelihood_mask is None:
             likelihood_mask = np.ones_like(self._image_data)
         self._mask = likelihood_mask
@@ -30,12 +31,19 @@ class ModelOperators(object):
 
     def set_wavelet_scales(self, n_scales_source, n_scales_lens=None):
         self._n_scales_source = n_scales_source
-        self._n_scales_lens = n_scales_lens
+        self._n_scales_lens_light = n_scales_lens
+
+    def subtract_from_data(self, array_2d):
+        """Update "effective" data by subtracting the input array"""
+        self._image_data_eff = self._image_data - array_2d
 
     @property
     def Y(self):
-        """imaging data"""
-        return self._image_data
+        """
+        "Effective" imaging data.
+        This can be the entire imaging data, or an updated version of it with a component subtracted
+        """
+        return self._image_data_eff
 
     def M(self, image_2d):
         """Apply image plane mask"""
@@ -82,15 +90,15 @@ class ModelOperators(object):
         """alias method for inverse wavelet transform"""
         if self._lens_light is None:
             raise ValueError("Wavelet operator needs lens light class")
-        if not hasattr(self, '_n_scales_lens'):
+        if not hasattr(self, '_n_scales_lens_light'):
             raise ValueError("Wavelet scales have not been set")
-        return self._lens_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_lens,
+        return self._lens_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_lens_light,
                                             n_pixels=np.size(array_2d))
 
     def Phi_T_l(self, array_2d):
         """alias method for wavelet transform"""
         if self._lens_light is None:
             raise ValueError("Wavelet operator needs lens light class")
-        if not hasattr(self, '_n_scales_lens'):
+        if not hasattr(self, '_n_scales_lens_light'):
             raise ValueError("Wavelet scales have not been set")
-        return self._lens_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_lens)
+        return self._lens_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_lens_light)

@@ -21,7 +21,7 @@ class SparseSolverBase(ModelOperators):
                  subgrid_res_source=1, minimal_source_plane=True, min_num_pix_source=10,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis', 
                  verbose=False, show_steps=False):
-        # consider only the first light profiles
+        # consider only the first light profiles in model lists
         source_light_class = source_model_class.func_list[0]
         if lens_light_model_class is not None:
             lens_light_class = lens_light_model_class.func_list[0]
@@ -64,26 +64,38 @@ class SparseSolverBase(ModelOperators):
 
     def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None):
         """
-        main method to call from outside
+        main method to call from outside the class, calling self._solve()
 
-        any class that inherits SparseSolverSource should have this method updated accordingly, with same output.
+        any class that inherits SparseSolverSource should have the self._solve() method implemented, with correct output.
         """
         # update image <-> source plane mapping from lens model parameters
         self.lensingOperator.update_mapping(kwargs_lens)
         # get number of decomposition scales
-        self._n_scales_source = kwargs_source[0]['n_scales']
+        n_scales_source = kwargs_source[0]['n_scales']
         if kwargs_lens_light is not None:
-            self._n_scales_lens = kwargs_lens_light[0]['n_scales']
+            n_scales_lens_light = kwargs_lens_light[0]['n_scales']
         else:
-            self._n_scales_lens = None
-        self.set_wavelet_scales(self._n_scales_source, self._n_scales_lens)
+            n_scales_lens_light = None
+        # save number of scales
+        self.set_wavelet_scales(n_scales_source, n_scales_lens_light)
         # call solver
         image_model, source_light, lens_light, coeffs = self._solve()
         return image_model, source_light, lens_light, coeffs
 
+    def _solve(self):
+        raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
+
     @property
     def plotter(self):
         return self._plotter
+
+    @property
+    def image_data(self):
+        return self._image_data
+
+    @property
+    def lensingOperator(self):
+        return self._lensing_op
 
     @property
     def source_model(self):
@@ -91,13 +103,22 @@ class SparseSolverBase(ModelOperators):
             raise ValueError("You must run the optimization before accessing the source estimate")
         return self._source_model
 
+    @property
+    def lens_light_model(self):
+        if not hasattr(self, '_lens_light_model'):
+            raise ValueError("You must run the optimization before accessing the lens light estimate")
+        return self._lens_light_model
+
     def image_model(self, unconvolved=False):
-        if not hasattr(self, '_source_model'):
-            raise ValueError("You must run the optimization before accessing the source estimate")
-        image_model = self.F(self._source_model)
-        if unconvolved:
-            return image_model
-        return self.H(image_model)
+        return self._image_model(unconvolved=unconvolved)
+
+    @property
+    def reduced_residuals_model(self):
+        """ returns || Y - HFS - HG ||^2_2 / sigma^2 """
+        if hasattr(self, '_lens_light_model'):
+            return self.reduced_residuals(self.source_model, HG=self.lens_light_model)
+        else:
+            return self.reduced_residuals(self.source_model)
 
     @property
     def solve_track(self):
@@ -123,10 +144,10 @@ class SparseSolverBase(ModelOperators):
 
     def generate_initial_lens_light(self, guess_type='bkg_noise'):
         num_pix = self.lensingOperator.imagePlane.num_pix
-        n_scales = self._n_scales_lens
+        n_scales = self._n_scales_lens_light
         transform = self.Phi_T_l
         inverse_transform = self.Phi_l
-        sigma_bkg_synthesis = None # TODO 
+        sigma_bkg_synthesis = self.noise_levels_image_plane
         return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
                                            formulation=self._formulation, guess_type=guess_type,
                                            sigma_bkg=self._sigma_bkg, sigma_bkg_synthesis=sigma_bkg_synthesis)
@@ -144,14 +165,6 @@ class SparseSolverBase(ModelOperators):
         return self.H(array_2d)
 
     @property
-    def image_data(self):
-        return self._image_data
-
-    @property
-    def lensingOperator(self):
-        return self._lensing_op
-
-    @property
     def num_data_evaluate(self):
         """
         number of data points to be used in the linear solver
@@ -159,21 +172,21 @@ class SparseSolverBase(ModelOperators):
         """
         return int(np.sum(self._mask))
 
-    def loss(self, S, G=None):
+    def loss(self, S, HG=None):
         """ returns f = || Y - HFS - HG ||^2_2 """
-        model = self._model_analysis(S, G=G)
+        model = self._model_analysis(S, HG=HG)
         error = self.Y - model
         norm_error = np.linalg.norm(error, ord=2)
         return norm_error**2
 
-    def reduced_residuals(self, S, G=None):
+    def reduced_residuals(self, S, HG=None):
         """ returns || Y - HFS - HG ||^2_2 / sigma^2 """
-        model = self._model_analysis(S, G=G)
+        model = self._model_analysis(S, HG=HG)
         error = self.Y - model
         return (error / self._sigma_bkg) * self._mask
 
-    def reduced_chi2(self, S):
-        chi2 = self.reduced_residuals(S)**2
+    def reduced_chi2(self, S, HG=None):
+        chi2 = self.reduced_residuals(S, HG=HG)**2
         return np.sum(chi2) / self.num_data_evaluate
 
     def norm_diff(self, S1, S2):
@@ -181,17 +194,29 @@ class SparseSolverBase(ModelOperators):
         diff = S1 - S2
         return np.linalg.norm(diff, ord=2)**2
 
-    def gradient_loss(self, array):
+    def gradient_loss_source(self, array_S, array_HG):
         if self._formulation == 'analysis':
-            return self._gradient_loss_analysis(array)
+            return self._gradient_loss_analysis_source(S=array_S, HG=array_HG)
         elif self._formulation == 'synthesis':
-            return self._gradient_loss_synthesis(array)
+            return self._gradient_loss_synthesis_source(alpha_S=array_S, alpha_HG=array_HG)
 
-    def proximal_sparsity(self, array, step, weights):
+    def gradient_loss_lens(self, array_S, array_HG):
         if self._formulation == 'analysis':
-            return self._proximal_sparsity_analysis(array, step, weights)
+            return self._gradient_loss_analysis_lens(S=array_S, HG=array_HG)
         elif self._formulation == 'synthesis':
-            return self._proximal_sparsity_synthesis(array, step, weights)
+            return self._gradient_loss_synthesis_lens(alpha_S=array_S, alpha_HG=array_HG)
+
+    def proximal_sparsity_source(self, array, step, weights):
+        if self._formulation == 'analysis':
+            return self._proximal_sparsity_analysis_source(array, step, weights)
+        elif self._formulation == 'synthesis':
+            return self._proximal_sparsity_synthesis_source(array, step, weights)
+
+    def proximal_sparsity_lens(self, array, step, weights):
+        if self._formulation == 'analysis':
+            return self._proximal_sparsity_analysis_lens(array, step, weights)
+        elif self._formulation == 'synthesis':
+            return self._proximal_sparsity_synthesis_lens(array, step, weights)
 
     @property
     def algorithm(self):
@@ -199,6 +224,29 @@ class SparseSolverBase(ModelOperators):
             return 'FB'
         elif self._formulation == 'synthesis':
             return 'FISTA'
+
+    @property
+    def noise_levels_image_plane(self):
+        if not hasattr(self, '_noise_levels_img'):
+            self._noise_levels_img = self._compute_noise_levels_img()
+        return self._noise_levels_img
+
+    def _compute_noise_levels_img(self):
+        # TODO : check this method
+        n_img = self.lensingOperator.imagePlane.num_pix
+
+        # computes noise levels in in source plane in starlet space
+        dirac = util.dirac_impulse(n_img)
+
+        # model transform of the impulse
+        dirac_coeffs = self.Phi_T_l(dirac)
+
+        noise_levels = self._sigma_bkg * np.ones_like(dirac_coeffs)
+
+        for scale_idx in range(noise_levels.shape[0]):
+            scale_power = np.sum(dirac_coeffs[scale_idx, :, :]**2)
+            noise_levels[scale_idx, :, :] *= np.sqrt(scale_power)
+        return noise_levels
 
     @property
     def noise_levels_source_plane(self):
@@ -226,7 +274,7 @@ class SparseSolverBase(ModelOperators):
         # model transform of the impulse
         dirac_coeffs = self.Phi_T_s(dirac_mapped)
 
-        noise_levels = np.zeros(dirac_coeffs.shape)
+        noise_levels = np.zeros_like(dirac_coeffs)
         for scale_idx in range(noise_levels.shape[0]):
             dirac_scale = dirac_coeffs[scale_idx, :, :]
             levels = signal.fftconvolve(FT_HT_noise**2, dirac_scale**2, mode='same')
@@ -255,12 +303,12 @@ class SparseSolverBase(ModelOperators):
     def spectral_norm_lens(self):
         if not hasattr(self, '_spectral_norm_lens'):
             def _operator(x):
-                x = self.H_T(x)
+                # x = self.H_T(x)  # we solve for 'convolved' lens so no convolution operation
                 x = self.Phi_T_l(x)
                 return x
             def _inverse_operator(x):
                 x = self.Phi_l(x)
-                x = self.H(x)
+                # x = self.H(x)  # we solve for 'convolved' lens so no convolution operation
                 return x
             self._spectral_norm_lens = util.spectral_norm(self._num_pix, _operator, _inverse_operator,
                                                             num_iter=20, tol=1e-10)
