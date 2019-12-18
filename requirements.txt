@@ -2,3 +2,5 @@ numpy
 scipy
 matplotlib
 future
+astropy
+python-pysap

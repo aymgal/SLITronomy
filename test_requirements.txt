@@ -2,5 +2,9 @@ numpy
 scipy
 matplotlib
 future
+astropy
+schwimmbad
+multiprocess>=0.70.8
+python-pysap
 -e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
 mpmath
