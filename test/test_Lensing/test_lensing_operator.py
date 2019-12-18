@@ -121,9 +121,9 @@ class TestLensModel(object):
         npt.assert_almost_equal(source_1d_lensed/source_1d_lensed.max(), image_1d/image_1d.max(), decimal=0.8)
         npt.assert_almost_equal(image_1d_delensed/image_1d_delensed.max(), source_1d/source_1d.max(), decimal=0.8)
     
-    def test_plot_neighbors_map(self):
-        lensing_op = LensingOperatorInterpol(self.data, self.lens_model)
-        fig = lensing_op.plot_neighbors_map(self.kwargs_lens, num_image_pixels=31)
+    # def test_plot_neighbors_map(self):
+    #     lensing_op = LensingOperatorInterpol(self.data, self.lens_model)
+    #     fig = lensing_op.plot_neighbors_map(self.kwargs_lens, num_image_pixels=31)
         # import matplotlib.pyplot as plt
         # plt.show()
 
