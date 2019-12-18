@@ -16,9 +16,9 @@ from lenstronomy.LightModel.light_model import LightModel
 import lenstronomy.Util.util as l_util
 
 
-class TestLensModel(object):
+class TestLensingOperator(object):
     """
-    tests the source model routines
+    tests the Lensing Operator classes
     """
     def setup(self):
         self.num_pix = 25  # cutout pixel size
