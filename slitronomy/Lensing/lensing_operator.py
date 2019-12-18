@@ -13,7 +13,7 @@ class LensingOperator(object):
     """Defines the mapping of pixelated light profiles between image and source planes"""
 
     def __init__(self, data_class, lens_model_class, subgrid_res_source=1, 
-                 likelihood_mask=None, minimal_source_plane=True, min_num_pix_source=10,
+                 likelihood_mask=None, minimal_source_plane=False, min_num_pix_source=10,
                  matrix_prod=True):
         """
 
@@ -106,6 +106,7 @@ class LensingOperator(object):
     def delete_mapping(self):
         if hasattr(self, '_lens_mapping_list'): delattr(self, '_lens_mapping_list')
         if hasattr(self, '_lens_mapping_matrix'): delattr(self, '_lens_mapping_matrix')
+        if hasattr(self, '_norm_image2source'): delattr(self, '_norm_image2source')
 
     def _compute_mapping(self, kwargs_lens):
         """
@@ -201,6 +202,12 @@ class LensingOperator(object):
             return np.abs(dist_x), np.abs(dist_y)
         return dist_x, dist_y
 
+    def _index_1d_to_2d_source(self, j):
+        return util.index_1d_to_2d(j, self.sourcePlane.num_pix)
+
+    def _index_2d_to_1d_source(self, x, y):
+        return util.index_2d_to_1d(x, y, self.sourcePlane.num_pix)
+
 
 class LensingOperatorInterpol(LensingOperator):
 
@@ -211,7 +218,7 @@ class LensingOperatorInterpol(LensingOperator):
     """
 
     def __init__(self, data_class, lens_model_class, subgrid_res_source=1, 
-                 likelihood_mask=None, minimal_source_plane=True, min_num_pix_source=10):
+                 likelihood_mask=None, minimal_source_plane=False, min_num_pix_source=10):
         matrix_prod = True
         (super(LensingOperatorInterpol, self).__init__(data_class, lens_model_class, 
             subgrid_res_source=subgrid_res_source, likelihood_mask=likelihood_mask, 
@@ -219,11 +226,8 @@ class LensingOperatorInterpol(LensingOperator):
             matrix_prod=matrix_prod))
 
     def _compute_mapping(self, kwargs_lens):
-        theta_x_source = self.sourcePlane.theta_x
-        theta_y_source = self.sourcePlane.theta_y
-
         # delete previous mapping and init the new one
-        if hasattr(self, '_lens_mapping_matrix'): delattr(self, '_lens_mapping_matrix')
+        self.delete_mapping()
         lens_mapping_matrix = np.zeros((self.imagePlane.grid_size, self.sourcePlane.grid_size))
 
         # backward ray-tracing to get source coordinates in image plane (the 'betas')
@@ -232,7 +236,7 @@ class LensingOperatorInterpol(LensingOperator):
         # iterate through indices of image plane (indices 'i')
         for i in range(self.imagePlane.grid_size):
             # find source pixel that corresponds to ray traced image pixel
-            j_list, idx_closest, dist_A_x, dist_A_y = self._find_surrounding_source_pixels(i, beta_x, beta_y)
+            j_list, _, dist_A_x, dist_A_y = self._find_surrounding_source_pixels(i, beta_x, beta_y)
 
             # get interpolation weights
             weight_list = self._bilinear_weights(dist_A_x, dist_A_y)
@@ -261,14 +265,15 @@ class LensingOperatorInterpol(LensingOperator):
     def _neighboring_pixels(self, j, difference_x, difference_y):
         """
         returns the 4 surrounding pixels in the following order [A, B, C, D]
-          C:(0, 1) ____ D:(1, 1)
-                  | x  |
-                  |    |
-          A:(0, 0) ---- B:(1, 0)
+          C:(0, 1) .____. D:(1, 1)
+                   | o  |
+                   |    |
+          A:(0, 0) °----° B:(1, 0)
 
         difference_x, difference_y should be in *pixel units*
         """
         diff_x_j, diff_y_j = difference_x[j], difference_y[j]
+        # convert to 2D indices
         r, s = self._index_1d_to_2d_source(j)
         if diff_x_j >= 0 and diff_y_j >= 0:
             # closest pixel is A (if the pixel distance to grid is defined as "pixel - coordinates")
@@ -288,7 +293,7 @@ class LensingOperatorInterpol(LensingOperator):
             idx_closest = 3
         else:
             raise ValueError("Could not find 4 neighboring pixels for pixel {}".format(index_1d))
-        # convert indices to 1D
+        # convert indices to 1D index
         nb_list = [self._index_2d_to_1d_source(r, s) for (r, s) in nb_list_2d]
         return nb_list, nb_list_2d, idx_closest
 
@@ -303,19 +308,16 @@ class LensingOperatorInterpol(LensingOperator):
         return dist_to_A_x, dist_to_A_y
 
     def _bilinear_weights(self, distance_to_A_x, distance_to_A_y):
-        """Following Treu & Koopmans 2004, Eq. (B2)"""
+        """
+        returns bilinear weights following order defined in self._neighboring_pixels()
+        similar to Eq. (B2) of Treu & Koopmans 2004
+        """
         t, u = distance_to_A_x, distance_to_A_y
         wA = (1. - t) * (1. - u)
         wB = t * (1. - u)
         wC = (1. - t) * u
         wD = t * u
         return [wA, wB, wC, wD]
-
-    def _index_1d_to_2d_source(self, j):
-        return util.index_1d_to_2d(j, self.sourcePlane.num_pix)
-
-    def _index_2d_to_1d_source(self, x, y):
-        return util.index_2d_to_1d(x, y, self.sourcePlane.num_pix)
 
     def plot_neighbors_map(self, kwargs_lens, num_image_pixels=100):
         """utility for debug : visualize mapping and interpolation""" 
@@ -328,14 +330,16 @@ class LensingOperatorInterpol(LensingOperator):
         beta_x, beta_y = self.lensModel.ray_shooting(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
 
         zeros = np.zeros(self.sourcePlane.grid_shape)
-        plt.figure(figsize=(15,15))
+        fig = plt.figure(figsize=(15,15))
         zeros[0, 0] = 6
-        plt.plot([0], [0], '.b', zorder=2)
+        plt.plot([0], [0], '+k', zorder=2)
+        plt.text(0, 0, "pixel center", fontsize=8, color='black')
 
         # iterate through indices of image plane (indices 'i')
         for i in range(self.imagePlane.grid_size):
             # find source pixel that corresponds to ray traced image pixel
             j_1d_list, closest, dist_A_x, dist_A_y = self._find_surrounding_source_pixels(i, beta_x, beta_y)
+            j_2d_list = [self._index_1d_to_2d_source(j) for j in j_1d_list]
 
             # get interpolation weights
             weight_list = self._bilinear_weights(dist_A_x, dist_A_y)
@@ -357,4 +361,4 @@ class LensingOperatorInterpol(LensingOperator):
                 plt.plot([neighbor_pixel_x], [neighbor_pixel_y], '.w', zorder=1)
                 plt.imshow(zeros, origin='lower', zorder=0)
 
-        plt.show()
+        return fig
