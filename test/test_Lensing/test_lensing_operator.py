@@ -2,6 +2,8 @@ __author__ = 'aymgal'
 
 import numpy as np
 import numpy.testing as npt
+import pytest
+import unittest
 
 from slitronomy.Lensing.lensing_operator import LensingOperator, LensingOperatorInterpol
 from slitronomy.Util import util
@@ -19,17 +21,17 @@ class TestLensModel(object):
     tests the source model routines
     """
     def setup(self):
-        num_pix = 25  # cutout pixel size
+        self.num_pix = 25  # cutout pixel size
         delta_pix = 0.24
         _, _, ra_at_xy_0, dec_at_xy_0, _, _, Mpix2coord, _ \
-            = l_util.make_grid_with_coordtransform(numPix=num_pix, deltapix=delta_pix, subgrid_res=1, 
+            = l_util.make_grid_with_coordtransform(numPix=self.num_pix, deltapix=delta_pix, subgrid_res=1, 
                                                          inverse=False, left_lower=False)
         kwargs_data = {
             #'background_rms': background_rms,
-            #'exposure_time': np.ones((num_pix, num_pix)) * exp_time,  # individual exposure time/weight per pixel
+            #'exposure_time': np.ones((self.num_pix, self.num_pix)) * exp_time,  # individual exposure time/weight per pixel
             'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
             'transform_pix2angle': Mpix2coord,
-            'image_data': np.zeros((num_pix, num_pix))
+            'image_data': np.zeros((self.num_pix, self.num_pix))
         }
         self.data = ImageData(**kwargs_data)
 
@@ -126,6 +128,94 @@ class TestLensModel(object):
     #     fig = lensing_op.plot_neighbors_map(self.kwargs_lens, num_image_pixels=31)
         # import matplotlib.pyplot as plt
         # plt.show()
+
+    def test_source2image(self):
+        lensing_op = LensingOperator(self.data, self.lens_model)
+        source_1d = util.image2array(self.source_light_delensed)
+        source_1d_lensed = lensing_op.source2image(source_1d, kwargs_lens=self.kwargs_lens)
+        assert len(source_1d_lensed.shape) == 1
+
+        source_2d = self.source_light_delensed
+        source_2d_lensed = lensing_op.source2image_2d(source_2d, kwargs_lens=self.kwargs_lens, update=True)
+        assert len(source_2d_lensed.shape) == 2 
+
+    def test_image2source(self):
+        lensing_op = LensingOperator(self.data, self.lens_model)
+        image_1d = util.image2array(self.source_light_lensed)
+        image_1d_delensed = lensing_op.image2source(image_1d, kwargs_lens=self.kwargs_lens)
+        assert len(image_1d_delensed.shape) == 1
+        
+        image_2d = self.source_light_lensed
+        image_2d_delensed = lensing_op.image2source_2d(image_2d, kwargs_lens=self.kwargs_lens, update=True)
+        assert len(image_2d_delensed.shape) == 2
+
+    def test_source_plane_coordinates(self):
+        lensing_op = LensingOperator(self.data, self.lens_model)
+        theta_x, theta_y = lensing_op.source_plane_coordinates
+        assert theta_x.size == self.num_pix**2
+        assert theta_y.size == self.num_pix**2
+
+        subgrid_res = 2
+        lensing_op = LensingOperator(self.data, self.lens_model, subgrid_res_source=subgrid_res)
+        theta_x, theta_y = lensing_op.source_plane_coordinates
+        assert theta_x.size == self.num_pix**2 * subgrid_res**2
+        assert theta_y.size == self.num_pix**2 * subgrid_res**2
+
+    def test_image_plane_coordinates(self):
+        lensing_op = LensingOperator(self.data, self.lens_model)
+        theta_x, theta_y = lensing_op.image_plane_coordinates
+        assert theta_x.size == self.num_pix**2
+        assert theta_y.size == self.num_pix**2
+
+    def test_find_source_pixel(self):
+        lensing_op = LensingOperator(self.data, self.lens_model)
+        beta_x, beta_y = self.lens_model.ray_shooting(lensing_op.imagePlane.theta_x, lensing_op.imagePlane.theta_y, 
+                                                     self.kwargs_lens)
+        i = 10
+        j = lensing_op._find_source_pixel(i, beta_x, beta_y)
+        assert (isinstance(j, int) or isinstance(j, np.int64))
+
+    def test_distance_to_source_grid(self):
+        lensing_op = LensingOperator(self.data, self.lens_model)
+        beta_x, beta_y = self.lens_model.ray_shooting(lensing_op.imagePlane.theta_x, lensing_op.imagePlane.theta_y, 
+                                                     self.kwargs_lens)
+        i = 10
+        distance = lensing_op._distance_to_source_grid(i, beta_x, beta_y, squared=False)
+        assert distance.shape == beta_x.shape
+
+        distance2 = lensing_op._distance_to_source_grid(i, beta_x, beta_y, squared=True)
+        npt.assert_equal(distance, np.sqrt(distance2))
+        assert distance.shape == beta_x.shape
+
+    def test_difference_on_source_grid_axis(self):
+        lensing_op = LensingOperator(self.data, self.lens_model)
+        beta_x, beta_y = self.lens_model.ray_shooting(lensing_op.imagePlane.theta_x, lensing_op.imagePlane.theta_y, 
+                                                     self.kwargs_lens)
+        i = 10
+        diff_x, diff_y = lensing_op._difference_on_source_grid_axis(i, beta_x, beta_y, absolute=True)
+        assert (np.all(diff_x >= 0) and np.all(diff_y >= 0))
+        assert diff_x.shape == beta_x.shape
+
+class TestRaise(unittest.TestCase):
+    def test_raise(self):
+        with self.assertRaises(ValueError):
+            num_pix = 25  # cutout pixel size
+            delta_pix = 0.24
+            _, _, ra_at_xy_0, dec_at_xy_0, _, _, Mpix2coord, _ \
+                = l_util.make_grid_with_coordtransform(numPix=num_pix, deltapix=delta_pix, subgrid_res=1,
+                                                       inverse=False, left_lower=False)
+            kwargs_data = {
+                'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
+                'transform_pix2angle': Mpix2coord,
+                'image_data': np.zeros((num_pix, num_pix))
+            }
+            data = ImageData(**kwargs_data)
+            lens_model = LensModel(['SPEP'])
+            lensing_op = LensingOperatorInterpol(data, lens_model)
+            j = 10
+            difference_x = np.nan * np.ones(num_pix**2)
+            difference_y = np.random.rand(num_pix**2)
+            lensing_op._neighboring_pixels(j, difference_x, difference_y)
 
 if __name__ == '__main__':
     pytest.main()

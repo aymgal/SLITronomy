@@ -292,7 +292,7 @@ class LensingOperatorInterpol(LensingOperator):
             nb_list_2d = [(r-1, s-1), (r-1, s), (r, s-1), (r, s)]
             idx_closest = 3
         else:
-            raise ValueError("Could not find 4 neighboring pixels for pixel {}".format(index_1d))
+            raise ValueError("Could not find 4 neighboring pixels for pixel {} ({},{})".format(j, r, s))
         # convert indices to 1D index
         nb_list = [self._index_2d_to_1d_source(r, s) for (r, s) in nb_list_2d]
         return nb_list, nb_list_2d, idx_closest
@@ -323,8 +323,7 @@ class LensingOperatorInterpol(LensingOperator):
         """utility for debug : visualize mapping and interpolation""" 
         import matplotlib.pyplot as plt
 
-        theta_x_source = self.sourcePlane.theta_x
-        theta_y_source = self.sourcePlane.theta_y
+        theta_x_source, theta_y_source = self.source_plane_coordinates
 
         # backward ray-tracing to get source coordinates in image plane (the 'betas')
         beta_x, beta_y = self.lensModel.ray_shooting(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
