@@ -100,7 +100,7 @@ class LensingOperator(object):
 
     def update_mapping(self, kwargs_lens):
         # reset source plane grid if it was altered by previous mass model
-        if not self._fix_minimal_source_plane:
+        if not self._fix_minimal_source_plane and self.sourcePlane.shrinked:
             self._reset_source_plane_grid()
 
         # compute mapping between image and source plances due to lensing
