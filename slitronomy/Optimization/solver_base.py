@@ -35,6 +35,7 @@ class SparseSolverBase(ModelOperators):
         self._num_pix = num_pix_x
         self._delta_pix = data_class.pixel_width
 
+        # TODO support Poisson noise
         # self._noise_map = data_class.noise_map
         self._sigma_bkg = data_class.background_rms
 

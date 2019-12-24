@@ -9,13 +9,13 @@ from slitronomy.Util import util
 
 class ModelOperators(object):
 
-    """Utility class for access to operator as defined in math equations"""
+    """Utility class for access to operator as defined in formal optimization equations"""
 
     def __init__(self, data_class, lensing_operator_class, 
                  source_light_class, lens_light_class=None, convolution_class=None,
                  likelihood_mask=None):
-        self._image_data = data_class.data
-        self._image_data_eff = np.copy(self._image_data)
+        self._image_data = np.copy(data_class.data)
+        self._image_data_eff = self._image_data
         if likelihood_mask is None:
             likelihood_mask = np.ones_like(self._image_data)
         self._mask = likelihood_mask
