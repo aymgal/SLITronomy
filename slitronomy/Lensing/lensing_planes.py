@@ -20,6 +20,7 @@ class AbstractPlaneGrid(object):
             raise ValueError("Only square images are supported")
         self._num_pix = num_pix_x
         self._delta_pix = data_class.pixel_width
+        self._shrinked = False
 
     @property
     def num_pix(self):
@@ -64,6 +65,10 @@ class AbstractPlaneGrid(object):
         if two_dim:
             return util.array2image(theta_x_pix), util.array2image(theta_y_pix)
         return theta_x_pix, theta_y_pix
+
+    @property
+    def shrinked(self):
+        return self._shrinked
 
 
 class ImagePlaneGrid(AbstractPlaneGrid):
@@ -121,13 +126,13 @@ class SourcePlaneGrid(AbstractPlaneGrid):
             self._effective_mask = image_refined
 
     def shrink_grid_to_mask(self, min_num_pix=None):
-        if self.effective_mask is None:
-            # if no mask to shrink to, do nothing
-            return
         if min_num_pix is None:
             # kind of arbitrary as a default
             min_num_pix = int(self.num_pix / 10)
-        reduc_mask, reduced_num_pix = self.reduce_plane_iterative(self.effective_mask, min_num_pix=min_num_pix)
+        if (self.effective_mask is None) or (self.num_pix <= min_num_pix):
+            # if no mask to shrink to, or already shrunk, or already smaller than minimal allowed size
+            return
+        reduc_mask, reduced_num_pix = self.shrink_plane_iterative(self.effective_mask, min_num_pix=min_num_pix)
         self._update_grid_after_shrink(reduc_mask, reduced_num_pix)
         if self._first_print:
             print("INFO : source grid has been reduced from {} to {} side pixels".format(self._num_pix_large, self._num_pix))
@@ -141,8 +146,8 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         else:
             return image
 
-    def reset(self):
-        if hasattr(self, '_num_pix_large'):
+    def reset_grid(self):
+        if self.shrinked:
             self._num_pix = self._num_pix_large
             self._x_grid_1d = self._x_grid_1d_large
             self._y_grid_1d = self._y_grid_1d_large
@@ -151,6 +156,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
             del self._x_grid_1d_large
             del self._y_grid_1d_large
             del self._effective_mask_large
+            self._shrinked = False
 
     def _fill_mapping_holes(self, image):
         """
@@ -187,9 +193,10 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         # don't know why, but can apply reduc_mask_1d only on 1D arrays
         effective_mask_1d = util.image2array(self._effective_mask)
         self._effective_mask = util.array2image(effective_mask_1d[self._reduc_mask_1d])
+        self._shrinked = True
 
     @staticmethod
-    def reduce_plane_iterative(effective_mask, min_num_pix=10):
+    def shrink_plane_iterative(effective_mask, min_num_pix=10):
         """
         :param min_num_pix: minimal allowed number of pixels in source plane
         """

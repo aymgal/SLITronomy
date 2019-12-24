@@ -7,18 +7,19 @@ import numpy as np
 from scipy import signal
 
 from slitronomy.Optimization.model_operators import ModelOperators
-from slitronomy.Lensing.lensing_operator import LensingOperator
+from slitronomy.Lensing.lensing_operator import LensingOperator, LensingOperatorInterpol
 from slitronomy.Plots.solver_plotter import SolverPlotter
 from slitronomy.Util import util
 
 
 class SparseSolverBase(ModelOperators):
-
-    """Base class that generally defines a sparse solver"""
+    """
+    Base class that generally defines a sparse solver
+    """
 
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
-                 psf_class=None, convolution_class=None, likelihood_mask=None, 
-                 subgrid_res_source=1, minimal_source_plane=True, min_num_pix_source=10,
+                 psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='simple',
+                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, min_num_pix_source=10,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis', 
                  verbose=False, show_steps=False):
         # consider only the first light profiles in model lists
@@ -42,9 +43,15 @@ class SparseSolverBase(ModelOperators):
         else:
             self._psf_kernel = None
 
-        lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
-                                                 likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
-                                                 min_num_pix_source=min_num_pix_source, matrix_prod=True)
+        if lensing_operator == 'simple':
+            lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
+                                                     likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
+                                                     fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source, 
+                                                     matrix_prod=True)
+        if lensing_operator == 'interpol':
+            lensing_operator_class = LensingOperatorInterpol(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
+                                                     likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
+                                                     fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source)
 
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, 
                                                source_light_class, lens_light_class=lens_light_class, 
@@ -72,7 +79,7 @@ class SparseSolverBase(ModelOperators):
         self.lensingOperator.update_mapping(kwargs_lens)
         # get number of decomposition scales
         n_scales_source = kwargs_source[0]['n_scales']
-        if kwargs_lens_light is not None:
+        if kwargs_lens_light is not None and len(kwargs_lens_light) > 0:
             n_scales_lens_light = kwargs_lens_light[0]['n_scales']
         else:
             n_scales_lens_light = None
@@ -88,6 +95,9 @@ class SparseSolverBase(ModelOperators):
     @property
     def plotter(self):
         return self._plotter
+
+    def plot_results(self, model_log_scale=False, res_vmin=None, res_vmax=None):
+        return self.plotter.plot_results(model_log_scale=model_log_scale, res_vmin=res_vmin, res_vmax=res_vmax)
 
     @property
     def image_data(self):
@@ -165,10 +175,9 @@ class SparseSolverBase(ModelOperators):
         return self.H(array_2d)
 
     @property
-    def num_data_evaluate(self):
+    def num_data_points(self):
         """
-        number of data points to be used in the linear solver
-        :return:
+        number of effective data points (= number of unmasked pixels)
         """
         return int(np.sum(self._mask))
 
@@ -183,40 +192,40 @@ class SparseSolverBase(ModelOperators):
         """ returns || Y - HFS - HG ||^2_2 / sigma^2 """
         model = self._model_analysis(S, HG=HG)
         error = self.Y - model
-        return (error / self._sigma_bkg) * self._mask
+        return self.M(error / self._sigma_bkg)
 
     def reduced_chi2(self, S, HG=None):
         chi2 = self.reduced_residuals(S, HG=HG)**2
-        return np.sum(chi2) / self.num_data_evaluate
+        return np.sum(chi2) / self.num_data_points
 
     def norm_diff(self, S1, S2):
         """ returns || S1 - S2 ||^2_2 """
         diff = S1 - S2
         return np.linalg.norm(diff, ord=2)**2
 
-    def gradient_loss_source(self, array_S, array_HG):
+    def gradient_loss_source(self, array_S, array_HG=None):
         if self._formulation == 'analysis':
             return self._gradient_loss_analysis_source(S=array_S, HG=array_HG)
         elif self._formulation == 'synthesis':
             return self._gradient_loss_synthesis_source(alpha_S=array_S, alpha_HG=array_HG)
 
-    def gradient_loss_lens(self, array_S, array_HG):
+    def gradient_loss_lens(self, array_S, array_HG=None):
         if self._formulation == 'analysis':
             return self._gradient_loss_analysis_lens(S=array_S, HG=array_HG)
         elif self._formulation == 'synthesis':
             return self._gradient_loss_synthesis_lens(alpha_S=array_S, alpha_HG=array_HG)
 
-    def proximal_sparsity_source(self, array, step, weights):
+    def proximal_sparsity_source(self, array, weights):
         if self._formulation == 'analysis':
-            return self._proximal_sparsity_analysis_source(array, step, weights)
+            return self._proximal_sparsity_analysis_source(array, weights)
         elif self._formulation == 'synthesis':
-            return self._proximal_sparsity_synthesis_source(array, step, weights)
+            return self._proximal_sparsity_synthesis_source(array, weights)
 
-    def proximal_sparsity_lens(self, array, step, weights):
+    def proximal_sparsity_lens(self, array, weights):
         if self._formulation == 'analysis':
-            return self._proximal_sparsity_analysis_lens(array, step, weights)
+            return self._proximal_sparsity_analysis_lens(array, weights)
         elif self._formulation == 'synthesis':
-            return self._proximal_sparsity_synthesis_lens(array, step, weights)
+            return self._proximal_sparsity_synthesis_lens(array, weights)
 
     @property
     def algorithm(self):
@@ -278,7 +287,6 @@ class SparseSolverBase(ModelOperators):
         for scale_idx in range(noise_levels.shape[0]):
             dirac_scale = dirac_coeffs[scale_idx, :, :]
             levels = signal.fftconvolve(FT_HT_noise**2, dirac_scale**2, mode='same')
-            levels[levels == 0.] = 0.
             noise_levels[scale_idx, :, :] = np.sqrt(np.abs(levels))
         return noise_levels
 

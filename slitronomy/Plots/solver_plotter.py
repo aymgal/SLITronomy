@@ -82,7 +82,7 @@ class SolverPlotter(object):
         ax.set_title("step-to-step difference")
         ax.semilogy(self._solver.solve_track['step_diff'])
         ax.set_xlabel("iterations")
-        plt.show()
+        return fig
 
     @staticmethod
     def quick_imshow(image, title=None, show_now=False, **kwargs):

@@ -16,21 +16,27 @@ class SparseSolverSource(SparseSolverBase):
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
-                 psf_class=None, convolution_class=None, likelihood_mask=None, 
-                 subgrid_res_source=1, minimal_source_plane=True, min_num_pix_source=10,
-                 k_max=5, n_iter=50, n_weights=1, sparsity_prior_norm=1, force_positivity=True, 
+                 psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='simple',
+                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, min_num_pix_source=10,
+                 max_threshold=5, max_threshold_high_freq=None, num_iter=50, num_iter_weights=1, 
+                 sparsity_prior_norm=1, force_positivity=True, 
                  formulation='analysis', verbose=False, show_steps=False):
 
         super(SparseSolverSource, self).__init__(data_class, lens_model_class, source_model_class, 
                                                  lens_light_model_class=lens_light_model_class, psf_class=psf_class, 
                                                  convolution_class=convolution_class, likelihood_mask=likelihood_mask, 
-                                                 subgrid_res_source=subgrid_res_source, minimal_source_plane=minimal_source_plane, 
+                                                 lensing_operator=lensing_operator, subgrid_res_source=subgrid_res_source, 
+                                                 minimal_source_plane=minimal_source_plane, fix_minimal_source_plane=fix_minimal_source_plane,
                                                  min_num_pix_source=min_num_pix_source,
                                                  sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity, 
                                                  formulation=formulation, verbose=verbose, show_steps=show_steps)
-        self._k_max = k_max
-        self._n_iter = n_iter
-        self._n_weights = n_weights
+        self._k_max = max_threshold
+        if max_threshold_high_freq is None:
+            self._k_max_high_freq = self._k_max + 1
+        else:
+            self._k_max_high_freq = max_threshold_high_freq
+        self._n_iter = num_iter
+        self._n_weights = num_iter_weights
 
     def _solve(self):
         """
@@ -61,8 +67,8 @@ class SparseSolverSource(SparseSolverBase):
                 fista_xi = np.copy(alpha_S)
                 fista_t  = 1.
 
-            # get the proximal operator with current weights
-            prox_g = lambda x, y: self.proximal_sparsity_source(x, y, weights)
+            # get the proximal operator with current weights, convention is that it takes 2 arguments
+            prox_g = lambda x, y: self.proximal_sparsity_source(x, weights=weights)
 
             ######### Loop over iterations at fixed weights ########
             for i in range(self._n_iter):
@@ -83,7 +89,7 @@ class SparseSolverSource(SparseSolverBase):
                 red_chi2_list.append(red_chi2)
                 step_diff_list.append(step_diff)
 
-                if i % 10 == 0 and self._verbose:
+                if i % 30 == 0 and self._verbose:
                     print("iteration {}-{} : loss = {:.4f}, red-chi2 = {:.4f}, step_diff = {:.2e}"
                           .format(j, i, loss, red_chi2, step_diff))
 
@@ -97,8 +103,15 @@ class SparseSolverSource(SparseSolverBase):
                     fista_xi, fista_t = fista_xi_next, fista_t_next
 
             # update weights
-            lambda_ = self._k_max * self.noise_levels_source_plane
-            weights = 2. / ( 1. + np.exp(-10. * (lambda_ - alpha_S)) )
+            weights, _ = self._update_weights(alpha_S)
+
+            # if j > 0:
+            #     import matplotlib.pyplot as plt
+            #     fig, axes = plt.subplots(1, alpha_S.shape[0], figsize=(20, 4))
+            #     for ns in range(alpha_S.shape[0]):
+            #         im = axes[ns].imshow(weights[ns], origin='lower', cmap='gist_stern')
+            #         plt.colorbar(im, ax=axes[ns])
+            #     plt.show()
 
         # store results
         source_coeffs_1d = util.cube2array(self.Phi_T_s(S))
@@ -114,6 +127,20 @@ class SparseSolverSource(SparseSolverBase):
         
         image_model = self.image_model(unconvolved=False)
         return image_model, self.source_model, None, source_coeffs_1d
+
+    def _update_weights(self, alpha_S, alpha_HG=None):
+        lambda_S = self.noise_levels_source_plane
+        lambda_S[0, :, :]  *= self._k_max_high_freq
+        lambda_S[1:, :, :] *= self._k_max
+        weights_S  = 2. / ( 1. + np.exp(-10. * (lambda_S - alpha_S)) )  # Eq. (11) of Joseph et al. 2018
+        if alpha_HG is not None:
+            lambda_HG = self.noise_levels_image_plane
+            lambda_HG[0, :, :]  *= self._k_max_high_freq
+            lambda_HG[1:, :, :] *= self._k_max
+            weights_HG = 2. / ( 1. + np.exp(-10. * (lambda_HG - alpha_HG)) )  # Eq. (11) of Joseph et al. 2018
+        else:
+            weights_HG = None
+        return weights_S, weights_HG
 
     def _image_model(self, unconvolved=False):
         if not hasattr(self, '_source_model'):
@@ -149,7 +176,7 @@ class SparseSolverSource(SparseSolverBase):
         grad  = - self.Phi_T_s(self.F_T(self.H_T(error)))
         return grad
 
-    def _proximal_sparsity_analysis_source(self, S, step, weights):
+    def _proximal_sparsity_analysis_source(self, S, weights):
         """
         returns the proximal operator of the regularisation term
             g = lambda * |Phi^T S|_0
@@ -158,11 +185,14 @@ class SparseSolverSource(SparseSolverBase):
         """
         n_scales = self._n_scales_source
         level_const = self._k_max * np.ones(n_scales)
-        level_const[0] = self._k_max + 1  # means a stronger threshold for first decomposition levels (small scales features)
+        level_const[0] = self._k_max_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
         level_pixels = weights * self.noise_levels_source_plane
 
         alpha_S = self.Phi_T_s(S)
-        alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step, level_const=level_const, level_pixels=level_pixels,
+
+        # apply proximal operator
+        step = 1  # because threshold is already expressed in data units
+        alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, level_const=level_const, level_pixels=level_pixels,
                                                           l_norm=self._sparsity_prior_norm)
         S_proxed = self.Phi_s(alpha_S_proxed)
 
@@ -173,7 +203,7 @@ class SparseSolverSource(SparseSolverBase):
         S_proxed = self.apply_source_plane_mask(S_proxed)
         return S_proxed
 
-    def _proximal_sparsity_synthesis_source(self, alpha_S, step, weights):
+    def _proximal_sparsity_synthesis_source(self, alpha_S, weights):
         """
         returns the proximal operator of the regularisation term
             g = lambda * |alpha_S|_0
@@ -182,10 +212,12 @@ class SparseSolverSource(SparseSolverBase):
         """
         n_scales = self._n_scales_source
         level_const = self._k_max * np.ones(n_scales)
-        level_const[0] = self._k_max + 1  # means a stronger threshold for first decomposition levels (small scales features)
+        level_const[0] = self._k_max_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
         level_pixels = weights * self.noise_levels_source_plane
 
-        alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step, level_const=level_const, level_pixels=level_pixels,
+        # apply proximal operator
+        step = 1  # because threshold is already expressed in data units
+        alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, level_const=level_const, level_pixels=level_pixels,
                                                           force_positivity=self._force_positivity, norm=self._sparsity_prior_norm)
 
         if self._force_positivity:
