@@ -87,18 +87,7 @@ def index_2d_to_1d(x, y, num_pix):
 def index_1d_to_2d(i, num_pix):
     x = int(i / num_pix)
     y = int(i % num_pix)
-    return x, y
-
-
-def dirac_impulse(num_pix):
-    """
-    returns the 1d array of a Dirac impulse at the center of the image
-
-    :return: 1d numpy array of response, 2d array of additonal errors (e.g. point source uncertainties)
-    """
-    dirac = np.zeros((num_pix, num_pix), dtype=float)
-    dirac[int(num_pix/2), int(num_pix/2)] = 1.
-    return dirac
+    return (x, y)
 
 
 def soft_threshold(array, thresh):
@@ -134,6 +123,18 @@ def spectral_norm(num_pix, operator, inverse_operator, num_iter=20, tol=1e-10):
         norm = norm_new
         i += 1
     return norm
+
+
+def dirac_impulse(num_pix):
+    """
+    returns the 2d array of a Dirac impulse at the center of the image
+
+    :return: 2d numpy array
+    """
+    dirac = np.zeros((num_pix, num_pix), dtype=float)
+    dirac[int(num_pix/2), int(num_pix/2)] = 1.
+    return dirac
+
 
 def generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
                            formulation='analysis', guess_type='bkg_noise',
