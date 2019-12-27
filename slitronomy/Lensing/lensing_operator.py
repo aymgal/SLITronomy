@@ -217,9 +217,13 @@ class LensingOperator(object):
         return dist_x, dist_y
 
     def _index_1d_to_2d_source(self, j):
+        if j is None:
+            return (None, None)
         return util.index_1d_to_2d(j, self.sourcePlane.num_pix)
 
     def _index_2d_to_1d_source(self, x, y):
+        if x is None or y is None:
+            return None
         return util.index_2d_to_1d(x, y, self.sourcePlane.num_pix)
 
 
@@ -255,6 +259,9 @@ class LensingOperatorInterpol(LensingOperator):
 
             # get interpolation weights
             weight_list = self._bilinear_weights(dist_A_x, dist_A_y)
+
+            # remove pixels and weights that are outside source plane grid
+            j_list, weight_list = self._check_inside_grid(j_list, weight_list)
 
             # fill the mapping arrays
             lens_mapping_matrix[i, j_list] = weight_list
@@ -308,6 +315,11 @@ class LensingOperatorInterpol(LensingOperator):
             idx_closest = 3
         else:
             raise ValueError("Could not find 4 neighboring pixels for pixel {} ({},{})".format(j, r, s))
+        # check if indices are not outside of of the image, put None if it is
+        max_index_value = self.sourcePlane.num_pix - 1
+        for idx, (r, s) in enumerate(nb_list_2d):
+            if r >= max_index_value or s >= max_index_value:
+                nb_list_2d[idx] = (None, None)
         # convert indices to 1D index
         nb_list = [self._index_2d_to_1d_source(r, s) for (r, s) in nb_list_2d]
         return nb_list, nb_list_2d, idx_closest
@@ -334,8 +346,19 @@ class LensingOperatorInterpol(LensingOperator):
         wD = t * u
         return [wA, wB, wC, wD]
 
+    def _check_inside_grid(self, pixel_list, weight_list):
+        """
+        remove from pixel and weights list 
+        """
+        pixel_list_clean, weight_list_clean = [], []
+        for p, w in zip(pixel_list, weight_list):
+            if p is not None:
+                pixel_list_clean.append(p)
+                weight_list_clean.append(w)
+        return pixel_list_clean, weight_list_clean
+
     def plot_neighbors_map(self, kwargs_lens, num_image_pixels=100):
-        """utility for debug : visualize mapping and interpolation""" 
+        """utility for debug only : visualize mapping and interpolation""" 
         import matplotlib.pyplot as plt
 
         theta_x_source, theta_y_source = self.source_plane_coordinates
