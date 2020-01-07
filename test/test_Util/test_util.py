@@ -125,6 +125,9 @@ class TestRaise(unittest.TestCase):
         with self.assertRaises(ValueError):
             array = np.ones((2, 2, 2))
             util.soft_threshold(array, 1)
+        with self.assertRaises(ValueError):
+            array = np.ones(5)
+            util.array2image(array)
 
 
 if __name__ == '__main__':
