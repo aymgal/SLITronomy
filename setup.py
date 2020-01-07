@@ -34,8 +34,8 @@ readme = open('README.rst').read()
 history = open('HISTORY.rst').read().replace('.. :changelog:', '')
 
 desc = open("README.rst").read()
-requires = ['numpy>=1.13', 'scipy>=0.14.0', "configparser"]
-tests_require=['pytest>=2.3', "mock"]
+requires = ['configparser']
+tests_require=['pytest>=2.3']
 
 PACKAGE_PATH = os.path.abspath(os.path.join(__file__, os.pardir))
 
