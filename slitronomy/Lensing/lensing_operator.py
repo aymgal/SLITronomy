@@ -180,9 +180,6 @@ class LensingOperator(object):
         dist2_map = self._distance_to_source_grid(i, beta_x, beta_y, squared=True)
         # find the index that corresponds to the minimal distance (closest pixel)
         j = np.argmin(dist2_map)
-        if isinstance(j, list):
-            print("WARNING : found > 1 possible coordinates in source plane for index i={}".format(i))
-            return j[0]
         return j
 
     def _distance_to_source_grid(self, i, beta_x, beta_y, squared=False, pixel_conversion=False):

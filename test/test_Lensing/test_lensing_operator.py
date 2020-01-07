@@ -4,6 +4,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 import unittest
+import copy
 
 from slitronomy.Lensing.lensing_operator import LensingOperator, LensingOperatorInterpol
 from slitronomy.Util import util
@@ -101,6 +102,28 @@ class TestLensingOperator(object):
         image_1d = util.image2array(self.source_light_lensed)
         assert lensing_op.image2source(image_1d).size < source_1d.size
 
+        # test for keeping same minimal source plane while updating kwargs_lens
+        lensing_op = LensingOperator(self.data, self.lens_model, matrix_prod=True, 
+                                     likelihood_mask=self.likelihood_mask, minimal_source_plane=True,
+                                     fix_minimal_source_plane=True)
+        lensing_op.update_mapping(self.kwargs_lens)
+        source_plane_size_before = lensing_op.sourcePlane.grid_size
+        kwargs_lens_new = copy.deepcopy(self.kwargs_lens)
+        kwargs_lens_new[0] = {key: value*2 for key, value in kwargs_lens_new[0].items()}  # multiply by 2 some parameters
+        lensing_op.update_mapping(kwargs_lens_new)
+        assert lensing_op.sourcePlane.grid_size == source_plane_size_before
+
+        # test for NOT keeping same minimal source plane while updating kwargs_lens
+        lensing_op = LensingOperator(self.data, self.lens_model, matrix_prod=True, 
+                                     likelihood_mask=self.likelihood_mask, minimal_source_plane=True,
+                                     fix_minimal_source_plane=False)
+        lensing_op.update_mapping(self.kwargs_lens)
+        source_plane_size_before = lensing_op.sourcePlane.grid_size
+        kwargs_lens_new = copy.deepcopy(self.kwargs_lens)
+        kwargs_lens_new[0] = {key: value*2 for key, value in kwargs_lens_new[0].items()}  # multiply by 2 some parameters
+        lensing_op.update_mapping(kwargs_lens_new)
+        assert lensing_op.sourcePlane.grid_size != source_plane_size_before
+
         # for Interpol operator, only works with no mask (for now)
         lensing_op = LensingOperatorInterpol(self.data, self.lens_model,  
                                              likelihood_mask=None, minimal_source_plane=True)
@@ -195,6 +218,19 @@ class TestLensingOperator(object):
         diff_x, diff_y = lensing_op._difference_on_source_grid_axis(i, beta_x, beta_y, absolute=True)
         assert (np.all(diff_x >= 0) and np.all(diff_y >= 0))
         assert diff_x.shape == beta_x.shape
+
+    def test_index_conversions_source_plane(self):
+        lensing_op = LensingOperator(self.data, self.lens_model)
+        j = 10
+        (x, y) = lensing_op._index_1d_to_2d_source(j)
+        assert x == int(j / self.num_pix)
+        assert y == int(j % self.num_pix)
+        j_new = lensing_op._index_2d_to_1d_source(x, y)
+        assert j_new == y + x * self.num_pix
+        assert j == j_new
+
+        assert lensing_op._index_1d_to_2d_source(None) == (None, None)
+        assert lensing_op._index_2d_to_1d_source(None, None) == None
 
 class TestRaise(unittest.TestCase):
     def test_raise(self):
