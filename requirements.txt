@@ -3,4 +3,5 @@ scipy
 matplotlib
 future
 astropy
+pybind11
 python-pysap
