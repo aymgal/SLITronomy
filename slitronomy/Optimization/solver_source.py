@@ -89,6 +89,12 @@ class SparseSolverSource(SparseSolverBase):
                 red_chi2_list.append(red_chi2)
                 step_diff_list.append(step_diff)
 
+                # print("red_chi2 =", red_chi2)
+                # import matplotlib.pyplot as plt
+                # fig, axes = plt.subplots(1, 1, figsize=(5, 5))
+                # im = axes.imshow(self.reduced_residuals(S_next), origin='lower', cmap='bwr')
+                # plt.show()
+
                 if i % 30 == 0 and self._verbose:
                     print("iteration {}-{} : loss = {:.4f}, red-chi2 = {:.4f}, step_diff = {:.2e}"
                           .format(j, i, loss, red_chi2, step_diff))
@@ -102,8 +108,9 @@ class SparseSolverSource(SparseSolverBase):
                 if self.algorithm == 'FISTA':
                     fista_xi, fista_t = fista_xi_next, fista_t_next
 
-            # update weights
-            weights, _ = self._update_weights(alpha_S)
+            # update weights if necessary
+            if self._n_weights > 1:
+                weights, _ = self._update_weights(alpha_S)
 
             # if j > 0:
             #     import matplotlib.pyplot as plt
