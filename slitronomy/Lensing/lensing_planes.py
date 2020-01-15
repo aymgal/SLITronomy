@@ -90,11 +90,17 @@ class SourcePlaneGrid(AbstractPlaneGrid):
     def __init__(self, data_class, subgrid_res=1):
         super(SourcePlaneGrid, self).__init__(data_class)
         self._subgrid_res = subgrid_res
+
         # adapt grid size and resolution
         self._num_pix *= int(subgrid_res)
         self._delta_pix /= float(subgrid_res)
-        # get the coordinates arrays of source plane
+
+        # get the coordinates arrays of source plane, with aligned origin
         self._x_grid_1d, self._y_grid_1d = util.make_grid(numPix=self._num_pix, deltapix=self._delta_pix)
+
+        # WARNING : we assume that center of coordinates is at the center of the image !!
+        # TODO : make sure that center is consistent > use RegularGrid class in lenstronomy, like in Numerics ??
+
         self._first_print = True  # for printing messages only once
 
     @property

@@ -1,0 +1,5 @@
+TODO :
+- improvements to be done in ImageSparseSolver.source_surface_brightness() method
+- consistent source grid coordinates wrt image plane, when origin of coordinates is not center of the image
+- put coordinates grid in kwargs_source, so source_surface_brightness is not dependent on the solver (only on numerics and kwargs_source)
+- introduce x, y grid / interpolation in starlets function()
