@@ -49,9 +49,14 @@ class SolverPlotter(object):
         # ax.imshow(self.lensingOperator.sourcePlane.reduction_mask, origin='lower', cmap='gray', alpha=0.1)
         plot_util.nice_colorbar(im)
         ax = axes[0, 1]
-        ax.set_title("image model")
-        img_model = self._solver.image_model(unconvolved=False)
-        print("Negative image pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
+        if self._solver.lens_light_model is not None:
+            ax.set_title("lens light model")
+            img_model = self._solver.lens_light_model
+            print("Negative lens pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
+        else:
+            ax.set_title("image model")
+            img_model = self._solver.image_model(unconvolved=False)
+            print("Negative image pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
         if model_log_scale:
             vmin = max(img_model.min(), 1e-3)
             vmax = min(img_model.max(), 1e10)
@@ -66,21 +71,21 @@ class SolverPlotter(object):
         im = ax.imshow(self._solver.reduced_residuals_model, 
                        origin='lower', cmap='bwr', vmin=res_vmin, vmax=res_vmax)
         text = r"$\chi^2={:.2f}$".format(self._solver.best_fit_reduced_chi2)
-        ax.text(0.05, 0.05, text, color='black', fontsize=15, 
-                horizontalalignment='left', verticalalignment='bottom',
-                transform=ax.transAxes)
+        ax.text(0.2, 0.1, text, color='black', fontsize=15, 
+                horizontalalignment='center', verticalalignment='center',
+                transform=ax.transAxes, bbox={'color': 'white', 'alpha': 0.8})
         plot_util.nice_colorbar(im)
         ax = axes[1, 0]
         ax.set_title("loss function")
-        ax.plot(self._solver.solve_track['loss'])
+        ax.plot(self._solver.solve_track['loss'].T, '.')
         ax.set_xlabel("iterations")
         ax = axes[1, 1]
         ax.set_title("reduced chi2")
-        ax.plot(self._solver.solve_track['red_chi2'])
+        ax.plot(self._solver.solve_track['red_chi2'].T, '.')
         ax.set_xlabel("iterations")
         ax = axes[1, 2]
         ax.set_title("step-to-step difference")
-        ax.semilogy(self._solver.solve_track['step_diff'])
+        ax.semilogy(self._solver.solve_track['step_diff'].T, '.')
         ax.set_xlabel("iterations")
         return fig
 

@@ -9,6 +9,7 @@ from scipy import signal
 from slitronomy.Optimization.model_operators import ModelOperators
 from slitronomy.Lensing.lensing_operator import LensingOperator, LensingOperatorInterpol
 from slitronomy.Plots.solver_plotter import SolverPlotter
+# from slitronomy.Plots.solver_tracker import SolverTracker
 from slitronomy.Util import util
 
 
@@ -111,17 +112,30 @@ class SparseSolverBase(ModelOperators):
     @property
     def source_model(self):
         if not hasattr(self, '_source_model'):
-            raise ValueError("You must run the optimization before accessing the source estimate")
+            return None
         return self._source_model
 
     @property
     def lens_light_model(self):
         if not hasattr(self, '_lens_light_model'):
-            raise ValueError("You must run the optimization before accessing the lens light estimate")
+            return None
         return self._lens_light_model
 
     def image_model(self, unconvolved=False):
         return self._image_model(unconvolved=unconvolved)
+
+    def _image_model(self, unconvolved=False):
+        if not hasattr(self, '_source_model'):
+            if unconvolved:
+                raise ValueError("Cannot provide *unconvolved* lens light")
+            return self._lens_light_model
+        elif not hasattr(self, '_lens_light_model'):
+            if unconvolved:
+                return self.F(self._source_model)
+            else:
+                return self.H(self.F(self._source_model))
+        else:
+            return self.H(self.F(self._source_model)) + self._lens_light_model
 
     @property
     def reduced_residuals_model(self):
@@ -134,14 +148,8 @@ class SparseSolverBase(ModelOperators):
     @property
     def solve_track(self):
         if not hasattr(self, '_solve_track'):
-            raise ValueError("You must run the optimization before accessing the track")
+            raise ValueError("You must run the optimization before accessing the solver results")
         return self._solve_track
-
-    @property
-    def best_fit_reduced_chi2(self):
-        if not hasattr(self, '_solve_track'):
-            raise ValueError("You must run the optimization before accessing the track")
-        return self._solve_track['red_chi2'][-1]
 
     def generate_initial_source(self, guess_type='bkg_noise'):
         num_pix = self.lensingOperator.sourcePlane.num_pix
@@ -182,21 +190,25 @@ class SparseSolverBase(ModelOperators):
         """
         return int(np.sum(self._mask))
 
-    def loss(self, S, HG=None):
-        """ returns f = || Y - HFS - HG ||^2_2 """
-        model = self._model_analysis(S, HG=HG)
-        error = self.Y - model
+    @property
+    def best_fit_reduced_chi2(self):
+        return self.reduced_chi2(S=self.source_model, HG=self.lens_light_model)
+
+    def loss(self, S=None, HG=None):
+        """ returns f = || Y' - HFS - HG ||^2_2, where Y' can be Y - HG or Y - HFS """
+        model = self.model_analysis(S=S, HG=HG)
+        error = self.Y_eff - model
         norm_error = np.linalg.norm(error, ord=2)
         return norm_error**2
 
-    def reduced_residuals(self, S, HG=None):
-        """ returns || Y - HFS - HG ||^2_2 / sigma^2 """
-        model = self._model_analysis(S, HG=HG)
-        error = self.Y - model
+    def reduced_residuals(self, S=None, HG=None):
+        """ returns || Y' - HFS - HG ||^2_2 / sigma^2, where Y' can be Y - HG or Y - HFS """
+        model = self.model_analysis(S=S, HG=HG)
+        error = self.Y_eff - model
         return self.M(error / self._sigma_bkg)
 
-    def reduced_chi2(self, S, HG=None):
-        chi2 = self.reduced_residuals(S, HG=HG)**2
+    def reduced_chi2(self, S=None, HG=None):
+        chi2 = self.reduced_residuals(S=S, HG=HG)**2
         return np.sum(chi2) / self.num_data_points
 
     def norm_diff(self, S1, S2):
@@ -204,17 +216,33 @@ class SparseSolverBase(ModelOperators):
         diff = S1 - S2
         return np.linalg.norm(diff, ord=2)**2
 
-    def gradient_loss_source(self, array_S, array_HG=None):
-        if self._formulation == 'analysis':
-            return self._gradient_loss_analysis_source(S=array_S, HG=array_HG)
-        elif self._formulation == 'synthesis':
-            return self._gradient_loss_synthesis_source(alpha_S=array_S, alpha_HG=array_HG)
+    def model_analysis(self, S=None, HG=None):
+        if S is not None and HG is None:
+            return self.H(self.F(S))
+        elif S is None and HG is not None:
+            return HG
+        else:
+            return self.H(self.F(S)) + HG
 
-    def gradient_loss_lens(self, array_S, array_HG=None):
+    def model_synthesis(self, alpha_S=None, alpha_HG=None):
+        if alpha_S is not None and alpha_HG is None:
+            return self.H(self.F(self.Phi_s(alpha_S)))
+        elif alpha_S is None and alpha_HG is not None:
+            return self.Phi_l(alpha_HG)
+        else:
+            return self.H(self.F(self.Phi_s(alpha_S))) + self.Phi_l(alpha_HG)
+
+    def gradient_loss_source(self, array_S):
         if self._formulation == 'analysis':
-            return self._gradient_loss_analysis_lens(S=array_S, HG=array_HG)
+            return self._gradient_loss_analysis_source(S=array_S)
         elif self._formulation == 'synthesis':
-            return self._gradient_loss_synthesis_lens(alpha_S=array_S, alpha_HG=array_HG)
+            return self._gradient_loss_synthesis_source(alpha_S=array_S)
+
+    def gradient_loss_lens(self, array_HG):
+        if self._formulation == 'analysis':
+            return self._gradient_loss_analysis_lens(HG=array_HG)
+        elif self._formulation == 'synthesis':
+            return self._gradient_loss_synthesis_lens(alpha_HG=array_HG)
 
     def proximal_sparsity_source(self, array, weights):
         if self._formulation == 'analysis':
@@ -227,6 +255,16 @@ class SparseSolverBase(ModelOperators):
             return self._proximal_sparsity_analysis_lens(array, weights)
         elif self._formulation == 'synthesis':
             return self._proximal_sparsity_synthesis_lens(array, weights)
+
+    def subtract_source_from_data(self, S):
+        """Update "effective" data by subtracting the input source light estimation"""
+        source_model = self.model_analysis(S=S, HG=None)
+        self.subtract_from_data(source_model)
+
+    def subtract_lens_from_data(self, HG):
+        """Update "effective" data by subtracting the input (convolved) lens light estimation"""
+        lens_model = self.model_analysis(S=None, HG=HG)
+        self.subtract_from_data(lens_model)
 
     @property
     def algorithm(self):
@@ -291,34 +329,46 @@ class SparseSolverBase(ModelOperators):
             noise_levels[scale_idx, :, :] = np.sqrt(np.abs(levels))
         return noise_levels
 
-    @property
-    def spectral_norm_source(self):
-        if not hasattr(self, '_spectral_norm_source'):
-            def _operator(x):
-                x = self.H_T(x)
-                x = self.F_T(x)
-                x = self.Phi_T_s(x)
-                return x
-            def _inverse_operator(x):
-                x = self.Phi_s(x)
-                x = self.F(x)
-                x = self.H(x)
-                return x
-            self._spectral_norm_source = util.spectral_norm(self._num_pix, _operator, _inverse_operator,
-                                                            num_iter=20, tol=1e-10)
-        return self._spectral_norm_source
+    def _init_track(self):
+        self._solve_track = {
+            'loss': [[], []],
+            'red_chi2': [[], []],
+            'step_diff': [[], []],
+        }
 
-    @property
-    def spectral_norm_lens(self):
-        if not hasattr(self, '_spectral_norm_lens'):
-            def _operator(x):
-                # x = self.H_T(x)  # we solve for 'convolved' lens so no convolution operation
-                x = self.Phi_T_l(x)
-                return x
-            def _inverse_operator(x):
-                x = self.Phi_l(x)
-                # x = self.H(x)  # we solve for 'convolved' lens so no convolution operation
-                return x
-            self._spectral_norm_lens = util.spectral_norm(self._num_pix, _operator, _inverse_operator,
-                                                            num_iter=20, tol=1e-10)
-        return self._spectral_norm_lens
+    def _save_track(self, S=None, S_next=None, HG=None, HG_next=None, print_bool=False):
+        if S is not None:
+            loss_S = self.loss(S=S_next)
+            red_chi2_S = self.reduced_chi2(S=S_next)
+            step_diff_S = self.norm_diff(S, S_next)
+        else:
+            loss_S = np.nan
+            red_chi2_S = np.nan
+            step_diff_S = np.nan
+        if HG is not None:
+            loss_HG = self.loss(HG=HG_next)
+            red_chi2_HG = self.reduced_chi2(HG=HG_next)
+            step_diff_HG = self.norm_diff(HG, HG_next)
+        else:
+            loss_HG = np.nan
+            red_chi2_HG = np.nan
+            step_diff_HG = np.nan
+
+        # print info
+        if self._verbose and print_bool:
+            print("loss = {:.4f}|{:.4f}, red-chi2 = {:.4f}|{:.4f}, step_diff = {:.4f}|{:.4f}"
+                  .format(loss_S, loss_HG, red_chi2_S, red_chi2_HG, step_diff_S, step_diff_HG))
+
+        # save in track
+        self._solve_track['loss'][0].append(loss_S)
+        self._solve_track['loss'][1].append(loss_HG)
+        self._solve_track['red_chi2'][0].append(red_chi2_S)
+        self._solve_track['red_chi2'][1].append(red_chi2_HG)
+        self._solve_track['step_diff'][0].append(step_diff_S)
+        self._solve_track['step_diff'][1].append(step_diff_HG)
+
+    def _finalize_track(self, S_final, HG_final=None):
+        # convert to numpy array for practicality
+        self._solve_track['loss'] = np.array(self._solve_track['loss'])
+        self._solve_track['red_chi2'] = np.array(self._solve_track['red_chi2'])
+        self._solve_track['step_diff'] = np.array(self._solve_track['step_diff'])

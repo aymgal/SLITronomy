@@ -14,8 +14,8 @@ class ModelOperators(object):
     def __init__(self, data_class, lensing_operator_class, 
                  source_light_class, lens_light_class=None, convolution_class=None,
                  likelihood_mask=None):
-        self._image_data = np.copy(data_class.data)
-        self._image_data_eff = self._image_data
+        self._image_data = data_class.data
+        self._image_data_eff = np.copy(data_class.data)
         if likelihood_mask is None:
             likelihood_mask = np.ones_like(self._image_data)
         self._mask = likelihood_mask
@@ -37,8 +37,49 @@ class ModelOperators(object):
         """Update "effective" data by subtracting the input array"""
         self._image_data_eff = self._image_data - array_2d
 
+    def reset_data(self):
+        """cancel any previous call to self.subtract_from_data()"""
+        self._image_data_eff = self._image_data
+
+    @property
+    def spectral_norm_source(self):
+        if not hasattr(self, '_spectral_norm_source'):
+            def _operator(x):
+                x = self.H_T(x)
+                x = self.F_T(x)
+                x = self.Phi_T_s(x)
+                return x
+            def _inverse_operator(x):
+                x = self.Phi_s(x)
+                x = self.F(x)
+                x = self.H(x)
+                return x
+            self._spectral_norm_source = util.spectral_norm(self._num_pix, _operator, _inverse_operator,
+                                                            num_iter=20, tol=1e-10)
+        return self._spectral_norm_source
+
+    @property
+    def spectral_norm_lens(self):
+        if not hasattr(self, '_spectral_norm_lens'):
+            def _operator(x):
+                x = self.Phi_T_l(x)
+                return x
+            def _inverse_operator(x):
+                x = self.Phi_l(x)
+                return x
+            self._spectral_norm_lens = util.spectral_norm(self._num_pix, _operator, _inverse_operator,
+                                                            num_iter=20, tol=1e-10)
+        return self._spectral_norm_lens
+
     @property
     def Y(self):
+        """
+        Original imaging data.
+        """
+        return self._image_data
+
+    @property
+    def Y_eff(self):
         """
         "Effective" imaging data.
         This can be the entire imaging data, or an updated version of it with a component subtracted

@@ -56,11 +56,13 @@ class SparseSolverSource(SparseSolverBase):
         # initialise weights
         weights = 1.
 
+        # initialize track
+        self._init_track()
+
+        ######### Loop to update weights ########
         loss_list = []
         red_chi2_list = []
         step_diff_list = []
-
-        ######### Loop to update weights ########
         for j in range(self._n_weights):
 
             if j == 0 and self.algorithm == 'FISTA':
@@ -82,22 +84,11 @@ class SparseSolverSource(SparseSolverBase):
                     S_next = algorithms.step_FB(S, grad_f, prox_g, mu)
                     alpha_S_next = self.Phi_T_s(S_next)
 
-                loss = self.loss(S_next)
-                red_chi2 = self.reduced_chi2(S_next)
-                step_diff = self.norm_diff(S, S_next)
-                loss_list.append(loss)
-                red_chi2_list.append(red_chi2)
-                step_diff_list.append(step_diff)
-
-                # print("red_chi2 =", red_chi2)
-                # import matplotlib.pyplot as plt
-                # fig, axes = plt.subplots(1, 1, figsize=(5, 5))
-                # im = axes.imshow(self.reduced_residuals(S_next), origin='lower', cmap='bwr')
-                # plt.show()
-
-                if i % 30 == 0 and self._verbose:
-                    print("iteration {}-{} : loss = {:.4f}, red-chi2 = {:.4f}, step_diff = {:.2e}"
-                          .format(j, i, loss, red_chi2, step_diff))
+                # save current step to track
+                print_bool = (i % 30 == 0)
+                if self._verbose and print_bool:
+                    "iteration {}-{} :".format(j, i)
+                self._save_track(S=S, S_next=S_next, print_bool=print_bool)
 
                 if i % int(self._n_iter/2) == 0 and self._show_steps:
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i, show_now=True)
@@ -121,19 +112,17 @@ class SparseSolverSource(SparseSolverBase):
             #     plt.show()
 
         # store results
-        source_coeffs_1d = util.cube2array(self.Phi_T_s(S))
+        self._finalize_track(S)
         self._source_model = S
-        self._solve_track = {
-            'loss': np.asarray(loss_list),
-            'red_chi2': np.asarray(red_chi2_list),
-            'step_diff': np.asarray(step_diff_list),
-        }
+
+        # all optimized coefficients (flattened)
+        coeffs_1d = util.cube2array(self.Phi_T_s(S))
 
         if self._show_steps:
             self._plotter.plot_final(self._source_model, show_now=True)
         
-        image_model = self.image_model(unconvolved=False)
-        return image_model, self.source_model, None, source_coeffs_1d
+        model = self.image_model(unconvolved=False)
+        return model, S, None, coeffs_1d
 
     def _update_weights(self, alpha_S, alpha_HG=None):
         lambda_S = self.noise_levels_source_plane
@@ -157,29 +146,23 @@ class SparseSolverSource(SparseSolverBase):
             return image_model
         return self.H(image_model)
 
-    def _model_analysis(self, S, HG=None):
-        return self.H(self.F(S))
-
-    def _model_synthesis(self, alpha_S, alpha_HG=None):
-        return self.H(self.F(self.Phi_s(alpha_S)))
-
-    def _gradient_loss_analysis_source(self, S, HG=None):
+    def _gradient_loss_analysis_source(self, S):
         """
-        returns the gradient of f = || Y - HFS ||^2_2
+        returns the gradient of f = || Y' - HFS ||^2_2, where Y' = Y - HG
         with respect to S
         """
-        model = self._model_analysis(S, HG=HG)
-        error = self.Y - model
+        model = self.model_analysis(S, HG=None)
+        error = self.Y_eff - model
         grad  = - self.F_T(self.H_T(error))
         return grad
 
-    def _gradient_loss_synthesis_source(self, alpha_S, alpha_HG=None):
+    def _gradient_loss_synthesis_source(self, alpha_S):
         """
-        returns the gradient of f = || Y - H F Phi alpha_S ||^2_2
+        returns the gradient of f = || Y' - H F Phi alpha_S ||^2_2, where Y' = Y - HG
         with respect to alpha_S
         """
-        model = self._model_synthesis(alpha_S, alpha_HG=alpha_HG)
-        error = self.Y - model
+        model = self.model_synthesis(alpha_S, alpha_HG=None)
+        error = self.Y_eff - model
         grad  = - self.Phi_T_s(self.F_T(self.H_T(error)))
         return grad
 
@@ -225,7 +208,7 @@ class SparseSolverSource(SparseSolverBase):
         # apply proximal operator
         step = 1  # because threshold is already expressed in data units
         alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, level_const=level_const, level_pixels=level_pixels,
-                                                          force_positivity=self._force_positivity, norm=self._sparsity_prior_norm)
+                                                          l_norm=self._sparsity_prior_norm)
 
         if self._force_positivity:
             alpha_S_proxed = proximals.prox_positivity(alpha_S_proxed)
