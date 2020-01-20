@@ -8,8 +8,8 @@ from scipy import signal
 
 from slitronomy.Optimization.model_operators import ModelOperators
 from slitronomy.Lensing.lensing_operator import LensingOperator, LensingOperatorInterpol
-from slitronomy.Plots.solver_plotter import SolverPlotter
-# from slitronomy.Plots.solver_tracker import SolverTracker
+from slitronomy.Util.solver_plotter import SolverPlotter
+from slitronomy.Util.solver_tracker import SolverTracker
 from slitronomy.Util import util
 
 
@@ -69,6 +69,7 @@ class SparseSolverBase(ModelOperators):
         self._verbose = verbose
         self._show_steps = show_steps
 
+        self._tracker = SolverTracker(self, verbose=verbose)
         self._plotter = SolverPlotter(self)
 
     def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_special=None):
@@ -98,6 +99,10 @@ class SparseSolverBase(ModelOperators):
 
     def _solve(self):
         raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
+
+    @property
+    def track(self):
+        return self._tracker.track
 
     @property
     def plotter(self):
@@ -333,47 +338,3 @@ class SparseSolverBase(ModelOperators):
             levels = signal.fftconvolve(FT_HT_noise**2, dirac_scale**2, mode='same')
             noise_levels[scale_idx, :, :] = np.sqrt(np.abs(levels))
         return noise_levels
-
-    def _init_track(self):
-        self._solve_track = {
-            'loss': [[], []],
-            'red_chi2': [[], []],
-            'step_diff': [[], []],
-        }
-
-    def _save_track(self, S=None, S_next=None, HG=None, HG_next=None, print_bool=False):
-        if S is not None:
-            loss_S = self.loss(S=S_next)
-            red_chi2_S = self.reduced_chi2(S=S_next)
-            step_diff_S = self.norm_diff(S, S_next)
-        else:
-            loss_S = np.nan
-            red_chi2_S = np.nan
-            step_diff_S = np.nan
-        if HG is not None:
-            loss_HG = self.loss(HG=HG_next)
-            red_chi2_HG = self.reduced_chi2(HG=HG_next)
-            step_diff_HG = self.norm_diff(HG, HG_next)
-        else:
-            loss_HG = np.nan
-            red_chi2_HG = np.nan
-            step_diff_HG = np.nan
-
-        # print info
-        if self._verbose and print_bool:
-            print("loss = {:.4f}|{:.4f}, red-chi2 = {:.4f}|{:.4f}, step_diff = {:.4f}|{:.4f}"
-                  .format(loss_S, loss_HG, red_chi2_S, red_chi2_HG, step_diff_S, step_diff_HG))
-
-        # save in track
-        self._solve_track['loss'][0].append(loss_S)
-        self._solve_track['loss'][1].append(loss_HG)
-        self._solve_track['red_chi2'][0].append(red_chi2_S)
-        self._solve_track['red_chi2'][1].append(red_chi2_HG)
-        self._solve_track['step_diff'][0].append(step_diff_S)
-        self._solve_track['step_diff'][1].append(step_diff_HG)
-
-    def _finalize_track(self, S_final, HG_final=None):
-        # convert to numpy array for practicality
-        self._solve_track['loss'] = np.array(self._solve_track['loss'])
-        self._solve_track['red_chi2'] = np.array(self._solve_track['red_chi2'])
-        self._solve_track['step_diff'] = np.array(self._solve_track['step_diff'])

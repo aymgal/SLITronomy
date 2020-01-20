@@ -52,9 +52,6 @@ class SparseSolverSourceLens(SparseSolverSource):
         weights_source = 1.
         weights_lens = 1.
 
-        # initialize track
-        self._init_track()
-
         ######### Loop to update weights ########
         for j in range(self._n_weights):
 
@@ -94,8 +91,8 @@ class SparseSolverSourceLens(SparseSolverSource):
                     # save current step to track
                     print_bool = (i_l % 30 == 0 and i_s % 30 == 0)
                     if self._verbose and print_bool:
-                        print("iteration {}-{}-{} :".format(j, i_l, i_s))
-                    self._save_track(S=S, S_next=S_next, print_bool=print_bool)
+                        print("*** iteration {}-{}-{} ***".format(j, i_l, i_s))
+                    self._tracker.save(S=S, S_next=S_next, print_bool=print_bool)
                     
                     # update current estimate of source light and local parameters
                     S = S_next
@@ -123,8 +120,8 @@ class SparseSolverSourceLens(SparseSolverSource):
                 # save current step to track
                 print_bool = (i_l % 10 == 0 and i_s == self._n_iter-1)
                 if self._verbose and print_bool:
-                    print("iteration {}-{}-{} :".format(j, i_l, i_s))
-                self._save_track(HG=HG, HG_next=HG_next, print_bool=print_bool)
+                    print("=== iteration {}-{}-{} ===".format(j, i_l, i_s))
+                self._tracker.save(HG=HG, HG_next=HG_next, print_bool=print_bool)
 
                 if self._show_steps and i_l % int(self._n_iter_lens/2) == 0 and i_s == self._n_iter-1:
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i_l, iter_3=i_s, show_now=True)
@@ -147,7 +144,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         self.reset_data()
 
         # store results
-        self._finalize_track(S, HG)
+        self._tracker.finalize()
         self._source_model = S
         self._lens_light_model = HG
 

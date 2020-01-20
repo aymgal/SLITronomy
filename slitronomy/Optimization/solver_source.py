@@ -56,9 +56,6 @@ class SparseSolverSource(SparseSolverBase):
         # initialise weights
         weights = 1.
 
-        # initialize track
-        self._init_track()
-
         ######### Loop to update weights ########
         loss_list = []
         red_chi2_list = []
@@ -87,10 +84,10 @@ class SparseSolverSource(SparseSolverBase):
                 # save current step to track
                 print_bool = (i % 30 == 0)
                 if self._verbose and print_bool:
-                    "iteration {}-{} :".format(j, i)
-                self._save_track(S=S, S_next=S_next, print_bool=print_bool)
+                    "=== iteration {}-{} ===".format(j, i)
+                self._tracker.save(S=S, S_next=S_next, print_bool=print_bool)
 
-                if i % int(self._n_iter/2) == 0 and self._show_steps:
+                if self._show_steps and i % int(self._n_iter/2) == 0:
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i, show_now=True)
 
                 # update current estimate of source light and local parameters
@@ -112,7 +109,7 @@ class SparseSolverSource(SparseSolverBase):
             #     plt.show()
 
         # store results
-        self._finalize_track(S)
+        self._tracker.finalize()
         self._source_model = S
 
         # all optimized coefficients (flattened)

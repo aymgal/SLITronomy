@@ -77,15 +77,15 @@ class SolverPlotter(object):
         plot_util.nice_colorbar(im)
         ax = axes[1, 0]
         ax.set_title("loss function")
-        ax.plot(self._solver.solve_track['loss'].T, '.')
+        ax.plot(self._solver.track['loss'].T, '.')
         ax.set_xlabel("iterations")
         ax = axes[1, 1]
         ax.set_title("reduced chi2")
-        ax.plot(self._solver.solve_track['red_chi2'].T, '.')
+        ax.plot(self._solver.track['red_chi2'].T, '.')
         ax.set_xlabel("iterations")
         ax = axes[1, 2]
         ax.set_title("step-to-step difference")
-        ax.semilogy(self._solver.solve_track['step_diff'].T, '.')
+        ax.semilogy(self._solver.track['step_diff'].T, '.')
         ax.set_xlabel("iterations")
         return fig
 

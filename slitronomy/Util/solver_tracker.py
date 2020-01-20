@@ -1,0 +1,70 @@
+__author__ = 'aymgal'
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+
+from slitronomy.Util import plot_util
+
+
+class SolverTracker(object):
+
+
+    def __init__(self, solver_class, verbose=False):
+        self._solver = solver_class
+        self._verbose = verbose
+        self._track = {
+            'loss': [[], []],
+            'red_chi2': [[], []],
+            'step_diff': [[], []],
+        }
+
+    @property
+    def track(self):
+        if not hasattr(self, '_track'):
+            return None
+        return self._track
+
+    def save(self, S=None, S_next=None, HG=None, HG_next=None, print_bool=False):
+        if not hasattr(self, '_track'):
+            self._init()
+        if S is not None:
+            loss_S = self._solver.loss(S=S_next)
+            red_chi2_S = self._solver.reduced_chi2(S=S_next)
+            step_diff_S = self._solver.norm_diff(S, S_next)
+        else:
+            loss_S = np.nan
+            red_chi2_S = np.nan
+            step_diff_S = np.nan
+        if HG is not None:
+            loss_HG = self._solver.loss(HG=HG_next)
+            red_chi2_HG = self._solver.reduced_chi2(HG=HG_next)
+            step_diff_HG = self._solver.norm_diff(HG, HG_next)
+        else:
+            loss_HG = np.nan
+            red_chi2_HG = np.nan
+            step_diff_HG = np.nan
+        # print info
+        if self._verbose and print_bool:
+            print("loss = {:.4f}|{:.4f}, red-chi2 = {:.4f}|{:.4f}, step_diff = {:.4f}|{:.4f}"
+                  .format(loss_S, loss_HG, red_chi2_S, red_chi2_HG, step_diff_S, step_diff_HG))
+        # save in track
+        self._track['loss'][0].append(loss_S)
+        self._track['loss'][1].append(loss_HG)
+        self._track['red_chi2'][0].append(red_chi2_S)
+        self._track['red_chi2'][1].append(red_chi2_HG)
+        self._track['step_diff'][0].append(step_diff_S)
+        self._track['step_diff'][1].append(step_diff_HG)
+
+    def finalize(self):
+        """convert to numpy array for practicality / plots"""
+        self._track['loss'] = np.array(self._track['loss'])
+        self._track['red_chi2'] = np.array(self._track['red_chi2'])
+        self._track['step_diff'] = np.array(self._track['step_diff'])
+
+    def _init(self):
+        self._track = {
+            'loss': [[], []],
+            'red_chi2': [[], []],
+            'step_diff': [[], []],
+        }
