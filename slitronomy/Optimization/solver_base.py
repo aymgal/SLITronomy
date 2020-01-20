@@ -71,7 +71,7 @@ class SparseSolverBase(ModelOperators):
 
         self._plotter = SolverPlotter(self)
 
-    def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None):
+    def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_special=None):
         """
         main method to call from outside the class, calling self._solve()
 
@@ -79,7 +79,7 @@ class SparseSolverBase(ModelOperators):
         """
         # update image <-> source plane mapping from lens model parameters
         size_image, pixel_scale_image, size_source, pixel_scale_source \
-            = self.lensingOperator.update_mapping(kwargs_lens)
+            = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
         # get number of decomposition scales
         n_scales_source = kwargs_source[0]['n_scales']
         if kwargs_lens_light is not None and len(kwargs_lens_light) > 0:
@@ -90,8 +90,7 @@ class SparseSolverBase(ModelOperators):
         self.set_wavelet_scales(n_scales_source, n_scales_lens_light)
         # call solver
         image_model, source_light, lens_light, coeffs_source, coeffs_lens_light = self._solve()
-        if lens_light is None:
-            coeffs_lens_light = []
+        if lens_light is None: coeffs_lens_light = []
         # concatenate coefficients and fixed parameters
         coeffs = np.concatenate([coeffs_source, coeffs_lens_light])
         scales = [size_image, pixel_scale_image, size_source, pixel_scale_source]

@@ -98,13 +98,13 @@ class LensingOperator(object):
     def image_plane_coordinates(self):
         return self.imagePlane.theta_x, self.imagePlane.theta_y
 
-    def update_mapping(self, kwargs_lens):
+    def update_mapping(self, kwargs_lens, kwargs_special=None):
         # reset source plane grid if it was altered by previous mass model
         if not self._fix_minimal_source_plane and self.sourcePlane.shrinked:
             self._reset_source_plane_grid()
 
         # compute mapping between image and source plances due to lensing
-        self._compute_mapping(kwargs_lens)
+        self._compute_mapping(kwargs_lens, kwargs_special)
 
         # compute areas on source plane where you have no constraint
         self._compute_source_mask()
@@ -115,7 +115,7 @@ class LensingOperator(object):
             self._shrink_source_plane_grid()
         
             # recompute the mapping with updated grid
-            self._compute_mapping(kwargs_lens)
+            self._compute_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         return (self.imagePlane.grid_size, self.imagePlane.delta_pix, 
                 self.sourcePlane.grid_size, self.sourcePlane.delta_pix)
@@ -125,7 +125,7 @@ class LensingOperator(object):
         if hasattr(self, '_lens_mapping_matrix'): delattr(self, '_lens_mapping_matrix')
         if hasattr(self, '_norm_image2source'): delattr(self, '_norm_image2source')
 
-    def _compute_mapping(self, kwargs_lens):
+    def _compute_mapping(self, kwargs_lens, kwargs_special):
         """
         Core method that computes the mapping between image and source planes pixels
         from ray-tracing performed by the input parametric mass model
@@ -142,10 +142,13 @@ class LensingOperator(object):
         # backward ray-tracing to get source coordinates in image plane (the 'betas')
         beta_x, beta_y = self.lensModel.ray_shooting(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
 
+        # get source plane offsets
+        offset_x, offset_y = self._source_grid_offsets(kwargs_special)
+
         # iterate through indices of image plane (indices 'i')
         for i in range(self.imagePlane.grid_size):
             # find source pixel that corresponds to ray traced image pixel
-            j = self._find_source_pixel(i, beta_x, beta_y)
+            j = self._find_source_pixel(i, beta_x, beta_y, offset_x=offset_x, offset_y=offset_y)
             
             # fill the mapping array
             if self._matrix_prod:
@@ -179,15 +182,22 @@ class LensingOperator(object):
     def _shrink_source_plane_grid(self):
         self.sourcePlane.shrink_grid_to_mask(min_num_pix=self._min_num_pix_source)
 
-    def _find_source_pixel(self, i, beta_x, beta_y):
-        dist2_map = self._distance_to_source_grid(i, beta_x, beta_y, squared=True)
+    def _source_grid_offsets(self, kwargs_special):
+        if kwargs_special is None: return 0, 0
+        offset_x = kwargs_special.get('delta_x_source_grid', 0)
+        offset_y = kwargs_special.get('delta_y_source_grid', 0)
+        return offset_x, offset_y
+
+    def _find_source_pixel(self, i, beta_x, beta_y, offset_x=0, offset_y=0):
+        dist2_map = self._distance_to_source_grid(i, beta_x, beta_y, offset_x=offset_x, offset_y=offset_y, squared=True)
         # find the index that corresponds to the minimal distance (closest pixel)
         j = np.argmin(dist2_map)
         return j
 
-    def _distance_to_source_grid(self, i, beta_x, beta_y, squared=False, pixel_conversion=False):
+    def _distance_to_source_grid(self, i, beta_x, beta_y, offset_x=0, offset_y=0, squared=False, pixel_conversion=False):
         # coordinate grid of source plane
-        diff_x, diff_y = self._difference_on_source_grid_axis(i, beta_x, beta_y, pixel_conversion=pixel_conversion)
+        diff_x, diff_y = self._difference_on_source_grid_axis(i, beta_x, beta_y, offset_x=offset_x, offset_y=offset_y,
+                                                              pixel_conversion=pixel_conversion)
         # compute the distance between ray-traced coordinate and source plane grid
         # (square of the distance, not required to apply sqrt operation)
         dist_squared = diff_x**2 + diff_y**2
@@ -195,10 +205,11 @@ class LensingOperator(object):
             return dist_squared
         return np.sqrt(dist_squared)
 
-    def _difference_on_source_grid_axis(self, i, beta_x_image, beta_y_image, absolute=False, pixel_conversion=False):
+    def _difference_on_source_grid_axis(self, i, beta_x_image, beta_y_image, offset_x=0, offset_y=0,
+                                        absolute=False, pixel_conversion=False):
         # coordinate grid of source plane
-        theta_x_source = self.sourcePlane.theta_x
-        theta_y_source = self.sourcePlane.theta_y
+        theta_x_source = self.sourcePlane.theta_x + offset_x
+        theta_y_source = self.sourcePlane.theta_y + offset_y
         if pixel_conversion:
             num_pix = self.sourcePlane.num_pix
             delta_pix = self.sourcePlane.delta_pix
@@ -244,7 +255,7 @@ class LensingOperatorInterpol(LensingOperator):
             min_num_pix_source=min_num_pix_source, 
             matrix_prod=_matrix_prod))
 
-    def _compute_mapping(self, kwargs_lens):
+    def _compute_mapping(self, kwargs_lens, kwargs_special):
         # delete previous mapping and init the new one
         self.delete_mapping()
         lens_mapping_matrix = np.zeros((self.imagePlane.grid_size, self.sourcePlane.grid_size))
@@ -252,10 +263,13 @@ class LensingOperatorInterpol(LensingOperator):
         # backward ray-tracing to get source coordinates in image plane (the 'betas')
         beta_x, beta_y = self.lensModel.ray_shooting(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
 
+        # get source plane offsets
+        offset_x, offset_y = self._source_grid_offsets(kwargs_special)
+
         # iterate through indices of image plane (indices 'i')
         for i in range(self.imagePlane.grid_size):
             # find source pixel that corresponds to ray traced image pixel
-            j_list, _, dist_A_x, dist_A_y = self._find_surrounding_source_pixels(i, beta_x, beta_y)
+            j_list, _, dist_A_x, dist_A_y = self._find_surrounding_source_pixels(i, beta_x, beta_y, offset_x=offset_x, offset_y=offset_y)
 
             # get interpolation weights
             weight_list = self._bilinear_weights(dist_A_x, dist_A_y)
@@ -269,9 +283,10 @@ class LensingOperatorInterpol(LensingOperator):
         # convert to optimzed sparse matrix
         self._lens_mapping_matrix = sparse.csr_matrix(lens_mapping_matrix)
 
-    def _find_surrounding_source_pixels(self, i, beta_x, beta_y, sort_distance=True):
+    def _find_surrounding_source_pixels(self, i, beta_x, beta_y, offset_x=0, offset_y=0, sort_distance=True):
         # map of the distance to the ray-traced pixel, along each axis, in pixel units
-        diff_map_x_pix, diff_map_y_pix = self._difference_on_source_grid_axis(i, beta_x, beta_y, pixel_conversion=True)
+        diff_map_x_pix, diff_map_y_pix = self._difference_on_source_grid_axis(i, beta_x, beta_y, offset_x=offset_x, offset_y=offset_y, 
+                                                                              pixel_conversion=True)
 
         # index of source pixel that is the closest to the ray-traced pixel
         j = np.argmin(diff_map_x_pix**2 + diff_map_y_pix**2)
