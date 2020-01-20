@@ -21,7 +21,7 @@ class SparseSolverBase(ModelOperators):
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
                  psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='simple',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, min_num_pix_source=10,
-                 sparsity_prior_norm=1, force_positivity=True, formulation='analysis', 
+                 sparsity_prior_norm=1, force_positivity=True, formulation='analysis', initial_guess='noise_map',
                  verbose=False, show_steps=False):
         # consider only the first light profiles in model lists
         source_light_class = source_model_class.func_list[0]
@@ -36,9 +36,14 @@ class SparseSolverBase(ModelOperators):
         self._num_pix = num_pix_x
         self._delta_pix = data_class.pixel_width
 
-        # TODO support Poisson noise
-        # self._noise_map = data_class.noise_map
-        self._sigma_bkg = data_class.background_rms
+        # background noise
+        self._background_rms = data_class.background_rms
+
+        # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
+        self._noise_map = np.sqrt(data_class.C_D)
+
+        # generation of initial guess
+        self._initial_guess = initial_guess
 
         if psf_class is not None:
             self._psf_kernel = psf_class.kernel_point_source
@@ -161,25 +166,27 @@ class SparseSolverBase(ModelOperators):
             raise ValueError("You must run the optimization before accessing the solver results")
         return self._solve_track
 
-    def generate_initial_source(self, guess_type='bkg_noise'):
+    def generate_initial_source(self):
         num_pix = self.lensingOperator.sourcePlane.num_pix
         n_scales = self._n_scales_source
         transform = self.Phi_T_s
         inverse_transform = self.Phi_s
-        sigma_bkg_synthesis = self.noise_levels_source_plane
+        noise_map_synthesis = self.noise_levels_source_plane
         return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
-                           formulation=self._formulation, guess_type=guess_type,
-                           sigma_bkg=self._sigma_bkg, sigma_bkg_synthesis=sigma_bkg_synthesis)
+                           formulation=self._formulation, guess_type=self._initial_guess,
+                           background_rms=self._background_rms, noise_map=self._noise_map, 
+                           noise_synthesis=noise_map_synthesis)
 
-    def generate_initial_lens_light(self, guess_type='bkg_noise'):
+    def generate_initial_lens_light(self):
         num_pix = self.lensingOperator.imagePlane.num_pix
         n_scales = self._n_scales_lens_light
         transform = self.Phi_T_l
         inverse_transform = self.Phi_l
-        sigma_bkg_synthesis = self.noise_levels_image_plane
+        noise_map_synthesis = self.noise_levels_image_plane
         return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
-                                           formulation=self._formulation, guess_type=guess_type,
-                                           sigma_bkg=self._sigma_bkg, sigma_bkg_synthesis=sigma_bkg_synthesis)
+                                           formulation=self._formulation, guess_type=self._initial_guess,
+                                           background_rms=self._background_rms, noise_map=self._noise_map, 
+                                           noise_synthesis=noise_map_synthesis)
 
     def apply_image_plane_mask(self, image_2d):
         return self.M(image_2d)
@@ -215,7 +222,7 @@ class SparseSolverBase(ModelOperators):
         """ returns || Y' - HFS - HG ||^2_2 / sigma^2, where Y' can be Y - HG or Y - HFS """
         model = self.model_analysis(S=S, HG=HG)
         error = self.Y_eff - model
-        return self.M(error / self._sigma_bkg)
+        return self.M(error / self._noise_map)
 
     def reduced_chi2(self, S=None, HG=None):
         chi2 = self.reduced_residuals(S=S, HG=HG)**2
@@ -299,7 +306,8 @@ class SparseSolverBase(ModelOperators):
         # model transform of the impulse
         dirac_coeffs = self.Phi_T_l(dirac)
 
-        noise_levels = self._sigma_bkg * np.ones_like(dirac_coeffs)
+        #noise_levels = self._background_rms * np.ones_like(dirac_coeffs)
+        noise_levels = self._noise_map
 
         for scale_idx in range(noise_levels.shape[0]):
             scale_power = np.sum(dirac_coeffs[scale_idx, :, :]**2)
@@ -321,7 +329,8 @@ class SparseSolverBase(ModelOperators):
         else:
             HT = self._psf_kernel.T
         HT_power = np.sqrt(np.sum(HT**2))
-        HT_noise = self._sigma_bkg * HT_power * np.ones((n_img, n_img))
+        # HT_noise = self._background_rms * HT_power * np.ones((n_img, n_img))
+        HT_noise = self._noise_map * HT_power
         FT_HT_noise = self.F_T(HT_noise)
         FT_HT_noise[FT_HT_noise == 0.] = np.mean(FT_HT_noise) * boost_where_zero
 

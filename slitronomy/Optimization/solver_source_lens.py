@@ -42,8 +42,8 @@ class SparseSolverSourceLens(SparseSolverSource):
         mu_l = 1. / self.spectral_norm_lens
 
         # initial guess as background random noise
-        S, alpha_S = self.generate_initial_source(guess_type='bkg_noise')
-        HG, alpha_HG = self.generate_initial_lens_light(guess_type='bkg_noise')
+        S, alpha_S = self.generate_initial_source()
+        HG, alpha_HG = self.generate_initial_lens_light()
         if self._show_steps:
             self._plotter.plot_init(S, show_now=True)
             self._plotter.plot_init(HG, show_now=True)
@@ -151,8 +151,8 @@ class SparseSolverSourceLens(SparseSolverSource):
         coeffs_HG_1d = util.cube2array(self.Phi_T_l(HG))
         
         if self._show_steps:
-            self._plotter.plot_final(self._source_model, show_now=True)
-            self._plotter.plot_final(self._lens_light_model, show_now=True)
+            self._plotter.plot_final(self._source_model)
+            self._plotter.plot_final(self._lens_light_model)
         
         model = self.image_model(unconvolved=False)
         return model, S, HG, coeffs_S_1d, coeffs_HG_1d

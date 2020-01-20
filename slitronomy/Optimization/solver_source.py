@@ -49,7 +49,7 @@ class SparseSolverSource(SparseSolverBase):
         grad_f = lambda x : self.gradient_loss_source(x)
 
         # initial guess as background random noise
-        S, alpha_S = self.generate_initial_source(guess_type='bkg_noise')
+        S, alpha_S = self.generate_initial_source()
         self._plotter.plot_init(S)
 
         # initialise weights
@@ -113,7 +113,7 @@ class SparseSolverSource(SparseSolverBase):
         coeffs_S_1d = util.cube2array(self.Phi_T_s(S))
 
         if self._show_steps:
-            self._plotter.plot_final(self._source_model, show_now=True)
+            self._plotter.plot_final(self._source_model)
         
         model = self.image_model(unconvolved=False)
         return model, S, None, coeffs_S_1d, None

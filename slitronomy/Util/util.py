@@ -161,17 +161,24 @@ def dirac_impulse(num_pix):
 
 
 def generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
-                           formulation='analysis', guess_type='bkg_noise',
-                           sigma_bkg=None, sigma_bkg_synthesis=None):
+                           formulation='analysis', guess_type='background_rms',
+                           background_rms=None, noise_map=None, noise_synthesis=None):
     if guess_type == 'null':
         X = np.zeros((num_pix, num_pix))
         alpha_X = np.zeros((n_scales, num_pix, num_pix))
-    elif guess_type == 'bkg_noise':
+    elif guess_type == 'background_rms':
         if formulation == 'analysis':
-            X = sigma_bkg * np.random.randn(num_pix, num_pix)
+            X = background_rms * np.random.randn(num_pix, num_pix)
             alpha_X = transform(X)
         elif formulation == 'synthesis':
-            alpha_X = sigma_bkg_synthesis * np.random.randn(num_pix, num_pix)
+            alpha_X = np.copy(noise_synthesis)
+            X = inverse_transform(alpha_X)
+    elif guess_type == 'noise_map':
+        if formulation == 'analysis':
+            X = np.median(noise_map) * np.random.randn(num_pix, num_pix)
+            alpha_X = transform(X)
+        elif formulation == 'synthesis':
+            alpha_X = np.copy(noise_synthesis)
             X = inverse_transform(alpha_X)
     else:
         raise ValueError("Initial guess type '{}' not supported".format(guess_type))
