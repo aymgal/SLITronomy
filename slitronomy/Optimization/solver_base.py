@@ -78,7 +78,8 @@ class SparseSolverBase(ModelOperators):
         any class that inherits SparseSolverSource should have the self._solve() method implemented, with correct output.
         """
         # update image <-> source plane mapping from lens model parameters
-        self.lensingOperator.update_mapping(kwargs_lens)
+        size_image, pixel_scale_image, size_source, pixel_scale_source \
+            = self.lensingOperator.update_mapping(kwargs_lens)
         # get number of decomposition scales
         n_scales_source = kwargs_source[0]['n_scales']
         if kwargs_lens_light is not None and len(kwargs_lens_light) > 0:
@@ -88,8 +89,13 @@ class SparseSolverBase(ModelOperators):
         # save number of scales
         self.set_wavelet_scales(n_scales_source, n_scales_lens_light)
         # call solver
-        image_model, source_light, lens_light, coeffs = self._solve()
-        return image_model, source_light, lens_light, coeffs
+        image_model, source_light, lens_light, coeffs_source, coeffs_lens_light = self._solve()
+        if lens_light is None:
+            coeffs_lens_light = []
+        # concatenate coefficients and fixed parameters
+        coeffs = np.concatenate([coeffs_source, coeffs_lens_light])
+        scales = [size_image, pixel_scale_image, size_source, pixel_scale_source]
+        return image_model, source_light, lens_light, coeffs, scales
 
     def _solve(self):
         raise ValueError("This method must be implemented in class that inherits SparseSolverBase")

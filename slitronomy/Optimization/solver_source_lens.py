@@ -151,17 +151,16 @@ class SparseSolverSourceLens(SparseSolverSource):
         self._source_model = S
         self._lens_light_model = HG
 
-        # concatenate all optimized coefficients
-        source_coeffs_1d = util.cube2array(self.Phi_T_s(S))
-        lens_light_coeffs_1d = util.cube2array(self.Phi_T_l(HG))
-        coeffs_1d = np.concatenate([source_coeffs_1d, lens_light_coeffs_1d])
+        # get wavelets coefficients
+        coeffs_S_1d = util.cube2array(self.Phi_T_s(S))
+        coeffs_HG_1d = util.cube2array(self.Phi_T_l(HG))
         
         if self._show_steps:
             self._plotter.plot_final(self._source_model, show_now=True)
             self._plotter.plot_final(self._lens_light_model, show_now=True)
         
         model = self.image_model(unconvolved=False)
-        return model, S, HG, coeffs_1d
+        return model, S, HG, coeffs_S_1d, coeffs_HG_1d
 
     def _gradient_loss_analysis_lens(self, HG):
         """

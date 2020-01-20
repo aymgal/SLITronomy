@@ -116,13 +116,13 @@ class SparseSolverSource(SparseSolverBase):
         self._source_model = S
 
         # all optimized coefficients (flattened)
-        coeffs_1d = util.cube2array(self.Phi_T_s(S))
+        coeffs_S_1d = util.cube2array(self.Phi_T_s(S))
 
         if self._show_steps:
             self._plotter.plot_final(self._source_model, show_now=True)
         
         model = self.image_model(unconvolved=False)
-        return model, S, None, coeffs_1d
+        return model, S, None, coeffs_S_1d, None
 
     def _update_weights(self, alpha_S, alpha_HG=None):
         lambda_S = self.noise_levels_source_plane

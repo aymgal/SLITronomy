@@ -117,6 +117,9 @@ class LensingOperator(object):
             # recompute the mapping with updated grid
             self._compute_mapping(kwargs_lens)
 
+        return (self.imagePlane.grid_size, self.imagePlane.delta_pix, 
+                self.sourcePlane.grid_size, self.sourcePlane.delta_pix)
+
     def delete_mapping(self):
         if hasattr(self, '_lens_mapping_list'): delattr(self, '_lens_mapping_list')
         if hasattr(self, '_lens_mapping_matrix'): delattr(self, '_lens_mapping_matrix')
