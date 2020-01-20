@@ -50,8 +50,7 @@ class SparseSolverSource(SparseSolverBase):
 
         # initial guess as background random noise
         S, alpha_S = self.generate_initial_source(guess_type='bkg_noise')
-        if self._show_steps:
-            self._plotter.plot_init(S, show_now=True)
+        self._plotter.plot_init(S)
 
         # initialise weights
         weights = 1.
@@ -82,13 +81,11 @@ class SparseSolverSource(SparseSolverBase):
                     alpha_S_next = self.Phi_T_s(S_next)
 
                 # save current step to track
-                print_bool = (i % 30 == 0)
-                if self._verbose and print_bool:
-                    "=== iteration {}-{} ===".format(j, i)
-                self._tracker.save(S=S, S_next=S_next, print_bool=print_bool)
+                self._tracker.save(S=S, S_next=S_next, print_bool=(i % 30 == 0),
+                                   iteration_text="=== iteration {}-{} ===".format(j, i))
 
-                if self._show_steps and i % int(self._n_iter/2) == 0:
-                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i, show_now=True)
+                if self._show_steps and (i % int(self._n_iter/2) == 0):
+                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i)
 
                 # update current estimate of source light and local parameters
                 S = S_next

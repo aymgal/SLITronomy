@@ -70,7 +70,7 @@ class SparseSolverBase(ModelOperators):
         self._show_steps = show_steps
 
         self._tracker = SolverTracker(self, verbose=verbose)
-        self._plotter = SolverPlotter(self)
+        self._plotter = SolverPlotter(self, show_now=True)
 
     def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_special=None):
         """

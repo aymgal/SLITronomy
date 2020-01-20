@@ -12,25 +12,26 @@ class SolverPlotter(object):
     _cmap_1 = 'cubehelix'
     _cmap_2 = 'gist_stern'
 
-    def __init__(self, solver_class):
+    def __init__(self, solver_class, show_now=True):
         self._solver = solver_class
+        self._show_now = show_now
 
-    def plot_init(self, image, show_now=True):
+    def plot_init(self, image):
         title = "initial guess"
-        return self.quick_imshow(image, title=title, show_now=show_now, cmap=self._cmap_2)
+        return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_2)
 
-    def plot_step(self, image, iter_1, iter_2=None, iter_3=None, show_now=True):
+    def plot_step(self, image, iter_1, iter_2=None, iter_3=None):
         if iter_3 is not None:
             title = "iteration {}-{}-{}".format(iter_1, iter_2, iter_3)
         elif iter_2 is not None:
             title = "iteration {}-{}".format(iter_1, iter_2)
         else:
             title = "iteration {}".format(iter_1)
-        return self.quick_imshow(image, title=title, show_now=show_now, cmap=self._cmap_2)
+        return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_2)
 
-    def plot_final(self, image, show_now=True):
+    def plot_final(self, image):
         title = "final reconstruction"
-        return self.quick_imshow(image, title=title, show_now=show_now, cmap=self._cmap_2)
+        return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_2)
 
     def plot_results(self, model_log_scale=False, res_vmin=None, res_vmax=None):
         fig, axes = plt.subplots(2, 3, figsize=(18, 10))

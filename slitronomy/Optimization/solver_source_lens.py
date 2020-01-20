@@ -89,10 +89,9 @@ class SparseSolverSourceLens(SparseSolverSource):
                         alpha_S_next = self.Phi_T_s(S_next)
 
                     # save current step to track
-                    print_bool = (i_l % 30 == 0 and i_s % 30 == 0)
-                    if self._verbose and print_bool:
-                        print("*** iteration {}-{}-{} ***".format(j, i_l, i_s))
-                    self._tracker.save(S=S, S_next=S_next, print_bool=print_bool)
+                    self._tracker.save(S=S, S_next=S_next, 
+                                       print_bool=(i_l % 30 == 0 and i_s % 30 == 0),
+                                       iteration_text="*** iteration {}-{}-{} ***".format(j, i_l, i_s))
                     
                     # update current estimate of source light and local parameters
                     S = S_next
@@ -118,10 +117,9 @@ class SparseSolverSourceLens(SparseSolverSource):
                     alpha_HG_next = self.Phi_T_l(HG_next)
 
                 # save current step to track
-                print_bool = (i_l % 10 == 0 and i_s == self._n_iter-1)
-                if self._verbose and print_bool:
-                    print("=== iteration {}-{}-{} ===".format(j, i_l, i_s))
-                self._tracker.save(HG=HG, HG_next=HG_next, print_bool=print_bool)
+                self._tracker.save(HG=HG, HG_next=HG_next, 
+                                   print_bool=(i_l % 10 == 0 and i_s == self._n_iter-1),
+                                   iteration_text="=== iteration {}-{}-{} ===".format(j, i_l, i_s))
 
                 if self._show_steps and i_l % int(self._n_iter_lens/2) == 0 and i_s == self._n_iter-1:
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i_l, iter_3=i_s, show_now=True)

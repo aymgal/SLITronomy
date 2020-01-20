@@ -25,7 +25,7 @@ class SolverTracker(object):
             return None
         return self._track
 
-    def save(self, S=None, S_next=None, HG=None, HG_next=None, print_bool=False):
+    def save(self, S=None, S_next=None, HG=None, HG_next=None, print_bool=False, iteration_text=None):
         if not hasattr(self, '_track'):
             self._init()
         if S is not None:
@@ -46,8 +46,10 @@ class SolverTracker(object):
             step_diff_HG = np.nan
         # print info
         if self._verbose and print_bool:
-            print("loss = {:.4f}|{:.4f}, red-chi2 = {:.4f}|{:.4f}, step_diff = {:.4f}|{:.4f}"
-                  .format(loss_S, loss_HG, red_chi2_S, red_chi2_HG, step_diff_S, step_diff_HG))
+            if iteration_text is None:
+                iteration_text = "iteration ?"
+            print("{} : loss = {:.4f}|{:.4f}, red-chi2 = {:.4f}|{:.4f}, step_diff = {:.4f}|{:.4f}"
+                  .format(iteration_text, loss_S, loss_HG, red_chi2_S, red_chi2_HG, step_diff_S, step_diff_HG))
         # save in track
         self._track['loss'][0].append(loss_S)
         self._track['loss'][1].append(loss_HG)
