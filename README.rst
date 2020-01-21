@@ -33,7 +33,7 @@ An ensemble of example notebooks are located at `thirdparty/notebooks <https://g
 * `Starlets decomposition and reconstruction <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/02_starlets_decomposition.ipynb>`_
 * `Sparse source reconstruction <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/03_complex_source_reconstruction.ipynb>`_
 * `Lens model optimization <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/04_source_mass_reconstruction.ipynb>`_
-* `Multiband source reconstruction (requires MuSCADeT) <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/05_multiband_source_reconstruction.ipynb>`_
+* `Multi-band source reconstruction <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/05_multiband_source_reconstruction.ipynb>`_ (requires MuSCADeT)
 
-Fork of MuSCADeT : `SLIT <https://github.com/aymgal/MuSCADeT>`_
+Fork of Multi-band morpho-Spectral Component Analysis Deblending Tool : `MuSCADeT <https://github.com/aymgal/MuSCADeT>`_
 
