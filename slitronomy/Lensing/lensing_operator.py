@@ -305,7 +305,7 @@ class LensingOperatorInterpol(LensingOperator):
           C:(0, 1) .____. D:(1, 1)
                    | o  |
                    |    |
-          A:(0, 0) °----° B:(1, 0)
+          A:(0, 0) '----' B:(1, 0)
 
         difference_x, difference_y should be in *pixel units*
         """
