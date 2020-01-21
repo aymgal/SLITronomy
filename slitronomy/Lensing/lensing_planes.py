@@ -51,14 +51,13 @@ class AbstractPlaneGrid(object):
         return self._y_grid_1d
 
     @property
-    def theta_y(self):
-        if not hasattr(self, '_y_grid_1d'):
-            raise ValueError("theta coordinates are not defined")
-        return self._y_grid_1d
-
-    @property
     def unit_image(self):
         return np.ones(self.grid_shape)
+
+    def grid(self, two_dim=False):
+        if two_dim:
+            return util.array2image(self._x_grid_1d), util.array2image(self._y_grid_1d)
+        return self._x_grid_1d, self._y_grid_1d
 
     def grid_pixels(self, two_dim=False):
         theta_x_pix, theta_y_pix = self.map_coord2pix(self.theta_x, self.theta_y)
