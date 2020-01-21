@@ -99,7 +99,7 @@ class SparseSolverBase(ModelOperators):
         if lens_light is None: coeffs_lens_light = []
         # concatenate coefficients and fixed parameters
         coeffs = np.concatenate([coeffs_source, coeffs_lens_light])
-        scales = [size_image, pixel_scale_image, size_source, pixel_scale_source]
+        scales = [size_source, pixel_scale_source, size_image, pixel_scale_image]
         return image_model, source_light, lens_light, coeffs, scales
 
     def _solve(self):

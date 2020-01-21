@@ -25,9 +25,16 @@ class SolverTracker(object):
             return None
         return self._track
 
+    def init(self):
+        self._track = {
+            'loss': [[], []],
+            'red_chi2': [[], []],
+            'step_diff': [[], []],
+        }
+
     def save(self, S=None, S_next=None, HG=None, HG_next=None, print_bool=False, iteration_text=None):
         if not hasattr(self, '_track'):
-            self._init()
+            self.init()
         if S is not None:
             loss_S = self._solver.loss(S=S_next)
             red_chi2_S = self._solver.reduced_chi2(S=S_next)
@@ -63,10 +70,3 @@ class SolverTracker(object):
         self._track['loss'] = np.array(self._track['loss'])
         self._track['red_chi2'] = np.array(self._track['red_chi2'])
         self._track['step_diff'] = np.array(self._track['step_diff'])
-
-    def _init(self):
-        self._track = {
-            'loss': [[], []],
-            'red_chi2': [[], []],
-            'step_diff': [[], []],
-        }
