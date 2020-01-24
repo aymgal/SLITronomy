@@ -21,7 +21,7 @@ class SparseSolverBase(ModelOperators):
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
                  psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='simple',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, min_num_pix_source=10,
-                 sparsity_prior_norm=1, force_positivity=True, formulation='analysis', initial_guess='noise_map',
+                 sparsity_prior_norm=1, force_positivity=True, formulation='analysis', initial_guess_type='noise_map',
                  verbose=False, show_steps=False):
         # consider only the first light profiles in model lists
         source_light_class = source_model_class.func_list[0]
@@ -42,8 +42,8 @@ class SparseSolverBase(ModelOperators):
         # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
         self._noise_map = np.sqrt(data_class.C_D)
 
-        # generation of initial guess
-        self._initial_guess = initial_guess
+        # controls generation of initial guess
+        self._initial_guess_type = initial_guess_type
 
         if psf_class is not None:
             self._psf_kernel = psf_class.kernel_point_source
@@ -64,8 +64,10 @@ class SparseSolverBase(ModelOperators):
                                                source_light_class, lens_light_class=lens_light_class, 
                                                convolution_class=convolution_class, likelihood_mask=likelihood_mask)
 
-        self._formulation = formulation
+        # fill masked pixel with background noise
+        self.fill_masked_data(self._background_rms)
 
+        self._formulation = formulation
         if sparsity_prior_norm not in [0, 1]:
             raise ValueError("Sparsity prior norm can only be 0 or 1 (l0-norm or l1-norm)")
         self._sparsity_prior_norm = sparsity_prior_norm
@@ -173,7 +175,7 @@ class SparseSolverBase(ModelOperators):
         inverse_transform = self.Phi_s
         noise_map_synthesis = self.noise_levels_source_plane
         return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
-                           formulation=self._formulation, guess_type=self._initial_guess,
+                           formulation=self._formulation, guess_type=self._initial_guess_type,
                            background_rms=self._background_rms, noise_map=self._noise_map, 
                            noise_synthesis=noise_map_synthesis)
 
@@ -184,7 +186,7 @@ class SparseSolverBase(ModelOperators):
         inverse_transform = self.Phi_l
         noise_map_synthesis = self.noise_levels_image_plane
         return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
-                                           formulation=self._formulation, guess_type=self._initial_guess,
+                                           formulation=self._formulation, guess_type=self._initial_guess_type,
                                            background_rms=self._background_rms, noise_map=self._noise_map, 
                                            noise_synthesis=noise_map_synthesis)
 

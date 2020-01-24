@@ -14,12 +14,11 @@ class ModelOperators(object):
     def __init__(self, data_class, lensing_operator_class, 
                  source_light_class, lens_light_class=None, convolution_class=None,
                  likelihood_mask=None):
-        self._image_data = data_class.data
-        self._image_data_eff = np.copy(data_class.data)
         if likelihood_mask is None:
-            likelihood_mask = np.ones_like(self._image_data)
+            likelihood_mask = np.ones_like(data_class.data)
         self._mask = likelihood_mask
         self._mask_1d = util.image2array(likelihood_mask)
+        self._prepare_data(data_class, self._mask)
         self._source_light = source_light_class
         self._lens_light = lens_light_class
         self._lensing_op = lensing_operator_class
@@ -28,6 +27,10 @@ class ModelOperators(object):
             self._conv_transpose = convolution_class.copy_transpose()
         else:
             self._conv_transpose = None
+
+    def _prepare_data(self, data_class, mask):
+        self._image_data = np.copy(data_class.data)
+        self._image_data_eff = np.copy(self._image_data)
 
     def set_wavelet_scales(self, n_scales_source, n_scales_lens=None):
         self._n_scales_source = n_scales_source
@@ -39,7 +42,13 @@ class ModelOperators(object):
 
     def reset_data(self):
         """cancel any previous call to self.subtract_from_data()"""
-        self._image_data_eff = self._image_data
+        self._image_data_eff = np.copy(self._image_data)
+
+    def fill_masked_data(self, background_rms):
+        """Update "effective" data by subtracting the input array"""
+        noise = background_rms * np.random.randn(*self._image_data_eff.shape)
+        self._image_data[self._mask == 0] = noise[self._mask == 0]
+        self._image_data_eff = np.copy(self._image_data)
 
     @property
     def spectral_norm_source(self):
