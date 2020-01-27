@@ -330,6 +330,7 @@ class SparseSolverBase(ModelOperators):
             HT = util.dirac_impulse(n_img)
         else:
             HT = self._psf_kernel.T
+            
         HT_power = np.sqrt(np.sum(HT**2))
         # HT_noise = self._background_rms * HT_power * np.ones((n_img, n_img))
         HT_noise = self._noise_map * HT_power
@@ -349,3 +350,17 @@ class SparseSolverBase(ModelOperators):
             levels = signal.fftconvolve(FT_HT_noise**2, dirac_scale**2, mode='same')
             noise_levels[scale_idx, :, :] = np.sqrt(np.abs(levels))
         return noise_levels
+
+    def _update_weights(self, alpha_S, alpha_HG=None):
+        lambda_S = self.noise_levels_source_plane
+        lambda_S[0, :, :]  *= self._k_max_high_freq
+        lambda_S[1:, :, :] *= self._k_max
+        weights_S  = 1. / ( 1 + np.exp(-10 * (lambda_S - alpha_S)) )  # Eq. (11) of Joseph et al. 2018
+        if alpha_HG is not None:
+            lambda_HG = self.noise_levels_image_plane
+            lambda_HG[0, :, :]  *= self._k_max_high_freq
+            lambda_HG[1:, :, :] *= self._k_max
+            weights_HG = 1. / ( 1 + np.exp(-10 * (lambda_HG - alpha_HG)) )  # Eq. (11) of Joseph et al. 2018
+        else:
+            weights_HG = None
+        return weights_S, weights_HG

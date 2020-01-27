@@ -122,20 +122,6 @@ class SparseSolverSource(SparseSolverBase):
         model = self.image_model(unconvolved=False)
         return model, S, None, coeffs_S_1d, None
 
-    def _update_weights(self, alpha_S, alpha_HG=None):
-        lambda_S = self.noise_levels_source_plane
-        lambda_S[0, :, :]  *= self._k_max_high_freq
-        lambda_S[1:, :, :] *= self._k_max
-        weights_S  = 2. / ( 1. + np.exp(-10. * (lambda_S - alpha_S)) )  # Eq. (11) of Joseph et al. 2018
-        if alpha_HG is not None:
-            lambda_HG = self.noise_levels_image_plane
-            lambda_HG[0, :, :]  *= self._k_max_high_freq
-            lambda_HG[1:, :, :] *= self._k_max
-            weights_HG = 2. / ( 1. + np.exp(-10. * (lambda_HG - alpha_HG)) )  # Eq. (11) of Joseph et al. 2018
-        else:
-            weights_HG = None
-        return weights_S, weights_HG
-
     def _image_model(self, unconvolved=False):
         if not hasattr(self, '_source_model'):
             raise ValueError("You must run the optimization before accessing the source estimate")
