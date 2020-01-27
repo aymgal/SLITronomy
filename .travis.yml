@@ -21,8 +21,8 @@ install:
   - pip install -r test_requirements.txt
 
 before_script: # configure a headless display to test plot generation
-- "export DISPLAY=:99.0"
-- sleep 3 # give xvfb some time to start
+  - "export DISPLAY=:99.0"
+  - sleep 3 # give xvfb some time to start
 
 # command to run tests
 script:
