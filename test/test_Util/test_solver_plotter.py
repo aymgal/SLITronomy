@@ -1,5 +1,8 @@
 __author__ = 'aymgal'
 
+import matplotlib
+matplotlib.use("Agg")
+
 from slitronomy.Util.solver_plotter import SolverPlotter
 from slitronomy.Optimization.solver_source import SparseSolverSource
 
@@ -7,9 +10,6 @@ from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.LightModel.light_model import LightModel
 import lenstronomy.Util.util as l_util
-
-import matplotlib
-matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np

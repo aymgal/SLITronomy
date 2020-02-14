@@ -1,9 +1,10 @@
 __author__ = 'aymgal'
 
-from slitronomy.Util import plot_util
-
 import matplotlib
 matplotlib.use("Agg")
+
+from slitronomy.Util import plot_util
+
 import matplotlib.pyplot as plt
 import pytest
 import numpy as np
