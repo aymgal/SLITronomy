@@ -165,16 +165,16 @@ class LensingOperator(object):
 
     def _compute_source_mask(self):
         # de-lens a unit image it to get non-zero source plane pixel
-        unit_mapped = self.image2source_2d(self.imagePlane.unit_image)
-        unit_mapped[unit_mapped > 0] = 1
+        unit_image_mapped = self.image2source_2d(self.imagePlane.unit_image)
+        unit_image_mapped[unit_image_mapped > 0] = 1
         if self._likelihood_mask is not None:
             # de-lens a unit image it to get non-zero source plane pixel
             mask_mapped = self.image2source_2d(self._likelihood_mask)
             mask_mapped[mask_mapped > 0] = 1
         else:
             mask_mapped = None
-        # set the image to source plane for filling holes due to lensing
-        self.sourcePlane.set_delensed_masks(unit_mapped, mask=mask_mapped)
+        # setup the image to source plane for filling holes due to lensing
+        self.sourcePlane.add_delensed_masks(unit_image_mapped, mapped_mask=mask_mapped)
 
     def _reset_source_plane_grid(self):
         self.sourcePlane.reset_grid()

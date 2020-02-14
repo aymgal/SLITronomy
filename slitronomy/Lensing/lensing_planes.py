@@ -15,6 +15,7 @@ class AbstractPlaneGrid(object):
     """
 
     def __init__(self, data_class):
+        self.data = data_class
         num_pix_x, num_pix_y = data_class.num_pixel_axes
         if num_pix_x != num_pix_y:
             raise ValueError("Only square images are supported")
@@ -60,7 +61,7 @@ class AbstractPlaneGrid(object):
         return self._x_grid_1d, self._y_grid_1d
 
     def grid_pixels(self, two_dim=False):
-        theta_x_pix, theta_y_pix = self.map_coord2pix(self.theta_x, self.theta_y)
+        theta_x_pix, theta_y_pix = self.data.map_coord2pix(self.theta_x, self.theta_y)
         if two_dim:
             return util.array2image(theta_x_pix), util.array2image(theta_y_pix)
         return theta_x_pix, theta_y_pix
@@ -120,11 +121,11 @@ class SourcePlaneGrid(AbstractPlaneGrid):
             self._reduc_mask_1d = np.ones(self.grid_size, dtype=bool)
         return util.array2image(self._reduc_mask_1d.astype(float))
 
-    def set_delensed_masks(self, unit_image, mask=None):
-        """input unit_image and mask must be non-boolean 2d arrays"""
-        image_refined = self._fill_mapping_holes(unit_image).astype(bool)
-        if mask is not None:
-            mask_refined = self._fill_mapping_holes(mask).astype(bool)
+    def add_delensed_masks(self, mapped_image, mapped_mask=None):
+        """input mapped_image and mask must be non-boolean 2d arrays"""
+        image_refined = self._fill_mapping_holes(mapped_image).astype(bool)
+        if mapped_mask is not None:
+            mask_refined = self._fill_mapping_holes(mapped_mask).astype(bool)
             self._effective_mask = np.zeros(self.grid_shape, dtype=bool)
             self._effective_mask[image_refined & mask_refined] = True
         else:
@@ -165,7 +166,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
 
     def _fill_mapping_holes(self, image):
         """
-        erosion operation for filling holes
+        erosion operation for filling holes that may be introduced by pixelated lensing operations
 
         The higher the subgrid resolution of the source, the highest the number of holes.
         Hence the 'strength' of the erosion is set to the subgrid resolution (or round up integer) of the source plane 
