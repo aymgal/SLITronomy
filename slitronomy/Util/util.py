@@ -26,28 +26,28 @@ def make_grid(numPix, deltapix, subgrid_res=1, left_lower=False):
     return x_grid - shift, y_grid - shift
 
 
-def grid_from_coordinate_transform(nx, ny, Mpix2coord, ra_at_xy_0, dec_at_xy_0):
-    """
-    Credits to S. Birrer (lenstronomy)
+# def grid_from_coordinate_transform(nx, ny, Mpix2coord, ra_at_xy_0, dec_at_xy_0):
+#     """
+#     Credits to S. Birrer (lenstronomy)
     
-    return a grid in x and y coordinates that satisfy the coordinate system
+#     return a grid in x and y coordinates that satisfy the coordinate system
 
 
-    :param nx: number of pixels in x-axis
-    :param ny: number of pixels in y-axis
-    :param Mpix2coord: transformation matrix (2x2) of pixels into coordinate displacements
-    :param ra_at_xy_0: RA coordinate at (x,y) = (0,0)
-    :param dec_at_xy_0: DEC coordinate at (x,y) = (0,0)
-    :return: RA coordinate grid, DEC coordinate grid
-    """
-    a = np.arange(nx)
-    b = np.arange(ny)
-    matrix = np.dstack(np.meshgrid(a, b)).reshape(-1, 2)
-    x_grid = matrix[:, 0]
-    y_grid = matrix[:, 1]
-    ra_grid = x_grid * Mpix2coord[0, 0] + y_grid * Mpix2coord[0, 1] + ra_at_xy_0
-    dec_grid = x_grid * Mpix2coord[1, 0] + y_grid * Mpix2coord[1, 1] + dec_at_xy_0
-    return ra_grid, dec_grid
+#     :param nx: number of pixels in x-axis
+#     :param ny: number of pixels in y-axis
+#     :param Mpix2coord: transformation matrix (2x2) of pixels into coordinate displacements
+#     :param ra_at_xy_0: RA coordinate at (x,y) = (0,0)
+#     :param dec_at_xy_0: DEC coordinate at (x,y) = (0,0)
+#     :return: RA coordinate grid, DEC coordinate grid
+#     """
+#     a = np.arange(nx)
+#     b = np.arange(ny)
+#     matrix = np.dstack(np.meshgrid(a, b)).reshape(-1, 2)
+#     x_grid = matrix[:, 0]
+#     y_grid = matrix[:, 1]
+#     ra_grid = x_grid * Mpix2coord[0, 0] + y_grid * Mpix2coord[0, 1] + ra_at_xy_0
+#     dec_grid = x_grid * Mpix2coord[1, 0] + y_grid * Mpix2coord[1, 1] + dec_at_xy_0
+#     return ra_grid, dec_grid
 
 
 def array2image(array, nx=0, ny=0):
@@ -162,7 +162,8 @@ def dirac_impulse(num_pix):
 
 def generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
                            formulation='analysis', guess_type='background_rms',
-                           background_rms=None, noise_map=None, noise_synthesis=None):
+                           background_rms=None, background_rms_synthesis=None,
+                           noise_map=None, noise_map_synthesis=None):
     if guess_type == 'null':
         X = np.zeros((num_pix, num_pix))
         alpha_X = np.zeros((n_scales, num_pix, num_pix))
@@ -171,14 +172,16 @@ def generate_initial_guess(num_pix, n_scales, transform, inverse_transform,
             X = background_rms * np.random.randn(num_pix, num_pix)
             alpha_X = transform(X)
         elif formulation == 'synthesis':
-            alpha_X = np.copy(noise_synthesis)
+            alpha_X = np.empty((n_scales, num_pix, num_pix))
+            for i in range(n_scales):
+                alpha_X[i, :, :] = background_rms_synthesis[i] * np.random.randn(num_pix, num_pix)
             X = inverse_transform(alpha_X)
     elif guess_type == 'noise_map':
         if formulation == 'analysis':
             X = np.median(noise_map) * np.random.randn(num_pix, num_pix)
             alpha_X = transform(X)
         elif formulation == 'synthesis':
-            alpha_X = np.copy(noise_synthesis)
+            alpha_X = np.copy(noise_map_synthesis)
             X = inverse_transform(alpha_X)
     else:
         raise ValueError("Initial guess type '{}' not supported".format(guess_type))

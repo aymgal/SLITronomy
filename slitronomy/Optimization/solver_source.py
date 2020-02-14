@@ -15,7 +15,7 @@ class SparseSolverSource(SparseSolverBase):
 
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
-    def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
+    def __init__(self, data_class, lens_model_class, source_model_class,
                  psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='simple',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, min_num_pix_source=10,
                  max_threshold=5, max_threshold_high_freq=None, num_iter=50, num_iter_weights=1, 
@@ -23,7 +23,7 @@ class SparseSolverSource(SparseSolverBase):
                  formulation='analysis', verbose=False, show_steps=False):
 
         super(SparseSolverSource, self).__init__(data_class, lens_model_class, source_model_class, 
-                                                 lens_light_model_class=lens_light_model_class, psf_class=psf_class, 
+                                                 lens_light_model_class=None, psf_class=psf_class, 
                                                  convolution_class=convolution_class, likelihood_mask=likelihood_mask, 
                                                  lensing_operator=lensing_operator, subgrid_res_source=subgrid_res_source, 
                                                  minimal_source_plane=minimal_source_plane, fix_minimal_source_plane=fix_minimal_source_plane,
@@ -43,6 +43,7 @@ class SparseSolverSource(SparseSolverBase):
         implements the SLIT algorithm
         """
         # set the gradient step
+        print("YYY", self.spectral_norm_source)
         mu = 1. / self.spectral_norm_source
 
         # get the gradient of the cost function, which is f = || Y - HFS ||^2_2  

@@ -1,4 +1,4 @@
-__auther__ = 'aymgal'
+__author__ = 'aymgal'
 
 from slitronomy.Optimization import proximals
 

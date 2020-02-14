@@ -1,6 +1,8 @@
-__auther__ = 'aymgal'
+__author__ = 'aymgal'
 
 from slitronomy.Util import util
+
+from lenstronomy.LightModel.Profiles.starlets import Starlets
 
 import numpy as np
 import numpy.testing as npt
@@ -106,16 +108,58 @@ def test_dirac_impulse():
     dirac_odd = util.dirac_impulse(21)
     assert dirac_odd[10, 10] == 1
 
-# def test_generate_initial_guess():
-#     num_pix, n_scales = 10, 2
-#     from lenstronomy.LightModel.Profiles.starlets import Starlets
-#     starlets = Starlets()
-#     transform = starlets.decomposition_2d
-#     inverse_transform = starlets.function_2d
-#     guess_direct_space, guess_transf_space = util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
-#                            formulation='analysis', guess_type='bkg_noise',
-#                            sigma_bkg=None, sigma_bkg_synthesis=None)
-#     assert image_guess.shape == (n_scales, num_pix, num_pix)
+def test_spectral_norm():
+    num_pix = 100
+    operator = lambda X: X
+    inverse_operator = lambda X: X
+    npt.assert_equal(1., util.spectral_norm(num_pix, operator, inverse_operator))
+    operator = lambda X: X**2
+    inverse_operator = lambda X: np.sqrt(X)
+    npt.assert_equal(1., util.spectral_norm(num_pix, operator, inverse_operator))
+    starlets = Starlets()
+    operator = lambda X: starlets.decomposition_2d(X, 3)
+    inverse_operator = lambda X: starlets.function_2d(X, 3, num_pix**2)
+    npt.assert_equal(1., util.spectral_norm(num_pix, operator, inverse_operator))
+
+
+def test_generate_initial_guess():
+    num_pix, n_scales = 10, 3
+    starlets = Starlets()
+    transform = lambda X: starlets.decomposition_2d(X, n_scales)
+    inverse_transform = lambda X: starlets.function_2d(X, n_scales, num_pix**2)
+
+    guess_direct_space, guess_transf_space = util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
+                                                                         guess_type='null')
+    npt.assert_equal(np.zeros((num_pix, num_pix)), guess_direct_space)
+    npt.assert_equal(np.zeros((n_scales, num_pix, num_pix)), guess_transf_space)
+    
+    guess_direct_space, guess_transf_space = util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
+                           formulation='analysis', guess_type='background_rms',
+                           background_rms=1)
+    assert guess_direct_space.shape == (num_pix, num_pix)
+    assert guess_transf_space.shape == (n_scales, num_pix, num_pix)
+
+    noise_map = np.random.rand(num_pix, num_pix)
+    guess_direct_space, guess_transf_space = util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
+                           formulation='analysis', guess_type='noise_map',
+                           noise_map=noise_map)
+    assert guess_direct_space.shape == (num_pix, num_pix)
+    assert guess_transf_space.shape == (n_scales, num_pix, num_pix)
+    
+    background_rms_synthesis = [1]*n_scales
+    guess_direct_space, guess_transf_space = util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
+                           formulation='synthesis', guess_type='background_rms',
+                           background_rms_synthesis=background_rms_synthesis)
+    assert guess_direct_space.shape == (num_pix, num_pix)
+    assert guess_transf_space.shape == (n_scales, num_pix, num_pix)
+
+    noise_map_synthesis = np.random.rand(n_scales, num_pix, num_pix)
+    guess_direct_space, guess_transf_space = util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
+                           formulation='synthesis', guess_type='noise_map',
+                           noise_map_synthesis=noise_map_synthesis)
+    assert guess_direct_space.shape == (num_pix, num_pix)
+    assert guess_transf_space.shape == (n_scales, num_pix, num_pix)
+
 
 class TestRaise(unittest.TestCase):
     def test_raise(self):
@@ -128,6 +172,9 @@ class TestRaise(unittest.TestCase):
         with self.assertRaises(ValueError):
             array = np.ones(5)
             util.array2image(array)
+        with self.assertRaises(ValueError):
+            array = np.ones((2, 2))
+            util.array2cube(array, 2, 2)
 
 
 if __name__ == '__main__':

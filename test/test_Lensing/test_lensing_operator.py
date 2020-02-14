@@ -19,7 +19,7 @@ import lenstronomy.Util.util as l_util
 
 class TestLensingOperator(object):
     """
-    tests the Lensing Operator classes
+    tests the Lensing Operator class
     """
     def setup(self):
         self.num_pix = 25  # cutout pixel size

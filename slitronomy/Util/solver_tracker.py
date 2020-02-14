@@ -13,11 +13,6 @@ class SolverTracker(object):
     def __init__(self, solver_class, verbose=False):
         self._solver = solver_class
         self._verbose = verbose
-        self._track = {
-            'loss': [[], []],
-            'red_chi2': [[], []],
-            'step_diff': [[], []],
-        }
 
     @property
     def track(self):
@@ -34,7 +29,7 @@ class SolverTracker(object):
 
     def save(self, S=None, S_next=None, HG=None, HG_next=None, print_bool=False, iteration_text=None):
         if not hasattr(self, '_track'):
-            self.init()
+            raise ValueError("Tracker has not been initialized")
         if S is not None:
             loss_S = self._solver.loss(S=S_next)
             red_chi2_S = self._solver.reduced_chi2(S=S_next)
