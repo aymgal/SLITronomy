@@ -1,7 +1,7 @@
 __author__ = 'aymgal'
 
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.use("agg")
 
 from slitronomy.Util import plot_util
 

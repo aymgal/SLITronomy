@@ -1,7 +1,7 @@
 __author__ = 'aymgal'
 
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.use("agg")
 
 from slitronomy.Util.solver_plotter import SolverPlotter
 from slitronomy.Optimization.solver_source import SparseSolverSource
@@ -56,15 +56,18 @@ class TestSolverPlotter(object):
     def test_plot_init(self):
         image = np.random.rand(self.num_pix, self.num_pix)
         self.plotter.plot_init(image)
+        plt.close()
 
     def test_plot_step(self):
         image = np.random.rand(self.num_pix, self.num_pix)
         iter_1, iter_2, iter_3 = 1, 2, 3
         self.plotter.plot_step(image, iter_1, iter_2=iter_2, iter_3=iter_3)
+        plt.close()
 
     def test_plot_final(self):
         image = np.random.rand(self.num_pix, self.num_pix)
         self.plotter.plot_final(image)
+        plt.close()
 
     def test_plot_results(self):
         # launch solver
@@ -77,7 +80,7 @@ class TestSolverPlotter(object):
         image = np.random.rand(self.num_pix, self.num_pix)
         kwargs = {'cmap': 'bwr'}
         self.plotter.quick_imshow(image, title="test image", show_now=False, **kwargs)
-
+        plt.close()
 
 if __name__ == '__main__':
     pytest.main()
