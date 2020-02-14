@@ -177,7 +177,7 @@ class SparseSolverBase(ModelOperators):
         return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
                            formulation=self._formulation, guess_type=self._initial_guess_type,
                            background_rms=self._background_rms, noise_map=self._noise_map, 
-                           noise_synthesis=noise_map_synthesis)
+                           noise_map_synthesis=noise_map_synthesis)
 
     def generate_initial_lens_light(self):
         num_pix = self.lensingOperator.imagePlane.num_pix
@@ -188,7 +188,7 @@ class SparseSolverBase(ModelOperators):
         return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
                                            formulation=self._formulation, guess_type=self._initial_guess_type,
                                            background_rms=self._background_rms, noise_map=self._noise_map, 
-                                           noise_synthesis=noise_map_synthesis)
+                                           noise_map_synthesis=noise_map_synthesis)
 
     def apply_image_plane_mask(self, image_2d):
         return self.M(image_2d)

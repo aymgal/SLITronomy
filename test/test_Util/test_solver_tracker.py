@@ -8,7 +8,6 @@ from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.LightModel.light_model import LightModel
 import lenstronomy.Util.util as l_util
 
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.testing as npt
 import pytest
