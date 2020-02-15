@@ -10,12 +10,12 @@ services:
   - xvfb
 
 before_install:
+  - apt-get install pyqt5
   - pip install coverage==4.5.4  # temporary fix for coveralls
   - pip install coveralls
   - pip install python-coveralls
   - pip install codecov
   - pip install scipy
-  - pip install PyQt5
 
 # command to install dependencies
 install:
