@@ -8,4 +8,5 @@ schwimmbad
 multiprocess>=0.70.8
 pybind11
 python-pysap
+pyqt
 -e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
