@@ -15,6 +15,7 @@ before_install:
   - pip install python-coveralls
   - pip install codecov
   - pip install scipy
+  - pip install pyqt
 
 # command to install dependencies
 install:
