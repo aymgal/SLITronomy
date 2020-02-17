@@ -112,14 +112,14 @@ def test_spectral_norm():
     num_pix = 100
     operator = lambda X: X
     inverse_operator = lambda X: X
-    npt.assert_equal(1., util.spectral_norm(num_pix, operator, inverse_operator))
+    npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=8)
     operator = lambda X: X**2
     inverse_operator = lambda X: np.sqrt(X)
-    npt.assert_equal(1., util.spectral_norm(num_pix, operator, inverse_operator))
+    npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=8)
     starlets = Starlets()
     operator = lambda X: starlets.decomposition_2d(X, 3)
     inverse_operator = lambda X: starlets.function_2d(X, 3, num_pix**2)
-    npt.assert_equal(1., util.spectral_norm(num_pix, operator, inverse_operator))
+    npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=8)
 
 
 def test_generate_initial_guess():
