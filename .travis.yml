@@ -15,7 +15,7 @@ before_install:
   - pip install python-coveralls
   - pip install codecov
   - pip install scipy
-  - if [ $TRAVIS_PYTHON_VERSION == "2.7" ]; then pip install PySide; else pip install PyQt5; fi
+  - if [ $TRAVIS_PYTHON_VERSION == "2.7" ]; then pip install PySide; else pip install PyQt4; fi
 
 # command to install dependencies
 install:

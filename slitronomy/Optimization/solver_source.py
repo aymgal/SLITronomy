@@ -43,7 +43,6 @@ class SparseSolverSource(SparseSolverBase):
         implements the SLIT algorithm
         """
         # set the gradient step
-        print("YYY", self.spectral_norm_source)
         mu = 1. / self.spectral_norm_source
 
         # get the gradient of the cost function, which is f = || Y - HFS ||^2_2  

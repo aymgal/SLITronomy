@@ -18,17 +18,21 @@ class ModelOperators(object):
             likelihood_mask = np.ones_like(data_class.data)
         self._mask = likelihood_mask
         self._mask_1d = util.image2array(likelihood_mask)
-        self._prepare_data(data_class, self._mask)
         self._source_light = source_light_class
         self._lens_light = lens_light_class
         self._lensing_op = lensing_operator_class
         self._conv = convolution_class
-        if self._conv is not None:
-            self._conv_transpose = convolution_class.copy_transpose()
-        else:
+        if self._conv is None:
             self._conv_transpose = None
+        else:
+            self._conv_transpose = convolution_class.copy_transpose()
+        self._prepare_data(data_class, self._mask)
 
     def _prepare_data(self, data_class, mask):
+        num_pix_x, num_pix_y = data_class.num_pixel_axes
+        if num_pix_x != num_pix_y:
+            raise ValueError("Only square images are supported")
+        self._num_pix = num_pix_x
         self._image_data = np.copy(data_class.data)
         self._image_data_eff = np.copy(self._image_data)
 
@@ -45,7 +49,7 @@ class ModelOperators(object):
         self._image_data_eff = np.copy(self._image_data)
 
     def fill_masked_data(self, background_rms):
-        """Update "effective" data by subtracting the input array"""
+        """Replace masked pixels with background noise"""
         noise = background_rms * np.random.randn(*self._image_data_eff.shape)
         self._image_data[self._mask == 0] = noise[self._mask == 0]
         self._image_data_eff = np.copy(self._image_data)
