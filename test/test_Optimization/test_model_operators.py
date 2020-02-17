@@ -33,8 +33,6 @@ class TestModelOperators(object):
         
         self.image_data = np.random.rand(self.num_pix, self.num_pix)
         kwargs_data = {
-            #'background_rms': background_rms,
-            #'exposure_time': np.ones((self.num_pix, self.num_pix)) * exp_time,  # individual exposure time/weight per pixel
             'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
             'transform_pix2angle': Mpix2coord,
             'image_data': self.image_data,

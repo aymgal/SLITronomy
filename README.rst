@@ -8,8 +8,8 @@ SLITronomy
 .. image:: https://coveralls.io/repos/github/aymgal/SLITronomy/badge.svg
     :target: https://coveralls.io/github/aymgal/SLITronomy
 
-.. image:: https://codecov.io/gh/aymgal/SLITronomy/branch/master/graph/badge.svg
-  :target: https://codecov.io/gh/aymgal/SLITronomy
+.. .. image:: https://codecov.io/gh/aymgal/SLITronomy/branch/master/graph/badge.svg
+..   :target: https://codecov.io/gh/aymgal/SLITronomy
 
 .. image:: https://img.shields.io/badge/license-MIT-blue.svg?style=flat
     :target: https://github.com/aymgal/slitronomy/blob/master/LICENSE
