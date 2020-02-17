@@ -3,6 +3,11 @@ __author__ = 'aymgal'
 import matplotlib
 matplotlib.use("agg")
 
+import matplotlib.pyplot as plt
+import numpy as np
+import numpy.testing as npt
+import pytest
+
 from slitronomy.Util.solver_plotter import SolverPlotter
 from slitronomy.Optimization.solver_source import SparseSolverSource
 
@@ -10,11 +15,6 @@ from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.LightModel.light_model import LightModel
 import lenstronomy.Util.util as l_util
-
-import matplotlib.pyplot as plt
-import numpy as np
-import numpy.testing as npt
-import pytest
 
 
 class TestSolverPlotter(object):

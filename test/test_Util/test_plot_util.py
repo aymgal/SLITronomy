@@ -3,11 +3,11 @@ __author__ = 'aymgal'
 import matplotlib
 matplotlib.use("agg")
 
-from slitronomy.Util import plot_util
-
 import matplotlib.pyplot as plt
 import pytest
 import numpy as np
+
+from slitronomy.Util import plot_util
 
 
 def test_nice_colorbar():

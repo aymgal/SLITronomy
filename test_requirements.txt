@@ -1,11 +1,10 @@
+pybind11
+python-pysap
 numpy>=1.16.4
-scipy
+matplotlib>=3.0.0
 mpmath
-matplotlib
 future
 astropy
 schwimmbad
 multiprocess>=0.70.8
-pybind11
-python-pysap
 -e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
