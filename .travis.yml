@@ -63,7 +63,7 @@ install:
   - pip install python-coveralls
   - pip install codecov
   - pip install -r test_requirements.txt
-  
+
   # risky task of installing PySAP is done here
   # - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
   #     pip install PySide;
@@ -81,28 +81,31 @@ install:
   # - export PYTHONPATH=$TRAVIS_BUILD_DIR/install:$PYTHONPATH
   # - export PATH=$PATH:$TRAVIS_BUILD_DIR/build/temp.linux-x86_64-3.6/extern/bin;
 
-  - mkdir git_packages
-  - cd git_packages
-  - git clone https://github.com/CEA-COSMIC/pysap.git
-  - cd pysap
-  - pip install .
-  - ls .
-  - ldd pysparse.so
-  - export PYTHONPATH=$(pwd):$PYTHONPATH
-  - export PATH=$PATH:$(pwd)/build/temp.linux-x86_64-3.6/extern/bin;
-  - cd $ORIGINAL_PATH
-  - ls .
+  # - mkdir git_packages
+  # - cd git_packages
+  # - git clone https://github.com/CEA-COSMIC/pysap.git
+  # - cd pysap
+  # - pip install .
+  # - ls .
+  # - ldd pysparse.so
+  # - export PYTHONPATH=$(pwd):$PYTHONPATH
+  # - export PATH=$PATH:$(pwd)/build/temp.linux-x86_64-3.6/extern/bin;
+  # - cd $ORIGINAL_PATH
+  # - ls .
 
 
-  # install the right branch of the fork of lenstronomy
-  - cd $ORIGINAL_PATH
-  - cd git_packages
-  - git clone https://github.com/aymgal/lenstronomy/tree/dev_slit-algo.git
-  - cd lenstronomy 
-  - pip install .
+  # # install the right branch of the fork of lenstronomy
+  # - cd $ORIGINAL_PATH
+  # - cd git_packages
+  # - git clone https://github.com/aymgal/lenstronomy/tree/dev_slit-algo.git
+  # - cd lenstronomy 
+  # - pip install .
+
+  - pip install python-pysap
+  - pip install -e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
 
   # finally (!) install SLITronomy
-  - cd $ORIGINAL_PATH
+  # - cd $ORIGINAL_PATH
   - pip install .
 
 before_script: # configure a headless display to test plot generation
