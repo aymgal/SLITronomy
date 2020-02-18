@@ -23,6 +23,8 @@ services:
 
 before_install:
   - export ORIGINAL_PATH=$(pwd)
+  - echo $ORIGINAL_PATH
+  
   - if [ "$TRAVIS_OS_NAME" == "linux" ]; then
       sudo apt-get update;
       sudo updatedb;
@@ -72,11 +74,11 @@ install:
   # - ldd $TRAVIS_BUILD_DIR/install/pysparse.so
   # - export PYTHONPATH=$TRAVIS_BUILD_DIR/install:$PYTHONPATH
   # - export PATH=$PATH:$TRAVIS_BUILD_DIR/build/temp.linux-x86_64-3.6/extern/bin;
-  
+
   - mkdir git_packages
   - cd git_packages
   - git clone https://github.com/CEA-COSMIC/pysap-data.git
-  - cd pysap
+  - cd pysap-data
   - rm pysap/__init__.py
   - pip install . --no-clean --no-deps .
   - ls .
