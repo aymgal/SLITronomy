@@ -5,7 +5,7 @@ os:
 language: python
 
 python:
-  - 2.7
+  # - 2.7
   - 3.6
 
 jobs:
@@ -35,9 +35,9 @@ before_install:
       brew install fftw;
       wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
     fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
-      export CPLUS_INCLUDE_PATH=/opt/python/2.7.15/include/python2.7;
-    fi
+  # - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
+  #     export CPLUS_INCLUDE_PATH=/opt/python/2.7.15/include/python2.7;
+  #   fi
   - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       export CPLUS_INCLUDE_PATH=/opt/python/3.6.3/include/python3.6m;
     fi
@@ -57,38 +57,24 @@ before_install:
   
 install:
   # risky task of installing PySAP is done here
-  - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
-      pip install PySide;
-      pip install python-pysap;
-    fi
+  # - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
+  #     pip install PySide;
+  #     pip install python-pysap;
+  #   fi
 
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      mkdir -p $HOME/.local/share/pysap;
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      git clone https://github.com/CEA-COSMIC/pysap-data.git $HOME/.local/share/pysap/pysap-data;
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      ln -s $HOME/.local/share/pysap/pysap-data/pysap-data/* $HOME/.local/share/pysap;
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      rm $HOME/.local/share/pysap/__init__.py;
-    fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      ls -l $HOME/.local/share/pysap;
-    fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      pip install -b $TRAVIS_BUILD_DIR/build -t $TRAVIS_BUILD_DIR/install --no-clean --no-deps .;
-    fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      ls $TRAVIS_BUILD_DIR/install;
-    fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      ldd $TRAVIS_BUILD_DIR/install/pysparse.so;
-    fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      export PYTHONPATH=$TRAVIS_BUILD_DIR/install:$PYTHONPATH;
-    fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      export PATH=$PATH:$TRAVIS_BUILD_DIR/build/temp.linux-x86_64-3.6/extern/bin;
-    fi
+  - mkdir -p $HOME/.local/share/pysap
+  - git clone https://github.com/CEA-COSMIC/pysap-data.git $HOME/.local/share/pysap/pysap-data
+  - ln -s $HOME/.local/share/pysap/pysap-data/pysap-data/* $HOME/.local/share/pysap
+  - rm $HOME/.local/share/pysap/__init__.py
+  - ls -l $HOME/.local/share/pysap
+  - pip install nose nose-exclude
+  - pip install coverage coveralls
+  - pip install pycodestyle
+  - pip install -b $TRAVIS_BUILD_DIR/build -t $TRAVIS_BUILD_DIR/install --no-clean --no-deps .
+  - ls $TRAVIS_BUILD_DIR/install
+  - ldd $TRAVIS_BUILD_DIR/install/pysparse.so
+  - export PYTHONPATH=$TRAVIS_BUILD_DIR/install:$PYTHONPATH
+  - export PATH=$PATH:$TRAVIS_BUILD_DIR/build/temp.linux-x86_64-3.6/extern/bin;
 
   - pip install coverage==4.5.4  # temporary fix for coveralls
   - pip install coveralls
