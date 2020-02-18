@@ -29,9 +29,9 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 
-readme = open('README.rst').read()
+#readme = open('README.rst').read()
 
-history = open('HISTORY.rst').read().replace('.. :changelog:', '')
+#history = open('HISTORY.rst').read().replace('.. :changelog:', '')
 
 desc = open("README.rst").read()
 requires = ['configparser']

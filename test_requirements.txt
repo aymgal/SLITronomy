@@ -3,6 +3,7 @@ scipy
 matplotlib
 future
 astropy
+
 # for lenstronomy
 sklearn
 numba>=0.43.1
@@ -12,12 +13,14 @@ cosmohammer>=0.6.1
 emcee>=3.0.0
 dynesty
 pymultinest
-pypolychord
+#pypolychord
 nestcheck
 multiprocess>=0.70.8
+
 # for PySAP
-pybind11
+PyQt5==5.14.0
 pyqtgraph>=0.10.0
+pybind11
 progressbar2>=3.34.3
 nibabel
 modopt
