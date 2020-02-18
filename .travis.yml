@@ -62,30 +62,45 @@ install:
   #     pip install python-pysap;
   #   fi
 
-  - mkdir -p $HOME/.local/share/pysap
-  - git clone https://github.com/CEA-COSMIC/pysap-data.git $HOME/.local/share/pysap/pysap-data
-  - ln -s $HOME/.local/share/pysap/pysap-data/pysap-data/* $HOME/.local/share/pysap
-  - rm $HOME/.local/share/pysap/__init__.py
-  - ls -l $HOME/.local/share/pysap
-  - pip install nose nose-exclude
-  - pip install coverage coveralls
-  - pip install pycodestyle
-  - pip install -b $TRAVIS_BUILD_DIR/build -t $TRAVIS_BUILD_DIR/install --no-clean --no-deps .
-  - ls $TRAVIS_BUILD_DIR/install
-  - ldd $TRAVIS_BUILD_DIR/install/pysparse.so
-  - export PYTHONPATH=$TRAVIS_BUILD_DIR/install:$PYTHONPATH
-  - export PATH=$PATH:$TRAVIS_BUILD_DIR/build/temp.linux-x86_64-3.6/extern/bin;
+  # - mkdir -p $HOME/.local/share/pysap
+  # - git clone https://github.com/CEA-COSMIC/pysap-data.git $HOME/.local/share/pysap/pysap-data
+  # - ln -s $HOME/.local/share/pysap/pysap-data/pysap-data/* $HOME/.local/share/pysap
+  # - rm $HOME/.local/share/pysap/__init__.py
+  # - ls -l $HOME/.local/share/pysap
+  # - pip install -b $TRAVIS_BUILD_DIR/build -t $TRAVIS_BUILD_DIR/install --no-clean --no-deps .
+  # - ls $TRAVIS_BUILD_DIR/install
+  # - ldd $TRAVIS_BUILD_DIR/install/pysparse.so
+  # - export PYTHONPATH=$TRAVIS_BUILD_DIR/install:$PYTHONPATH
+  # - export PATH=$PATH:$TRAVIS_BUILD_DIR/build/temp.linux-x86_64-3.6/extern/bin;
+  
+  - mkdir git_packages
+  - cd git_packages
+  - git clone https://github.com/CEA-COSMIC/pysap-data.git
+  - cd pysap
+  - rm pysap/__init__.py
+  - pip install . --no-clean --no-deps .
+  - ls .
+  - ldd pysparse.so
+  - export PYTHONPATH=$(pwd):$PYTHONPATH
+  - export PATH=$PATH:$(pwd)/build/temp.linux-x86_64-3.6/extern/bin;
+  - cd $ORIGINAL_PATH
+  - ls .
+
 
   - pip install coverage==4.5.4  # temporary fix for coveralls
   - pip install coveralls
   - pip install python-coveralls
   - pip install codecov
   - pip install -r test_requirements.txt
+
+
   # install the right branch of the fork of lenstronomy
-  - mkdir -p $HOME/.local/share/lenstronomy;
-  - git clone https://github.com/aymgal/lenstronomy/tree/dev_slit-algo.git $HOME/.local/share/lenstronomy/lenstronomy_forked;
-  - cd $HOME/.local/share/lenstronomy/lenstronomy_forked
-  - python setup.py develop
+  - cd $ORIGINAL_PATH
+  - cd git_packages
+  - git clone https://github.com/aymgal/lenstronomy/tree/dev_slit-algo.git
+  - cd lenstronomy 
+  - pip install .
+
   # finally (!) install SLITronomy
   - cd $ORIGINAL_PATH
   - pip install .
