@@ -13,10 +13,10 @@ jobs:
     - os: linux
       dist: xenial
     - os: osx
-      osx_image: xcode11.3
+      # osx_image: xcode11.3
   allow_failures:
     - os: osx
-    - python: 3.6
+    # - python: 3.6
 
 services:
   - xvfb
@@ -24,26 +24,49 @@ services:
 before_install:
   - if [ "$TRAVIS_OS_NAME" == "linux" ]; then
       sudo apt-get update;
-    fi
-  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then
       sudo updatedb;
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
     fi
   - if [ "$TRAVIS_OS_NAME" == "osx" ]; then
+      brew install cmake libomp;
       brew update;
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
+    fi
+  - if [ $TRAVIS_PYTHON_VERSION == "2.7" ]; then
+      export CPLUS_INCLUDE_PATH=/opt/python/2.7.15/include/python2.7;
+    fi
+  - if [ $TRAVIS_PYTHON_VERSION == "3.6" ]; then
+      export CPLUS_INCLUDE_PATH=/opt/python/3.6.3/include/python3.6m;
+    fi
+  - chmod +x miniconda.sh
+  - ./miniconda.sh -b -p $HOME/miniconda
+  - export PATH=$HOME/miniconda/bin:$PATH
+  - hash -r
+  - conda update --all -y
+  - conda info -a
+  # now we create and activate the python virtualenv
+  - conda create -n testenv --yes pip python=$TRAVIS_PYTHON_VERSION
+  - source activate testenv
+  
+# command to install dependencies
+install:
+  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      sudo apt install -y libnfft3-dev
+    fi
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then
+      brew install fftw
     fi
   - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
       pip install PySide;
-    fi
   - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      pip install PyQt5==5.14.0;
+      pip install -I PyQt5==5.14.0;
     fi
   - pip install coverage==4.5.4  # temporary fix for coveralls
   - pip install coveralls
   - pip install python-coveralls
   - pip install codecov
-
-# command to install dependencies
-install:
+  # risky task of installing PySAP is done here
+  - ./test_pysap_install.sh
   - pip install -r test_requirements.txt
   - pip install .
 
