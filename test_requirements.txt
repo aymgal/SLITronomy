@@ -3,7 +3,15 @@ scipy
 matplotlib
 future
 astropy
+sklearn
+numba>=0.43.1
 mpmath
 schwimmbad
+cosmohammer>=0.6.1
+emcee>=3.0.0
+dynesty
+pymultinest
+pypolychord
+nestcheck
 multiprocess>=0.70.8
 -e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
