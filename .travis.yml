@@ -24,7 +24,7 @@ services:
 before_install:
   - export ORIGINAL_PATH=$(pwd)
   - echo $ORIGINAL_PATH
-  
+
   - if [ "$TRAVIS_OS_NAME" == "linux" ]; then
       sudo apt-get update;
       sudo updatedb;
@@ -77,9 +77,8 @@ install:
 
   - mkdir git_packages
   - cd git_packages
-  - git clone https://github.com/CEA-COSMIC/pysap-data.git
-  - cd pysap-data
-  - rm pysap/__init__.py
+  - git clone https://github.com/CEA-COSMIC/pysap.git
+  - cd pysap
   - pip install . --no-clean --no-deps .
   - ls .
   - ldd pysparse.so
