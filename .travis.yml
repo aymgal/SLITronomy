@@ -29,9 +29,10 @@ before_install:
       wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
     fi
   - if [ "$TRAVIS_OS_NAME" == "osx" ]; then
-      brew install cmake libomp;
       brew update;
+      brew install cmake libomp;
       brew install fftw;
+      brew install python3;
       wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
     fi
   - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
@@ -63,7 +64,7 @@ install:
   - cd ..
   - mkdir git_packages
   - cd git_packages
-  - git clone https://github.com/aymgal/lenstronomy/tree/dev_slit-algo.git
+  - git clone https://github.com/aymgal/lenstronomy/tree/dev_slit-algo
   - cd lenstronomy 
   - pip install .
   # - pip install -e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
