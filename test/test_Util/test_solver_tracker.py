@@ -18,7 +18,7 @@ class TestSolverTracker(object):
     tests the Solver Tracker class
     """
     def setup(self):
-        self.num_pix = 25  # cutout pixel size
+        self.num_pix = 20  # cutout pixel size
         delta_pix = 0.2
         background_rms = 0.05
         _, _, ra_at_xy_0, dec_at_xy_0, _, _, Mpix2coord, _ \

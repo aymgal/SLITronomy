@@ -123,7 +123,7 @@ def test_spectral_norm():
 
 
 def test_generate_initial_guess():
-    num_pix, n_scales = 10, 3
+    num_pix, n_scales = 20, 3
     starlets = Starlets()
     transform = lambda X: starlets.decomposition_2d(X, n_scales)
     inverse_transform = lambda X: starlets.function_2d(X, n_scales, num_pix**2)

@@ -10,7 +10,7 @@ import unittest
 
 def test_prox_sparsity_wavelets():
     n_scales = 3
-    n_side_pixels = 5
+    n_side_pixels = 20
     coeffs = np.empty((n_scales, n_side_pixels, n_side_pixels))
     coeffs[0, :, :] = 9 * np.ones(25).reshape(n_side_pixels, n_side_pixels)
     coeffs[1, :, :] = 11 * np.ones(25).reshape(n_side_pixels, n_side_pixels)
