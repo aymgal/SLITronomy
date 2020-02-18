@@ -56,7 +56,22 @@ before_install:
   
 install:
   # risky task of installing PySAP is done here
-  - ./test_pysap_install.sh
+  - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
+      pip install PySide;
+      pip install python-pysap;
+    fi
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
+      mkdir -p $HOME/.local/share/pysap;
+      git clone https://github.com/CEA-COSMIC/pysap-data.git $HOME/.local/share/pysap/pysap-data;
+      ln -s $HOME/.local/share/pysap/pysap-data/pysap-data/* $HOME/.local/share/pysap;
+      rm $HOME/.local/share/pysap/__init__.py;
+      ls -l $HOME/.local/share/pysap;
+      pip install -b $TRAVIS_BUILD_DIR/build -t $TRAVIS_BUILD_DIR/install --no-clean --no-deps .;
+      ls $TRAVIS_BUILD_DIR/install;
+      ldd $TRAVIS_BUILD_DIR/install/pysparse.so;
+      export PYTHONPATH=$TRAVIS_BUILD_DIR/install:$PYTHONPATH;
+      export PATH=$PATH:$TRAVIS_BUILD_DIR/build/temp.linux-x86_64-3.6/extern/bin;
+    fi
   - pip install coverage==4.5.4  # temporary fix for coveralls
   - pip install coveralls
   - pip install python-coveralls
