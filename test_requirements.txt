@@ -1,6 +1,6 @@
+numpy>=1.16.4
 pybind11
 python-pysap
-numpy>=1.16.4
 scipy
 matplotlib
 future
