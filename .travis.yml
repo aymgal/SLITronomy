@@ -52,6 +52,7 @@ install:
   - pip install coveralls
   - pip install python-coveralls
   - pip install codecov
+  - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then pip install PySide; else pip install PyQt5==5.14.0; fi
   - pip install -r test_requirements.txt
   - pip install python-pysap
 

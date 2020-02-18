@@ -18,7 +18,6 @@ nestcheck
 multiprocess>=0.70.8
 
 # for PySAP
-PyQt5==5.14.0
 pybind11
 pyqtgraph>=0.10.0
 progressbar2>=3.34.3
