@@ -1,19 +1,14 @@
-os:
-  - linux
-  - osx
-
+os: linux
+dist: xenial
 language: python
 
 python:
+  - 2.7
   - 3.6
 
 jobs:
-  include:
-    - os: linux
-      dist: xenial
-    - os: osx
   allow_failures:
-    - os: osx
+    - python: 2.7
 
 services:
   - xvfb
@@ -64,8 +59,9 @@ install:
   - cd ..
   - mkdir git_packages
   - cd git_packages
-  - git clone https://github.com/aymgal/lenstronomy/tree/dev_slit-algo
-  - cd lenstronomy 
+  - git clone https://github.com/aymgal/lenstronomy.git
+  - cd lenstronomy
+  - git checkout dev_slit-algo
   - pip install .
   # - pip install -e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
 
