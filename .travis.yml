@@ -5,7 +5,6 @@ os:
 language: python
 
 python:
-  # - 2.7
   - 3.6
 
 jobs:
@@ -13,10 +12,8 @@ jobs:
     - os: linux
       dist: xenial
     - os: osx
-      # osx_image: xcode11.3
   allow_failures:
     - os: osx
-    # - python: 3.6
 
 services:
   - xvfb
@@ -37,9 +34,6 @@ before_install:
       brew install fftw;
       wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
     fi
-  # - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
-  #     export CPLUS_INCLUDE_PATH=/opt/python/2.7.15/include/python2.7;
-  #   fi
   - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       export CPLUS_INCLUDE_PATH=/opt/python/3.6.3/include/python3.6m;
     fi
@@ -63,49 +57,19 @@ install:
   - pip install python-coveralls
   - pip install codecov
   - pip install -r test_requirements.txt
-
-  # risky task of installing PySAP is done here
-  # - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
-  #     pip install PySide;
-  #     pip install python-pysap;
-  #   fi
-
-  # - mkdir -p $HOME/.local/share/pysap
-  # - git clone https://github.com/CEA-COSMIC/pysap-data.git $HOME/.local/share/pysap/pysap-data
-  # - ln -s $HOME/.local/share/pysap/pysap-data/pysap-data/* $HOME/.local/share/pysap
-  # - rm $HOME/.local/share/pysap/__init__.py
-  # - ls -l $HOME/.local/share/pysap
-  # - pip install -b $TRAVIS_BUILD_DIR/build -t $TRAVIS_BUILD_DIR/install --no-clean --no-deps .
-  # - ls $TRAVIS_BUILD_DIR/install
-  # - ldd $TRAVIS_BUILD_DIR/install/pysparse.so
-  # - export PYTHONPATH=$TRAVIS_BUILD_DIR/install:$PYTHONPATH
-  # - export PATH=$PATH:$TRAVIS_BUILD_DIR/build/temp.linux-x86_64-3.6/extern/bin;
-
-  # - mkdir git_packages
-  # - cd git_packages
-  # - git clone https://github.com/CEA-COSMIC/pysap.git
-  # - cd pysap
-  # - pip install .
-  # - ls .
-  # - ldd pysparse.so
-  # - export PYTHONPATH=$(pwd):$PYTHONPATH
-  # - export PATH=$PATH:$(pwd)/build/temp.linux-x86_64-3.6/extern/bin;
-  # - cd $ORIGINAL_PATH
-  # - ls .
-
-
-  # # install the right branch of the fork of lenstronomy
-  # - cd $ORIGINAL_PATH
-  # - cd git_packages
-  # - git clone https://github.com/aymgal/lenstronomy/tree/dev_slit-algo.git
-  # - cd lenstronomy 
-  # - pip install .
-
   - pip install python-pysap
-  - pip install -e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
+
+  # install the right branch of the fork of lenstronomy
+  - cd ..
+  - mkdir git_packages
+  - cd git_packages
+  - git clone https://github.com/aymgal/lenstronomy/tree/dev_slit-algo.git
+  - cd lenstronomy 
+  - pip install .
+  # - pip install -e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
 
   # finally (!) install SLITronomy
-  # - cd $ORIGINAL_PATH
+  - cd $ORIGINAL_PATH
   - pip install .
 
 before_script: # configure a headless display to test plot generation

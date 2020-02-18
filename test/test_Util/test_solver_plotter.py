@@ -22,7 +22,7 @@ class TestSolverPlotter(object):
     tests the Solver Plotter class
     """
     def setup(self):
-        self.num_pix = 10  # cutout pixel size
+        self.num_pix = 20  # cutout pixel size
         delta_pix = 0.2
         background_rms = 0.05
         _, _, ra_at_xy_0, dec_at_xy_0, _, _, Mpix2coord, _ \
@@ -40,11 +40,11 @@ class TestSolverPlotter(object):
 
         # lens mass class
         lens_model_class = LensModel(['SPEP'])
-        self.kwargs_lens = [{'theta_E': 1, 'gamma': 2, 'center_x': 0, 'center_y': 0, 'e1': -0.05, 'e2': 0.05}]
+        self.kwargs_lens = [{'theta_E': 1, 'gamma': 3, 'center_x': 0, 'center_y': 0, 'e1': -0.05, 'e2': 0.05}]
 
         # source light class
         source_model_class = LightModel(['STARLETS'])
-        self.kwargs_source = [{'coeffs': 0, 'n_scales': 2, 'n_pixels': self.num_pix**2}]
+        self.kwargs_source = [{'coeffs': 0, 'n_scales': 3, 'n_pixels': self.num_pix**2}]
 
         # init sparse solver
         self.solver = SparseSolverSource(data_class, lens_model_class, source_model_class,
