@@ -14,4 +14,3 @@ pymultinest
 pypolychord
 nestcheck
 multiprocess>=0.70.8
--e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy

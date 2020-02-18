@@ -22,6 +22,7 @@ services:
   - xvfb
 
 before_install:
+  - export ORIGINAL_PATH=$(pwd)
   - if [ "$TRAVIS_OS_NAME" == "linux" ]; then
       sudo apt-get update;
       sudo updatedb;
@@ -60,23 +61,47 @@ install:
       pip install PySide;
       pip install python-pysap;
     fi
+
   - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       mkdir -p $HOME/.local/share/pysap;
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       git clone https://github.com/CEA-COSMIC/pysap-data.git $HOME/.local/share/pysap/pysap-data;
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       ln -s $HOME/.local/share/pysap/pysap-data/pysap-data/* $HOME/.local/share/pysap;
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       rm $HOME/.local/share/pysap/__init__.py;
+    fi
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       ls -l $HOME/.local/share/pysap;
+    fi
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       pip install -b $TRAVIS_BUILD_DIR/build -t $TRAVIS_BUILD_DIR/install --no-clean --no-deps .;
+    fi
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       ls $TRAVIS_BUILD_DIR/install;
+    fi
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       ldd $TRAVIS_BUILD_DIR/install/pysparse.so;
+    fi
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       export PYTHONPATH=$TRAVIS_BUILD_DIR/install:$PYTHONPATH;
+    fi
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       export PATH=$PATH:$TRAVIS_BUILD_DIR/build/temp.linux-x86_64-3.6/extern/bin;
     fi
+
   - pip install coverage==4.5.4  # temporary fix for coveralls
   - pip install coveralls
   - pip install python-coveralls
   - pip install codecov
   - pip install -r test_requirements.txt
+  # install the right branch of the fork of lenstronomy
+  - mkdir -p $HOME/.local/share/lenstronomy;
+  - git clone https://github.com/aymgal/lenstronomy/tree/dev_slit-algo.git $HOME/.local/share/lenstronomy/lenstronomy_forked;
+  - cd $HOME/.local/share/lenstronomy/lenstronomy_forked
+  - python setup.py develop
+  # finally (!) install SLITronomy
+  - cd $ORIGINAL_PATH
   - pip install .
 
 before_script: # configure a headless display to test plot generation
