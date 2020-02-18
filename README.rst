@@ -11,6 +11,12 @@ SLITronomy
 .. .. image:: https://codecov.io/gh/aymgal/SLITronomy/branch/master/graph/badge.svg
 ..   :target: https://codecov.io/gh/aymgal/SLITronomy
 
+.. image:: https://badge.fury.io/py/slitronomy.svg
+    :target: https://badge.fury.io/py/slitronomy
+
+.. image:: https://img.shields.io/badge/python-3.6-blue.svg
+    :target: https://badge.fury.io/py/python-pySAP
+
 .. image:: https://img.shields.io/badge/license-MIT-blue.svg?style=flat
     :target: https://github.com/aymgal/slitronomy/blob/master/LICENSE
 
