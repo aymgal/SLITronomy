@@ -12,13 +12,13 @@ def test_prox_sparsity_wavelets():
     n_scales = 3
     n_side_pixels = 20
     coeffs = np.empty((n_scales, n_side_pixels, n_side_pixels))
-    coeffs[0, :, :] = 9 * np.ones(25).reshape(n_side_pixels, n_side_pixels)
-    coeffs[1, :, :] = 11 * np.ones(25).reshape(n_side_pixels, n_side_pixels)
-    coeffs[2, :, :] = np.arange(25).reshape(n_side_pixels, n_side_pixels)
+    coeffs[0, :, :] = 9 * np.ones(n_side_pixels**2).reshape(n_side_pixels, n_side_pixels)
+    coeffs[1, :, :] = 11 * np.ones(n_side_pixels**2).reshape(n_side_pixels, n_side_pixels)
+    coeffs[2, :, :] = np.arange(n_side_pixels**2).reshape(n_side_pixels, n_side_pixels)
 
     step = 1
     level_const = 10 * np.ones(n_scales)
-    level_pixels = np.ones(75).reshape(n_scales, n_side_pixels, n_side_pixels)
+    level_pixels = np.ones(n_scales*n_side_pixels**2).reshape(n_scales, n_side_pixels, n_side_pixels)
 
     # test l0-norm
     coeffs_proxed_l0 = proximals.prox_sparsity_wavelets(coeffs, step, level_const, level_pixels, l_norm=0)
@@ -48,6 +48,7 @@ def test_prox_positivity():
     assert image.shape == image_pos.shape
     assert not np.all(image >= 0)
     assert np.all(image_pos >= 0)
+
 
 class TestRaise(unittest.TestCase):
     def test_raise(self):
