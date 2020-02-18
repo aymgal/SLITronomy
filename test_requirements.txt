@@ -1,10 +1,14 @@
 numpy>=1.16.4
-pybind11
-python-pysap
 scipy
 matplotlib
 future
 astropy
+nibabel
+pyqtgraph
+progressbar2
+modopt
+pybind11
+python-pysap
 mpmath
 schwimmbad
 multiprocess>=0.70.8
