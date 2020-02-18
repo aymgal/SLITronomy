@@ -58,6 +58,12 @@ before_install:
   - locate pyconfig.h
   
 install:
+  - pip install coverage==4.5.4  # temporary fix for coveralls
+  - pip install coveralls
+  - pip install python-coveralls
+  - pip install codecov
+  - pip install -r test_requirements.txt
+  
   # risky task of installing PySAP is done here
   # - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
   #     pip install PySide;
@@ -79,20 +85,13 @@ install:
   - cd git_packages
   - git clone https://github.com/CEA-COSMIC/pysap.git
   - cd pysap
-  - pip install . --no-clean --no-deps .
+  - pip install .
   - ls .
   - ldd pysparse.so
   - export PYTHONPATH=$(pwd):$PYTHONPATH
   - export PATH=$PATH:$(pwd)/build/temp.linux-x86_64-3.6/extern/bin;
   - cd $ORIGINAL_PATH
   - ls .
-
-
-  - pip install coverage==4.5.4  # temporary fix for coveralls
-  - pip install coveralls
-  - pip install python-coveralls
-  - pip install codecov
-  - pip install -r test_requirements.txt
 
 
   # install the right branch of the fork of lenstronomy
