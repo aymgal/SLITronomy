@@ -49,20 +49,18 @@ before_install:
   # now we create and activate the python virtualenv
   - conda create -n testenv --yes pip python=$TRAVIS_PYTHON_VERSION
   - source activate testenv
+  - pip install --upgrade pip
+  - python --version
+  - pip --version
+  - locate pyconfig.h
   
 install:
-  - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
-      pip install PySide;
-    fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
-      pip install -I PyQt5==5.14.0;
-    fi
+  # risky task of installing PySAP is done here
+  - ./test_pysap_install.sh
   - pip install coverage==4.5.4  # temporary fix for coveralls
   - pip install coveralls
   - pip install python-coveralls
   - pip install codecov
-  # risky task of installing PySAP is done here
-  - ./test_pysap_install.sh
   - pip install -r test_requirements.txt
   - pip install .
 
