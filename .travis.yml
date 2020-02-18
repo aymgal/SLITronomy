@@ -23,9 +23,9 @@ before_install:
 
 # command to install dependencies
 install:
-  - pip install .
   - pip install -r test_requirements.txt
-
+  - pip install .
+  
 before_script: # configure a headless display to test plot generation
   - export DISPLAY=:99.0
   - sleep 3 # give xvfb some time to start
