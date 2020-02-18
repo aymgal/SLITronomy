@@ -53,6 +53,7 @@ before_install:
 install:
   - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then
       pip install PySide;
+    fi
   - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then
       pip install -I PyQt5==5.14.0;
     fi
