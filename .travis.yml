@@ -8,8 +8,8 @@ services:
   - xvfb
 
 before_install:
-  - apt-get update
-  - updatedb
+  - sudo apt-get update
+  - sudo updatedb
   - if [ $TRAVIS_PYTHON_VERSION == "2.7" ]; then
       pip install PySide;
     fi
