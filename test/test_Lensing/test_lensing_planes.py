@@ -126,7 +126,7 @@ class TestSourcePlaneGrid(object):
         unit = np.ones((self.num_pix*self.subgrid_res_source, self.num_pix*self.subgrid_res_source))
         npt.assert_raises(AssertionError, npt.assert_equal, mask, unit)  # test non-equality
 
-    def test_shrink_grid(self):
+    def test_shrink_grid_and_reset(self):
         self.source_plane.add_delensed_masks(self.unit_image_mapped)
         self.source_plane.shrink_grid_to_mask(min_num_pix=None)
         assert self.source_plane.num_pix < self.num_pix*self.subgrid_res_source
@@ -137,9 +137,25 @@ class TestSourcePlaneGrid(object):
         self.source_plane.shrink_grid_to_mask(min_num_pix=min_num_pix)
         assert self.source_plane.num_pix in [min_num_pix-1, min_num_pix, min_num_pix+1] 
 
-    def test_reset_grid(self):
-        # TODO
-        pass
+    def test_update_subgrid_resolution(self):
+        num_pix = 25  # cutout pixel size
+        delta_pix = 0.32
+        _, _, ra_at_xy_0, dec_at_xy_0, _, _, Mpix2coord, _ \
+            = l_util.make_grid_with_coordtransform(numPix=num_pix, deltapix=delta_pix, subgrid_res=1, 
+                                                         inverse=False, left_lower=False)
+        kwargs_data = {
+            'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
+            'transform_pix2angle': Mpix2coord,
+            'image_data': np.zeros((num_pix, num_pix))
+        }
+        data_class = ImageData(**kwargs_data)
+        source_plane = SourcePlaneGrid(data_class, subgrid_res=1)
+        assert source_plane.subgrid_resolution == 1
+        assert source_plane.grid_shape == (num_pix, num_pix)
+        source_plane.subgrid_resolution = 3
+        assert source_plane.subgrid_resolution == 3
+        assert source_plane.grid_shape == (num_pix*3, num_pix*3)
+
 
 class TestRaise(unittest.TestCase):
 

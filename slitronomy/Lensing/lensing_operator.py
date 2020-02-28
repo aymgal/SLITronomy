@@ -172,7 +172,7 @@ class LensingOperator(object):
             mask_mapped[mask_mapped > 0] = 1
         else:
             mask_mapped = None
-        # setup the image to source plane for filling holes due to lensing
+        # setup the image to source plane for filling holes due to pixelisation of the lensing operation
         self.sourcePlane.add_delensed_masks(unit_image_mapped, mapped_mask=mask_mapped)
 
     def _reset_source_plane_grid(self):
@@ -274,12 +274,13 @@ class LensingOperatorInterpol(LensingOperator):
             weight_list = self._bilinear_weights(dist_A_x, dist_A_y)
 
             # remove pixels and weights that are outside source plane grid
-            j_list, weight_list = self._check_inside_grid(j_list, weight_list)
+            if self._minimal_source_plane:
+                j_list, weight_list = self._check_inside_grid(j_list, weight_list)
 
             # fill the mapping arrays
             lens_mapping_matrix[i, j_list] = weight_list
 
-        # convert to optimzed sparse matrix
+        # convert to optimized sparse matrix, using Compressed Sparse Row (CSR) format for fast vector products
         self._lens_mapping = sparse.csr_matrix(lens_mapping_matrix)
 
     def _find_surrounding_source_pixels(self, i, beta_x, beta_y, grid_offset_x=0, grid_offset_y=0, sort_distance=True):
@@ -329,7 +330,7 @@ class LensingOperatorInterpol(LensingOperator):
             idx_closest = 3
         else:
             raise ValueError("Could not find 4 neighboring pixels for pixel {} ({},{})".format(j, r, s))
-        # check if indices are not outside of of the image, put None if it is
+        # check if indices are not outside of the image, put None if it is
         max_index_value = self.sourcePlane.num_pix - 1
         for idx, (r, s) in enumerate(nb_list_2d):
             if r >= max_index_value or s >= max_index_value:
