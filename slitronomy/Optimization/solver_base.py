@@ -218,7 +218,7 @@ class SparseSolverBase(ModelOperators):
         model = self.model_analysis(S=S, HG=HG)
         error = self.Y_eff - model
         norm_error = np.linalg.norm(error.flatten(), ord=2)  # flatten to ensure L2-norm
-        return norm_error**2
+        return 0.5 * norm_error**2
 
     def reduced_residuals(self, S=None, HG=None):
         """ returns || Y' - HFS - HG ||^2_2 / sigma^2, where Y' can be Y - HG or Y - HFS """
