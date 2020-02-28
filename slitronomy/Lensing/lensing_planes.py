@@ -158,11 +158,27 @@ class SourcePlaneGrid(AbstractPlaneGrid):
             self._x_grid_1d = self._x_grid_1d_large
             self._y_grid_1d = self._y_grid_1d_large
             self._effective_mask = self._effective_mask_large
-            del self._num_pix_large
-            del self._x_grid_1d_large
-            del self._y_grid_1d_large
-            del self._effective_mask_large
+            delattr(self, '_num_pix_large')
+            delattr(self, '_x_grid_1d_large')
+            delattr(self, '_y_grid_1d_large')
+            delattr(self, '_effective_mask_large')
             self._shrinked = False
+
+    @property
+    def subgrid_resolution(self):
+        return self._subgrid_res
+
+    @subgrid_resolution.setter
+    def subgrid_resolution(self, new_subgrid_res):
+        """Update all required fields when setting a new subgrid resolution"""
+        self.reset_grid()
+        if hasattr(self, '_effective_mask'):
+            print("Warning : reset effective_mask to only 1s")
+            self._effective_mask = np.ones(self.grid_shape)
+        self._subgrid_res = new_subgrid_res
+        self._num_pix = self.data.num_pixel_axes[0] * self._subgrid_res
+        self._delta_pix = self.data.pixel_width / self._subgrid_res
+        self._x_grid_1d, self._y_grid_1d = util.make_grid(numPix=self._num_pix, deltapix=self._delta_pix)
 
     def _fill_mapping_holes(self, image):
         """
