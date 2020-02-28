@@ -25,6 +25,17 @@ Updated and improved version of the Sparse Lens Inversion Technique (SLIT), deve
 
 IMPORTANT : the current version of SLItronomy only works with the branch ``dev_algo-slit`` on `this fork <https://github.com/aymgal/lenstronomy/tree/dev_slit-algo>`_  of lenstronomy.
 
+
+Installation
+++++++++++++
+
+This package is available through PyPi.
+
+.. code-block:: bash
+
+    $ pip install slitronomy
+
+
 Links
 +++++
 

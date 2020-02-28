@@ -29,7 +29,7 @@ class LensingOperator(object):
         self._matrix_prod = matrix_prod
 
     def source2image(self, source_1d, kwargs_lens=None, update=False):
-        if (not hasattr(self, '_lens_mapping_list') or update) and kwargs_lens is not None:
+        if (not hasattr(self, '_lens_mapping') or update) and kwargs_lens is not None:
             self.update_mapping(kwargs_lens)
         if self._matrix_prod:
             return self._source2image_matrix(source_1d)
@@ -41,20 +41,20 @@ class LensingOperator(object):
         return util.array2image(self.source2image(source_1d, **kwargs))
 
     def _source2image_matrix(self, source_1d):
-        image_1d = self._lens_mapping_matrix.dot(source_1d)
+        image_1d = self._lens_mapping.dot(source_1d)
         return image_1d
 
     def _source2image_list(self, source_1d):
         image_1d = np.ones(self.imagePlane.grid_size)
         # loop over source plane pixels
         for j in range(source_1d.size):
-            indices_i = np.where(self._lens_mapping_list == j)
+            indices_i = np.where(self._lens_mapping == j)
             image_1d[indices_i] = source_1d[j]
         return image_1d
 
     def image2source(self, image_1d, kwargs_lens=None, update=False, test_unit_image=False):
         """if test_unit_image is True, do not normalize light flux to better visualize the mapping"""
-        if (not hasattr(self, '_lens_mapping_list') or update) and kwargs_lens is not None:
+        if (not hasattr(self, '_lens_mapping') or update) and kwargs_lens is not None:
             self.update_mapping(kwargs_lens)
         if self._matrix_prod:
             return self._image2source_matrix(image_1d, update=update, test_unit_image=test_unit_image)
@@ -69,8 +69,8 @@ class LensingOperator(object):
         if not hasattr(self, '_norm_image2source') or update:
             # avoid computing it each time, save normalisation factors
             # normalization is sum of weights for each source pixel
-            self._norm_image2source = np.squeeze(np.maximum(1, self._lens_mapping_matrix.sum(axis=0)).A)
-        source_1d = self._lens_mapping_matrix.T.dot(image_1d)
+            self._norm_image2source = np.squeeze(np.maximum(1, self._lens_mapping.sum(axis=0)).A)
+        source_1d = self._lens_mapping.T.dot(image_1d)
         if not test_unit_image:
             # normalization
             source_1d /= self._norm_image2source
@@ -81,7 +81,7 @@ class LensingOperator(object):
         # loop over source plane pixels
         for j in range(source_1d.size):
             # retieve corresponding pixels in image plane
-            indices_i = np.where(self._lens_mapping_list == j)
+            indices_i = np.where(self._lens_mapping == j)
             flux_i = image_1d[indices_i]
             flux_j = np.sum(flux_i)
             if not test_unit_image:
@@ -121,8 +121,7 @@ class LensingOperator(object):
                 self.sourcePlane.grid_size, self.sourcePlane.delta_pix)
 
     def delete_mapping(self):
-        if hasattr(self, '_lens_mapping_list'): delattr(self, '_lens_mapping_list')
-        if hasattr(self, '_lens_mapping_matrix'): delattr(self, '_lens_mapping_matrix')
+        if hasattr(self, '_lens_mapping'): delattr(self, '_lens_mapping')
         if hasattr(self, '_norm_image2source'): delattr(self, '_norm_image2source')
 
     def _compute_mapping(self, kwargs_lens, kwargs_special):
@@ -158,10 +157,10 @@ class LensingOperator(object):
         
         if self._matrix_prod:
             # convert numpy array to sparse matrix, using Compressed Sparse Row (CSR) format for fast vector products
-            self._lens_mapping_matrix = sparse.csr_matrix(lens_mapping_matrix)
+            self._lens_mapping = sparse.csr_matrix(lens_mapping_matrix)
         else:
             # convert the list to array 
-            self._lens_mapping_list = np.array(lens_mapping_list)
+            self._lens_mapping = np.array(lens_mapping_list)
 
     def _compute_source_mask(self):
         # de-lens a unit image it to get non-zero source plane pixel
@@ -173,7 +172,7 @@ class LensingOperator(object):
             mask_mapped[mask_mapped > 0] = 1
         else:
             mask_mapped = None
-        # setup the image to source plane for filling holes due to lensing
+        # setup the image to source plane for filling holes due to pixelisation of the lensing operation
         self.sourcePlane.add_delensed_masks(unit_image_mapped, mapped_mask=mask_mapped)
 
     def _reset_source_plane_grid(self):
@@ -275,13 +274,14 @@ class LensingOperatorInterpol(LensingOperator):
             weight_list = self._bilinear_weights(dist_A_x, dist_A_y)
 
             # remove pixels and weights that are outside source plane grid
-            j_list, weight_list = self._check_inside_grid(j_list, weight_list)
+            if self._minimal_source_plane:
+                j_list, weight_list = self._check_inside_grid(j_list, weight_list)
 
             # fill the mapping arrays
             lens_mapping_matrix[i, j_list] = weight_list
 
-        # convert to optimzed sparse matrix
-        self._lens_mapping_matrix = sparse.csr_matrix(lens_mapping_matrix)
+        # convert to optimized sparse matrix, using Compressed Sparse Row (CSR) format for fast vector products
+        self._lens_mapping = sparse.csr_matrix(lens_mapping_matrix)
 
     def _find_surrounding_source_pixels(self, i, beta_x, beta_y, grid_offset_x=0, grid_offset_y=0, sort_distance=True):
         # map of the distance to the ray-traced pixel, along each axis, in pixel units
@@ -330,7 +330,7 @@ class LensingOperatorInterpol(LensingOperator):
             idx_closest = 3
         else:
             raise ValueError("Could not find 4 neighboring pixels for pixel {} ({},{})".format(j, r, s))
-        # check if indices are not outside of of the image, put None if it is
+        # check if indices are not outside of the image, put None if it is
         max_index_value = self.sourcePlane.num_pix - 1
         for idx, (r, s) in enumerate(nb_list_2d):
             if r >= max_index_value or s >= max_index_value:
