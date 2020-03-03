@@ -106,7 +106,7 @@ class LensingOperator(object):
         # compute mapping between image and source plances due to lensing
         self._compute_mapping(kwargs_lens, kwargs_special)
 
-        # compute areas on source plane where you have no constraint
+        # compute areas on source plane where you have no constrains
         self._compute_source_mask()
         
         if self._minimal_source_plane and not self.sourcePlane.shrinked:
@@ -255,6 +255,10 @@ class LensingOperatorInterpol(LensingOperator):
             matrix_prod=_matrix_prod))
 
     def _compute_mapping(self, kwargs_lens, kwargs_special):
+        """
+        Core method that computes the mapping between image and source planes pixels
+        from ray-tracing performed by the input parametric mass model
+        """
         # delete previous mapping and init the new one
         self.delete_mapping()
         lens_mapping_matrix = np.zeros((self.imagePlane.grid_size, self.sourcePlane.grid_size))
@@ -272,10 +276,12 @@ class LensingOperatorInterpol(LensingOperator):
 
             # get interpolation weights
             weight_list = self._bilinear_weights(dist_A_x, dist_A_y)
+            if any([(w<0 or w is None) for w in weight_list]): print(i, weight_list)
 
             # remove pixels and weights that are outside source plane grid
             if self._minimal_source_plane:
                 j_list, weight_list = self._check_inside_grid(j_list, weight_list)
+            #if any([(w<0 or w is None) for w in weight_list]): print(i, weight_list)
 
             # fill the mapping arrays
             lens_mapping_matrix[i, j_list] = weight_list
@@ -283,10 +289,10 @@ class LensingOperatorInterpol(LensingOperator):
         # convert to optimized sparse matrix, using Compressed Sparse Row (CSR) format for fast vector products
         self._lens_mapping = sparse.csr_matrix(lens_mapping_matrix)
 
-    def _find_surrounding_source_pixels(self, i, beta_x, beta_y, grid_offset_x=0, grid_offset_y=0, sort_distance=True):
+    def _find_surrounding_source_pixels(self, i, beta_x, beta_y, grid_offset_x=0, grid_offset_y=0):
         # map of the distance to the ray-traced pixel, along each axis, in pixel units
-        diff_map_x_pix, diff_map_y_pix = self._difference_on_source_grid_axis(i, beta_x, beta_y, grid_offset_x=grid_offset_x, grid_offset_y=grid_offset_y, 
-                                                                              pixel_conversion=True)
+        diff_map_x_pix, diff_map_y_pix = self._difference_on_source_grid_axis(i, beta_x, beta_y, pixel_conversion=True,
+                                                                              grid_offset_x=grid_offset_x, grid_offset_y=grid_offset_y)
 
         # index of source pixel that is the closest to the ray-traced pixel
         j = np.argmin(diff_map_x_pix**2 + diff_map_y_pix**2)
@@ -295,7 +301,8 @@ class LensingOperatorInterpol(LensingOperator):
         nb_list, nb_list_2d, idx_closest = self._neighboring_pixels(j, diff_map_x_pix, diff_map_y_pix)
 
         # compute distance (in pixel units) to lower-left "A" neighboring pixel
-        dist_to_A_x, dist_to_A_y = self._distance_lower_left_neighbor(i, beta_x, beta_y, nb_list, pixel_conversion=True)
+        dist_to_A_x, dist_to_A_y = self._distance_lower_left_neighbor(i, beta_x, beta_y, nb_list, pixel_conversion=True,
+                                                                      grid_offset_x=grid_offset_x, grid_offset_y=grid_offset_y)
 
         return nb_list, idx_closest, dist_to_A_x, dist_to_A_y
 
@@ -339,11 +346,14 @@ class LensingOperatorInterpol(LensingOperator):
         nb_list = [self._index_2d_to_1d_source(r, s) for (r, s) in nb_list_2d]
         return nb_list, nb_list_2d, idx_closest
 
-    def _distance_lower_left_neighbor(self, i, beta_x, beta_y, neighbor_list, pixel_conversion=False):
+    def _distance_lower_left_neighbor(self, i, beta_x, beta_y, neighbor_list, pixel_conversion=False,
+                                      grid_offset_x=0, grid_offset_y=0):
         nb_idx_A = 0  # following conventions of self._neighboring_pixels()
         i_A = neighbor_list[nb_idx_A]
-        dist_to_A_x = abs(self.sourcePlane.theta_x[i_A] - beta_x[i])
-        dist_to_A_y = abs(self.sourcePlane.theta_y[i_A] - beta_y[i])
+        theta_x_A = self.sourcePlane.theta_x[i_A] + grid_offset_x
+        theta_y_A = self.sourcePlane.theta_y[i_A] + grid_offset_y
+        dist_to_A_x = abs(theta_x_A - beta_x[i])
+        dist_to_A_y = abs(theta_y_A - beta_y[i])
         if pixel_conversion:
             dist_to_A_x /= self.sourcePlane.delta_pix
             dist_to_A_y /= self.sourcePlane.delta_pix
