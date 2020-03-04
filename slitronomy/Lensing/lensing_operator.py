@@ -276,12 +276,10 @@ class LensingOperatorInterpol(LensingOperator):
 
             # get interpolation weights
             weight_list = self._bilinear_weights(dist_A_x, dist_A_y)
-            if any([(w<0 or w is None) for w in weight_list]): print(i, weight_list)
 
             # remove pixels and weights that are outside source plane grid
             if self._minimal_source_plane:
                 j_list, weight_list = self._check_inside_grid(j_list, weight_list)
-            #if any([(w<0 or w is None) for w in weight_list]): print(i, weight_list)
 
             # fill the mapping arrays
             lens_mapping_matrix[i, j_list] = weight_list
