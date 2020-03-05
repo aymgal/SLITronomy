@@ -131,8 +131,7 @@ class ModelOperators(object):
         """alias method for inverse wavelet transform"""
         if not hasattr(self, '_n_scales_source'):
             raise ValueError("Wavelet scales have not been set")
-        return self._source_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_source,
-                                              n_pixels=np.size(array_2d))
+        return self._source_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_source)
 
     def Phi_T_s(self, array_2d):
         """alias method for wavelet transform"""
@@ -146,8 +145,7 @@ class ModelOperators(object):
             raise ValueError("Wavelet operator needs lens light class")
         if not hasattr(self, '_n_scales_lens_light'):
             raise ValueError("Wavelet scales have not been set")
-        return self._lens_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_lens_light,
-                                            n_pixels=np.size(array_2d))
+        return self._lens_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_lens_light)
 
     def Phi_T_l(self, array_2d):
         """alias method for wavelet transform"""
