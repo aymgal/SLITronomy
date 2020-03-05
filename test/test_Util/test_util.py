@@ -118,7 +118,7 @@ def test_spectral_norm():
     npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=8)
     starlets = Starlets()
     operator = lambda X: starlets.decomposition_2d(X, 3)
-    inverse_operator = lambda X: starlets.function_2d(X, 3, num_pix**2)
+    inverse_operator = lambda X: starlets.function_2d(X, 3)
     npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=8)
 
 
@@ -126,7 +126,7 @@ def test_generate_initial_guess():
     num_pix, n_scales = 20, 3
     starlets = Starlets()
     transform = lambda X: starlets.decomposition_2d(X, n_scales)
-    inverse_transform = lambda X: starlets.function_2d(X, n_scales, num_pix**2)
+    inverse_transform = lambda X: starlets.function_2d(X, n_scales)
 
     guess_direct_space, guess_transf_space = util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
                                                                          guess_type='null')
@@ -145,18 +145,22 @@ def test_generate_initial_guess():
                            noise_map=noise_map)
     assert guess_direct_space.shape == (num_pix, num_pix)
     assert guess_transf_space.shape == (n_scales, num_pix, num_pix)
-    
-    background_rms_synthesis = [1]*n_scales
-    guess_direct_space, guess_transf_space = util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
-                           formulation='synthesis', guess_type='background_rms',
-                           background_rms_synthesis=background_rms_synthesis)
-    assert guess_direct_space.shape == (num_pix, num_pix)
-    assert guess_transf_space.shape == (n_scales, num_pix, num_pix)
 
     noise_map_synthesis = np.random.rand(n_scales, num_pix, num_pix)
     guess_direct_space, guess_transf_space = util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
                            formulation='synthesis', guess_type='noise_map',
                            noise_map_synthesis=noise_map_synthesis)
+    assert guess_direct_space.shape == (num_pix, num_pix)
+    assert guess_transf_space.shape == (n_scales, num_pix, num_pix)
+
+
+def test_generate_initial_guess_simple():
+    num_pix = 10
+    n_scales = 3
+    starlets = Starlets()
+    transform = lambda X: starlets.decomposition_2d(X, n_scales)
+    background_rms = 0.1
+    guess_direct_space, guess_transf_space = util.generate_initial_guess_simple(num_pix, transform, background_rms)
     assert guess_direct_space.shape == (num_pix, num_pix)
     assert guess_transf_space.shape == (n_scales, num_pix, num_pix)
 
