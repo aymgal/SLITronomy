@@ -20,7 +20,8 @@ class SparseSolverBase(ModelOperators):
 
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
                  psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='simple',
-                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, min_num_pix_source=10,
+                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, 
+                 use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False):
         # consider only the first light profiles in model lists
@@ -51,11 +52,13 @@ class SparseSolverBase(ModelOperators):
             lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
                                                      likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
                                                      fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source, 
+                                                     use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
                                                      matrix_prod=True)
-        if lensing_operator == 'interpol':
+        elif lensing_operator == 'interpol':
             lensing_operator_class = LensingOperatorInterpol(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
                                                      likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
-                                                     fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source)
+                                                     fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source,
+                                                     use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane)
 
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, 
                                                source_light_class, lens_light_class=lens_light_class, 
