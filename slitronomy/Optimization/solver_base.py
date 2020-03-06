@@ -340,13 +340,9 @@ class SparseSolverBase(ModelOperators):
 
     def _update_weights(self, alpha_S, alpha_HG=None):
         lambda_S = self.noise_levels_source_plane
-        lambda_S[0, :, :]  *= self._k_max_high_freq
-        lambda_S[1:, :, :] *= self._k_max
         weights_S  = 1. / ( 1 + np.exp(-10 * (lambda_S - alpha_S)) )  # Eq. (11) of Joseph et al. 2018
         if alpha_HG is not None:
             lambda_HG = self.noise_levels_image_plane
-            lambda_HG[0, :, :]  *= self._k_max_high_freq
-            lambda_HG[1:, :, :] *= self._k_max
             weights_HG = 1. / ( 1 + np.exp(-10 * (lambda_HG - alpha_HG)) )  # Eq. (11) of Joseph et al. 2018
         else:
             weights_HG = None
