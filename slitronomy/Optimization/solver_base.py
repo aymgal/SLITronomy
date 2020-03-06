@@ -51,17 +51,17 @@ class SparseSolverBase(ModelOperators):
             self._psf_kernel = None
 
         if lensing_operator == 'simple':
-            lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
+            lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source,
                                                      likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
-                                                     fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source, 
+                                                     fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source,
                                                      matrix_prod=True)
         if lensing_operator == 'interpol':
-            lensing_operator_class = LensingOperatorInterpol(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
+            lensing_operator_class = LensingOperatorInterpol(data_class, lens_model_class, subgrid_res_source=subgrid_res_source,
                                                      likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
                                                      fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source)
 
-        super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, 
-                                               source_light_class, lens_light_class=lens_light_class, 
+        super(SparseSolverBase, self).__init__(data_class, lensing_operator_class,
+                                               source_light_class, lens_light_class=lens_light_class,
                                                convolution_class=convolution_class, likelihood_mask=likelihood_mask)
 
         # fill masked pixel with background noise
@@ -174,9 +174,9 @@ class SparseSolverBase(ModelOperators):
         transform = self.Phi_T_s
         inverse_transform = self.Phi_s
         noise_map_synthesis = self.noise_levels_source_plane
-        return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
+        return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform,
                            formulation=self._formulation, guess_type=self._initial_guess_type,
-                           background_rms=self._background_rms, noise_map=self._noise_map, 
+                           background_rms=self._background_rms, noise_map=self._noise_map,
                            noise_map_synthesis=noise_map_synthesis)
 
     def generate_initial_lens_light(self):
@@ -185,9 +185,9 @@ class SparseSolverBase(ModelOperators):
         transform = self.Phi_T_l
         inverse_transform = self.Phi_l
         noise_map_synthesis = self.noise_levels_image_plane
-        return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
+        return util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform,
                                            formulation=self._formulation, guess_type=self._initial_guess_type,
-                                           background_rms=self._background_rms, noise_map=self._noise_map, 
+                                           background_rms=self._background_rms, noise_map=self._noise_map,
                                            noise_map_synthesis=noise_map_synthesis)
 
     def apply_image_plane_mask(self, image_2d):
@@ -330,7 +330,7 @@ class SparseSolverBase(ModelOperators):
             HT = util.dirac_impulse(n_img)
         else:
             HT = self._psf_kernel.T
-            
+
         HT_power = np.sqrt(np.sum(HT**2))
         # HT_noise = self._background_rms * HT_power * np.ones((n_img, n_img))
         HT_noise = self._noise_map * HT_power
