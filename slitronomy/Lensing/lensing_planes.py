@@ -185,7 +185,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         erosion operation for filling holes that may be introduced by pixelated lensing operations
 
         The higher the subgrid resolution of the source, the highest the number of holes.
-        Hence the 'strength' of the erosion is set to the subgrid resolution (or round up integer) of the source plane 
+        Hence the 'strength' of the erosion is set to the subgrid resolution (or round up integer) of the source plane
         """
         strength = np.ceil(self._subgrid_res).astype(int)
         # invert 0s and 1s
