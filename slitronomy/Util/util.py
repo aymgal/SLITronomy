@@ -162,8 +162,7 @@ def dirac_impulse(num_pix):
 
 def generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
                            formulation='analysis', guess_type='background_rms',
-                           background_rms=None, background_rms_synthesis=None,
-                           noise_map=None, noise_map_synthesis=None):
+                           background_rms=None, noise_map=None, noise_map_synthesis=None):
     if guess_type == 'null':
         X = np.zeros((num_pix, num_pix))
         alpha_X = np.zeros((n_scales, num_pix, num_pix))
@@ -172,17 +171,19 @@ def generate_initial_guess(num_pix, n_scales, transform, inverse_transform,
             X = background_rms * np.random.randn(num_pix, num_pix)
             alpha_X = transform(X)
         elif formulation == 'synthesis':
-            alpha_X = np.empty((n_scales, num_pix, num_pix))
-            for i in range(n_scales):
-                alpha_X[i, :, :] = background_rms_synthesis[i] * np.random.randn(num_pix, num_pix)
-            X = inverse_transform(alpha_X)
+            raise ValueError("initial guess type 'background_rms' not compatible with synthesis formulation")
     elif guess_type == 'noise_map':
         if formulation == 'analysis':
-            X = np.median(noise_map) * np.random.randn(num_pix, num_pix)
+            X = np.copy(noise_map)  # np.median(noise_map) * np.random.randn(num_pix, num_pix)
             alpha_X = transform(X)
         elif formulation == 'synthesis':
             alpha_X = np.copy(noise_map_synthesis)
             X = inverse_transform(alpha_X)
     else:
         raise ValueError("Initial guess type '{}' not supported".format(guess_type))
+    return X, alpha_X
+
+def generate_initial_guess_simple(num_pix, transform, background_rms):
+    X = background_rms * np.random.randn(num_pix, num_pix)
+    alpha_X = transform(X)
     return X, alpha_X

@@ -17,17 +17,20 @@ class SparseSolverSource(SparseSolverBase):
 
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
                  psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='simple',
-                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, min_num_pix_source=10,
+                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True,
+                 min_num_pix_source=10, use_mask_for_minimal_source_plane=True,
                  max_threshold=5, max_threshold_high_freq=None, num_iter=50, num_iter_weights=1,
-                 sparsity_prior_norm=1, force_positivity=True, initial_guess_type='noise_map',
+                 sparsity_prior_norm=1, force_positivity=True,
                  formulation='analysis', verbose=False, show_steps=False):
 
+        # TODO: remove duplicated parameters in __init__ call (use *args and **kwargs)
         super(SparseSolverSource, self).__init__(data_class, lens_model_class, source_model_class,
                                                  lens_light_model_class=lens_light_model_class, psf_class=psf_class,
                                                  convolution_class=convolution_class, likelihood_mask=likelihood_mask,
                                                  lensing_operator=lensing_operator, subgrid_res_source=subgrid_res_source,
                                                  minimal_source_plane=minimal_source_plane, fix_minimal_source_plane=fix_minimal_source_plane,
-                                                 min_num_pix_source=min_num_pix_source, initial_guess_type=initial_guess_type,
+                                                 use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
+                                                 min_num_pix_source=min_num_pix_source,
                                                  sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity,
                                                  formulation=formulation, verbose=verbose, show_steps=show_steps)
 

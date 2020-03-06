@@ -14,7 +14,8 @@ class LensingOperator(object):
 
     def __init__(self, data_class, lens_model_class, subgrid_res_source=1,
                  likelihood_mask=None, minimal_source_plane=False, min_num_pix_source=10,
-                 fix_minimal_source_plane=True, matrix_prod=True):
+                 fix_minimal_source_plane=True, use_mask_for_minimal_source_plane=True,
+                 matrix_prod=True):
         """
 
         :param min_num_pix_source: minimal number of pixels in the
@@ -25,6 +26,7 @@ class LensingOperator(object):
         self._likelihood_mask = likelihood_mask
         self._minimal_source_plane = minimal_source_plane
         self._fix_minimal_source_plane = fix_minimal_source_plane
+        self._use_mask_for_minimal_source_plane = use_mask_for_minimal_source_plane
         self._min_num_pix_source = min_num_pix_source
         self._matrix_prod = matrix_prod
 
@@ -166,7 +168,7 @@ class LensingOperator(object):
         # de-lens a unit image it to get non-zero source plane pixel
         unit_image_mapped = self.image2source_2d(self.imagePlane.unit_image)
         unit_image_mapped[unit_image_mapped > 0] = 1
-        if self._likelihood_mask is not None:
+        if self._likelihood_mask is not None and self._use_mask_for_minimal_source_plane:
             # de-lens a unit image it to get non-zero source plane pixel
             mask_mapped = self.image2source_2d(self._likelihood_mask)
             mask_mapped[mask_mapped > 0] = 1
