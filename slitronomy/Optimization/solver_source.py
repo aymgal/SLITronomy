@@ -146,7 +146,7 @@ class SparseSolverSource(SparseSolverBase):
 
     def _gradient_loss_synthesis_source(self, alpha_S):
         """
-        returns the gradient of f = || Y' - H F Phi alpha_S ||^2_2, where Y' = Y - HG
+        returns the gradient of f = || Y' - H F Phi alpha_S ||^2_2, where Y' = Y - Phi_l alpha_HG
         with respect to alpha_S
         """
         model = self.model_synthesis(alpha_S, alpha_HG=None)
