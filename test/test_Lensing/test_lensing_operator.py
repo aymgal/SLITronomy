@@ -232,26 +232,5 @@ class TestLensingOperator(object):
         assert lensing_op._index_1d_to_2d_source(None) == (None, None)
         assert lensing_op._index_2d_to_1d_source(None, None) == None
 
-class TestRaise(unittest.TestCase):
-    def test_raise(self):
-        with self.assertRaises(ValueError):
-            num_pix = 25  # cutout pixel size
-            delta_pix = 0.24
-            _, _, ra_at_xy_0, dec_at_xy_0, _, _, Mpix2coord, _ \
-                = l_util.make_grid_with_coordtransform(numPix=num_pix, deltapix=delta_pix, subgrid_res=1,
-                                                       inverse=False, left_lower=False)
-            kwargs_data = {
-                'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0,
-                'transform_pix2angle': Mpix2coord,
-                'image_data': np.zeros((num_pix, num_pix))
-            }
-            data = ImageData(**kwargs_data)
-            lens_model = LensModel(['SPEP'])
-            lensing_op = LensingOperatorInterpol(data, lens_model)
-            # j = 10
-            # difference_x = np.nan * np.ones(num_pix**2)
-            # difference_y = np.random.rand(num_pix**2)
-            # lensing_op._neighboring_pixels(j, difference_x, difference_y)
-
 if __name__ == '__main__':
     pytest.main()
