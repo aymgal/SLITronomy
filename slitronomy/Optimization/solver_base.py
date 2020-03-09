@@ -299,7 +299,9 @@ class SparseSolverBase(ModelOperators):
             self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
         return self._noise_levels_src
 
-    def _compute_noise_levels_src(self, boost_where_zero=10):
+    def _compute_noise_levels_src(self, boost_where_zero):
+        """boost_where_zero sets the multiplcative factor in fron tof the average noise levels
+        at locations where noise is 0"""
         # get transposed blurring operator
         if self._psf_kernel is None:
             HT = util.dirac_impulse(self.lensingOperator.imagePlane.num_pix)
@@ -311,7 +313,7 @@ class SparseSolverBase(ModelOperators):
 
         # introduce artitifically noise to pixels where there are not signal in source plane 
         # to ensure threshold of starlet coefficients at these locations
-        FT_HT_noise[FT_HT_noise == 0] = np.mean(FT_HT_noise) * boost_where_zero
+        FT_HT_noise[FT_HT_noise == 0] = np.mean(FT_HT_noise[FT_HT_noise != 0]) * boost_where_zero
 
         # \Gamma^2 in  Equation (16) of Joseph+18)
         FT_HT_noise2 = FT_HT_noise**2

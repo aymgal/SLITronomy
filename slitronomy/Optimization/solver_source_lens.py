@@ -4,6 +4,7 @@ __author__ = 'aymgal'
 
 import copy
 import numpy as np
+import math as ma
 
 from slitronomy.Optimization.solver_source import SparseSolverSource
 from slitronomy.Optimization import algorithms
@@ -46,8 +47,8 @@ class SparseSolverSourceLens(SparseSolverSource):
         S, alpha_S = self.generate_initial_source()
         HG, alpha_HG = self.generate_initial_lens_light()
         if self._show_steps:
-            self._plotter.plot_init(S, show_now=True)
-            self._plotter.plot_init(HG, show_now=True)
+            self._plotter.plot_init(S)
+            self._plotter.plot_init(HG)
 
         # initialise weights
         weights_source = 1.
@@ -125,9 +126,9 @@ class SparseSolverSourceLens(SparseSolverSource):
                                    print_bool=(i_l % 10 == 0 and i_s == self._n_iter-1),
                                    iteration_text="=== iteration {}-{}-{} ===".format(j, i_l, i_s))
 
-                if self._show_steps and i_l % int(self._n_iter_lens/2) == 0 and i_s == self._n_iter-1:
-                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i_l, iter_3=i_s, show_now=True)
-                    self._plotter.plot_step(HG_next, iter_1=j, iter_2=i_l, iter_3=i_s, show_now=True)
+                if self._show_steps and i_l % ma.ceil(self._n_iter_lens/2) == 0 and i_s == self._n_iter-1:
+                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i_l, iter_3=i_s)
+                    self._plotter.plot_step(HG_next, iter_1=j, iter_2=i_l, iter_3=i_s)
 
                 # update current estimate of source light and local parameters
                 HG = HG_next

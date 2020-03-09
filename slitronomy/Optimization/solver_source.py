@@ -4,6 +4,7 @@ __author__ = 'aymgal'
 
 import copy
 import numpy as np
+import math as ma
 
 from slitronomy.Optimization.solver_base import SparseSolverBase
 from slitronomy.Optimization import algorithms
@@ -92,7 +93,7 @@ class SparseSolverSource(SparseSolverBase):
                 self._tracker.save(S=S, S_next=S_next, print_bool=(i % 30 == 0),
                                    iteration_text="=== iteration {}-{} ===".format(j, i))
 
-                if self._show_steps and (i % int(self._n_iter/2) == 0):
+                if self._show_steps and (i % ma.ceil(self._n_iter/2) == 0):
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i)
 
                 # update current estimate of source light and local parameters
