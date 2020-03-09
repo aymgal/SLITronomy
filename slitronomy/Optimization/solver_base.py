@@ -137,8 +137,10 @@ class SparseSolverBase(ModelOperators):
 
     @property
     def lens_light_model(self):
-        if not hasattr(self, '_lens_light_model'):
+        if not hasattr(self, '_lens_light_model') and not self.no_lens_light:
             raise ValueError("You must run the optimization before accessing the lens estimate")
+        if self.no_lens_light:
+            return None
         return self._lens_light_model
 
     def image_model(self, unconvolved=False):
