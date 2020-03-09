@@ -11,7 +11,7 @@ class ModelOperators(object):
 
     """Utility class for access to operator as defined in formal optimization equations"""
 
-    def __init__(self, data_class, lensing_operator_class, 
+    def __init__(self, data_class, lensing_operator_class,
                  source_light_class, lens_light_class=None, convolution_class=None,
                  likelihood_mask=None):
         if likelihood_mask is None:

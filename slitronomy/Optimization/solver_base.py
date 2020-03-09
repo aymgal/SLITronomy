@@ -23,7 +23,7 @@ class SparseSolverBase(ModelOperators):
 
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
                  psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='simple',
-                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, 
+                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True,
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False):
@@ -52,19 +52,19 @@ class SparseSolverBase(ModelOperators):
             self._psf_kernel = None
 
         if lensing_operator == 'simple':
-            lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
+            lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source,
                                                      likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
                                                      fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source, 
                                                      use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
                                                      matrix_prod=True)
         elif lensing_operator == 'interpol':
-            lensing_operator_class = LensingOperatorInterpol(data_class, lens_model_class, subgrid_res_source=subgrid_res_source, 
+            lensing_operator_class = LensingOperatorInterpol(data_class, lens_model_class, subgrid_res_source=subgrid_res_source,
                                                      likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
                                                      fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source,
                                                      use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane)
 
-        super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, 
-                                               source_light_class, lens_light_class=lens_light_class, 
+        super(SparseSolverBase, self).__init__(data_class, lensing_operator_class,
+                                               source_light_class, lens_light_class=lens_light_class,
                                                convolution_class=convolution_class, likelihood_mask=likelihood_mask)
 
         # fill masked pixel with background noise
@@ -305,11 +305,11 @@ class SparseSolverBase(ModelOperators):
             HT = util.dirac_impulse(self.lensingOperator.imagePlane.num_pix)
         else:
             HT = self._psf_kernel.T
-        
+
         HT_noise_diag = self._noise_map * np.sqrt(np.sum(HT**2))
         FT_HT_noise = self.F_T(HT_noise_diag)
 
-        # introduce artitifically noise to pixels where there are not signal in source plane 
+        # introduce artitifically noise to pixels where there are not signal in source plane
         # to ensure threshold of starlet coefficients at these locations
         FT_HT_noise[FT_HT_noise == 0] = np.mean(FT_HT_noise) * boost_where_zero
 
