@@ -25,12 +25,12 @@ class TestLensingOperator(object):
         self.num_pix = 25  # cutout pixel size
         delta_pix = 0.24
         _, _, ra_at_xy_0, dec_at_xy_0, _, _, Mpix2coord, _ \
-            = l_util.make_grid_with_coordtransform(numPix=self.num_pix, deltapix=delta_pix, subgrid_res=1, 
+            = l_util.make_grid_with_coordtransform(numPix=self.num_pix, deltapix=delta_pix, subgrid_res=1,
                                                          inverse=False, left_lower=False)
         kwargs_data = {
             #'background_rms': background_rms,
             #'exposure_time': np.ones((self.num_pix, self.num_pix)) * exp_time,  # individual exposure time/weight per pixel
-            'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
+            'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0,
             'transform_pix2angle': Mpix2coord,
             'image_data': np.zeros((self.num_pix, self.num_pix))
         }
@@ -58,9 +58,9 @@ class TestLensingOperator(object):
         lens_light_model = LightModel(light_model_list=lens_light_model_list)
 
         kwargs_numerics = {'supersampling_factor': 1, 'supersampling_convolution': False}
-        self.image_model = ImageModel(self.data, psf, self.lens_model, source_model, 
+        self.image_model = ImageModel(self.data, psf, self.lens_model, source_model,
                                  lens_light_model, point_source_class=None, kwargs_numerics=kwargs_numerics)
-        
+
         # create simulated image
         image_sim_no_noise = self.image_model.image(self.kwargs_lens, kwargs_source, kwargs_lens_light)
         self.source_light_lensed = image_sim_no_noise
@@ -90,21 +90,21 @@ class TestLensingOperator(object):
         source_1d = util.image2array(self.source_light_delensed)
 
         # test with no mask
-        lensing_op = LensingOperator(self.data, self.lens_model, matrix_prod=True, 
+        lensing_op = LensingOperator(self.data, self.lens_model, matrix_prod=True,
                                      likelihood_mask=None, minimal_source_plane=True)
         lensing_op.update_mapping(self.kwargs_lens)
         image_1d = util.image2array(self.source_light_lensed)
         assert lensing_op.image2source(image_1d).size < source_1d.size
 
         # test with mask
-        lensing_op = LensingOperator(self.data, self.lens_model, matrix_prod=True, 
+        lensing_op = LensingOperator(self.data, self.lens_model, matrix_prod=True,
                                      likelihood_mask=self.likelihood_mask, minimal_source_plane=True)
         lensing_op.update_mapping(self.kwargs_lens)
         image_1d = util.image2array(self.source_light_lensed)
         assert lensing_op.image2source(image_1d).size < source_1d.size
 
         # test for keeping same minimal source plane while updating kwargs_lens
-        lensing_op = LensingOperator(self.data, self.lens_model, matrix_prod=True, 
+        lensing_op = LensingOperator(self.data, self.lens_model, matrix_prod=True,
                                      likelihood_mask=self.likelihood_mask, minimal_source_plane=True,
                                      fix_minimal_source_plane=True)
         lensing_op.update_mapping(self.kwargs_lens)
@@ -115,7 +115,7 @@ class TestLensingOperator(object):
         assert lensing_op.sourcePlane.grid_size == source_plane_size_before
 
         # test for NOT keeping same minimal source plane while updating kwargs_lens
-        lensing_op = LensingOperator(self.data, self.lens_model, matrix_prod=True, 
+        lensing_op = LensingOperator(self.data, self.lens_model, matrix_prod=True,
                                      likelihood_mask=self.likelihood_mask, minimal_source_plane=True,
                                      fix_minimal_source_plane=False)
         lensing_op.update_mapping(self.kwargs_lens)
@@ -126,7 +126,7 @@ class TestLensingOperator(object):
         assert lensing_op.sourcePlane.grid_size != source_plane_size_before
 
         # for Interpol operator, only works with no mask (for now)
-        lensing_op = LensingOperatorInterpol(self.data, self.lens_model,  
+        lensing_op = LensingOperatorInterpol(self.data, self.lens_model,
                                              likelihood_mask=None, minimal_source_plane=True)
         lensing_op.update_mapping(self.kwargs_lens)
         image_1d = util.image2array(self.source_light_lensed)
@@ -172,14 +172,14 @@ class TestLensingOperator(object):
 
         source_2d = self.source_light_delensed
         source_2d_lensed = lensing_op.source2image_2d(source_2d, kwargs_lens=self.kwargs_lens, update=True)
-        assert len(source_2d_lensed.shape) == 2 
+        assert len(source_2d_lensed.shape) == 2
 
     def test_image2source(self):
         lensing_op = LensingOperator(self.data, self.lens_model)
         image_1d = util.image2array(self.source_light_lensed)
         image_1d_delensed = lensing_op.image2source(image_1d, kwargs_lens=self.kwargs_lens)
         assert len(image_1d_delensed.shape) == 1
-        
+
         image_2d = self.source_light_lensed
         image_2d_delensed = lensing_op.image2source_2d(image_2d, kwargs_lens=self.kwargs_lens, update=True)
         assert len(image_2d_delensed.shape) == 2
@@ -198,7 +198,6 @@ class TestLensingOperator(object):
     #     image_back = lensing_op.source2image(image_delensed)
     #     npt.assert_almost_equal(image_back, image, decimal=4)
         
-
     # def test_no_mass(self):
     #     lensing_op = LensingOperator(self.data, self.lens_model)
     #     image = self.source_light_lensed
@@ -230,7 +229,7 @@ class TestLensingOperator(object):
 
     def test_find_source_pixel(self):
         lensing_op = LensingOperator(self.data, self.lens_model)
-        beta_x, beta_y = self.lens_model.ray_shooting(lensing_op.imagePlane.theta_x, lensing_op.imagePlane.theta_y, 
+        beta_x, beta_y = self.lens_model.ray_shooting(lensing_op.imagePlane.theta_x, lensing_op.imagePlane.theta_y,
                                                      self.kwargs_lens)
         i = 10
         j = lensing_op._find_source_pixel(i, beta_x, beta_y)
@@ -238,7 +237,7 @@ class TestLensingOperator(object):
 
     def test_distance_to_source_grid(self):
         lensing_op = LensingOperator(self.data, self.lens_model)
-        beta_x, beta_y = self.lens_model.ray_shooting(lensing_op.imagePlane.theta_x, lensing_op.imagePlane.theta_y, 
+        beta_x, beta_y = self.lens_model.ray_shooting(lensing_op.imagePlane.theta_x, lensing_op.imagePlane.theta_y,
                                                      self.kwargs_lens)
         i = 10
         distance = lensing_op._distance_to_source_grid(i, beta_x, beta_y, squared=False)
@@ -250,7 +249,7 @@ class TestLensingOperator(object):
 
     def test_difference_on_source_grid_axis(self):
         lensing_op = LensingOperator(self.data, self.lens_model)
-        beta_x, beta_y = self.lens_model.ray_shooting(lensing_op.imagePlane.theta_x, lensing_op.imagePlane.theta_y, 
+        beta_x, beta_y = self.lens_model.ray_shooting(lensing_op.imagePlane.theta_x, lensing_op.imagePlane.theta_y,
                                                      self.kwargs_lens)
         i = 10
         diff_x, diff_y = lensing_op._difference_on_source_grid_axis(i, beta_x, beta_y, absolute=True)
@@ -275,28 +274,6 @@ class TestLensingOperator(object):
     #     fig = lensing_op.plot_neighbors_map(self.kwargs_lens, num_image_pixels=31)
         # import matplotlib.pyplot as plt
         # plt.show()
-
-
-class TestRaise(unittest.TestCase):
-    def test_raise(self):
-        with self.assertRaises(ValueError):
-            num_pix = 25  # cutout pixel size
-            delta_pix = 0.24
-            _, _, ra_at_xy_0, dec_at_xy_0, _, _, Mpix2coord, _ \
-                = l_util.make_grid_with_coordtransform(numPix=num_pix, deltapix=delta_pix, subgrid_res=1,
-                                                       inverse=False, left_lower=False)
-            kwargs_data = {
-                'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
-                'transform_pix2angle': Mpix2coord,
-                'image_data': np.zeros((num_pix, num_pix))
-            }
-            data = ImageData(**kwargs_data)
-            lens_model = LensModel(['SPEP'])
-            lensing_op = LensingOperatorInterpol(data, lens_model)
-            j = 10
-            difference_x = np.nan * np.ones(num_pix**2)
-            difference_y = np.random.rand(num_pix**2)
-            lensing_op._neighboring_pixels(j, difference_x, difference_y)
 
 if __name__ == '__main__':
     pytest.main()
