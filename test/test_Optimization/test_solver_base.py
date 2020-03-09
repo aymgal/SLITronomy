@@ -102,11 +102,11 @@ class TestSparseSolverBase(object):
         source_2d = self.solver.apply_source_plane_mask(source_2d)
         assert source_2d.shape == (self.num_pix_source, self.num_pix_source)
 
-    def test_project_on_original_grid_source(self):
-        source_2d = np.ones((self.min_num_pix_source, self.min_num_pix_source))
-        self.solver.lensingOperator.update_mapping(self.kwargs_lens)
-        source_2d_proj = self.solver.project_on_original_grid_source(source_2d)
-        assert source_2d_proj.shape == (self.num_pix_source, self.num_pix_source)
+    # def test_project_on_original_grid_source(self):
+    #     source_2d = np.ones((self.min_num_pix_source, self.min_num_pix_source))
+    #     self.solver.lensingOperator.update_mapping(self.kwargs_lens)
+    #     source_2d_proj = self.solver.project_on_original_grid_source(source_2d)
+    #     assert source_2d_proj.shape == (self.num_pix_source, self.num_pix_source)
 
     def test_norm_diff(self):
         img1 = np.random.randn(10, 10)
@@ -114,13 +114,13 @@ class TestSparseSolverBase(object):
         true_norm_diff = np.sqrt(np.sum((img1-img2)**2))
         npt.assert_almost_equal(self.solver.norm_diff(img1, img2), true_norm_diff, decimal=12)
 
-    def test_subtract_source_from_data(self):
-        self.solver.lensingOperator.update_mapping(self.kwargs_lens)
-        S = np.ones((self.min_num_pix_source, self.min_num_pix_source))
-        self.solver.subtract_source_from_data(S)
-        npt.assert_equal(self.solver.Y - self.solver.H(self.solver.F(S)), self.solver.Y_eff)
-        self.solver.reset_data()
-        npt.assert_equal(self.solver.Y, self.solver.Y_eff)
+    # def test_subtract_source_from_data(self):
+    #     self.solver.lensingOperator.update_mapping(self.kwargs_lens)
+    #     S = np.ones((self.min_num_pix_source, self.min_num_pix_source))
+    #     self.solver.subtract_source_from_data(S)
+    #     npt.assert_equal(self.solver.Y - self.solver.H(self.solver.F(S)), self.solver.Y_eff)
+    #     self.solver.reset_data()
+    #     npt.assert_equal(self.solver.Y, self.solver.Y_eff)
 
     def test_subtract_lens_from_data(self):
         HG = np.ones((self.num_pix, self.num_pix))
@@ -129,11 +129,11 @@ class TestSparseSolverBase(object):
         self.solver.reset_data()
         npt.assert_equal(self.solver.Y, self.solver.Y_eff)
 
-    def test_noise_levels(self):
-        self.solver.lensingOperator.update_mapping(self.kwargs_lens)
-        self.solver.set_wavelet_scales(self.n_scales_source, self.n_scales_lens)
-        assert self.solver.noise_levels_image_plane.shape == (self.n_scales_lens, self.num_pix, self.num_pix)
-        assert self.solver.noise_levels_source_plane.shape == (self.n_scales_source, self.min_num_pix_source, self.min_num_pix_source)
+    # def test_noise_levels(self):
+    #     self.solver.lensingOperator.update_mapping(self.kwargs_lens)
+    #     self.solver.set_wavelet_scales(self.n_scales_source, self.n_scales_lens)
+    #     assert self.solver.noise_levels_image_plane.shape == (self.n_scales_lens, self.num_pix, self.num_pix)
+    #     assert self.solver.noise_levels_source_plane.shape == (self.n_scales_source, self.min_num_pix_source, self.min_num_pix_source)
 
 
 class TestRaise(unittest.TestCase):
@@ -191,7 +191,12 @@ class TestRaise(unittest.TestCase):
         with self.assertRaises(ValueError):
             # solve is not fully implemented (on purpose) in the base class
             result = self.solver.solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light)
-
+        with self.assertRaises(ValueError):
+            image_model = self.solver.image_model()
+        with self.assertRaises(ValueError):
+            image_model = self.solver.source_model
+        with self.assertRaises(ValueError):
+            image_model = self.solver.lens_light_model
 
 if __name__ == '__main__':
     pytest.main()
