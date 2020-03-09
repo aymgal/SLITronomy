@@ -127,14 +127,6 @@ class SparseSolverSource(SparseSolverBase):
         model = self.image_model(unconvolved=False)
         return model, S, None, coeffs_S_1d, None
 
-    def _image_model(self, unconvolved=False):
-        if not hasattr(self, '_source_model'):
-            raise ValueError("You must run the optimization before accessing the source estimate")
-        image_model = self.F(self._source_model)
-        if unconvolved:
-            return image_model
-        return self.H(image_model)
-
     def _gradient_loss_analysis_source(self, S):
         """
         returns the gradient of f = || Y' - HFS ||^2_2, where Y' = Y - HG

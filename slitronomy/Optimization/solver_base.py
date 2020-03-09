@@ -132,13 +132,13 @@ class SparseSolverBase(ModelOperators):
     @property
     def source_model(self):
         if not hasattr(self, '_source_model'):
-            return None
+            raise ValueError("You must run the optimization before accessing the source estimate")
         return self._source_model
 
     @property
     def lens_light_model(self):
         if not hasattr(self, '_lens_light_model'):
-            return None
+            raise ValueError("You must run the optimization before accessing the lens estimate")
         return self._lens_light_model
 
     def image_model(self, unconvolved=False):
@@ -146,13 +146,13 @@ class SparseSolverBase(ModelOperators):
 
     def _image_model(self, unconvolved=False):
         if self.no_lens_light:
-            S = self._source_model
+            S = self.source_model
             if unconvolved:
                 return self.F(S)
             else:
                 return self.H(self.F(S))
         else:
-            S, HG = self._source_model, self._lens_light_model
+            S, HG = self.source_model, self.lens_light_model
             return self.H(self.F(S)) + HG
 
     @property
@@ -197,23 +197,24 @@ class SparseSolverBase(ModelOperators):
         return self.reduced_chi2(S=self.source_model, HG=self.lens_light_model)
 
     def loss(self, S=None, HG=None):
-        """ returns f = || Y' - HFS - HG ||^2_2, where Y' can be Y - HG or Y - HFS """
+        """ returns f = || Y - HFS - HG ||^2_2 """
         model = self.model_analysis(S=S, HG=HG)
         error = self.Y_eff - model
         norm_error = np.linalg.norm(error.flatten(), ord=2)  # flatten to ensure L2-norm
         return 0.5 * norm_error**2
 
     def reduced_residuals(self, S=None, HG=None):
-        """ returns || Y' - HFS - HG ||^2_2 / sigma^2, where Y' can be Y - HG or Y - HFS """
+        """ returns ( Y - HFS - HG ) / sigma """
         model = self.model_analysis(S=S, HG=HG)
         error = self.Y_eff - model
         return self.M(error / self._noise_map)
 
     def reduced_chi2(self, S=None, HG=None):
-        chi2 = self.reduced_residuals(S=S, HG=HG)**2
-        return np.sum(chi2) / self.num_data_points
+        chi2 = np.sum(self.reduced_residuals(S=S, HG=HG)**2)
+        return chi2 / self.num_data_points
 
-    def norm_diff(self, S1, S2):
+    @staticmethod
+    def norm_diff(S1, S2):
         """ returns || S1 - S2 ||_2 """
         diff = S1 - S2
         return np.linalg.norm(diff.flatten(), ord=2)  # flatten to ensure L2-norm
@@ -337,10 +338,10 @@ class SparseSolverBase(ModelOperators):
 
     def _update_weights(self, alpha_S, alpha_HG=None):
         lambda_S = self.noise_levels_source_plane
-        weights_S  = 1. / ( 1 + np.exp(-10 * (lambda_S - alpha_S)) )  # Eq. (11) of Joseph et al. 2018
+        weights_S  = 1. / ( 1 + np.exp(-10 * (lambda_S - alpha_S)) )  # fixed Eq. (11) of Joseph et al. 2018
         if alpha_HG is not None:
             lambda_HG = self.noise_levels_image_plane
-            weights_HG = 1. / ( 1 + np.exp(-10 * (lambda_HG - alpha_HG)) )  # Eq. (11) of Joseph et al. 2018
+            weights_HG = 1. / ( 1 + np.exp(-10 * (lambda_HG - alpha_HG)) )  # fixed Eq. (11) of Joseph et al. 2018
         else:
             weights_HG = None
         return weights_S, weights_HG
