@@ -242,7 +242,7 @@ class LensingOperator(object):
 class LensingOperatorInterpol(LensingOperator):
     """Map pixelated light profiles between image and source planes."""
     def __init__(self, data_class, lens_model_class, subgrid_res_source=1,
-                 likelihood_mask=None, minimal_source_plane=False,
+                 likelihood_mask=None, minimal_source_plane=False, use_mask_for_minimal_source_plane=True,
                  fix_minimal_source_plane=True, min_num_pix_source=10):
         _matrix_prod = True
         super(LensingOperatorInterpol, self).__init__(data_class,
@@ -251,6 +251,7 @@ class LensingOperatorInterpol(LensingOperator):
             minimal_source_plane=minimal_source_plane,
             fix_minimal_source_plane=fix_minimal_source_plane,
             min_num_pix_source=min_num_pix_source,
+            use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
             matrix_prod=_matrix_prod)
 
     def _compute_mapping(self, kwargs_lens, kwargs_special):
