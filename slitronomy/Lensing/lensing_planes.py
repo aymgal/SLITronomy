@@ -127,6 +127,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         if mapped_mask is not None:
             mask_refined = self._fill_mapping_holes(mapped_mask).astype(bool)
             self._effective_mask = np.zeros(self.grid_shape, dtype=bool)
+            # union of the two masks to get an "effective" mask
             self._effective_mask[image_refined & mask_refined] = True
         else:
             self._effective_mask = image_refined
@@ -191,14 +192,11 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         # invert 0s and 1s
         image = 1 - image
         # apply morphological erosion operation
-        image = morphology.binary_erosion(image, iterations=strength)
+        image = morphology.binary_erosion(image, iterations=strength).astype(int)
         # invert 1s and 0s
         image = 1 - image
-        # remove margins that were
-        image[:strength, :] = 0
-        image[-strength:, :] = 0
-        image[:, :strength] = 0
-        image[:, -strength:] = 0
+        # re-apply erosion to remove the "dilation" effect of the previous erosion
+        image = morphology.binary_erosion(image, iterations=strength).astype(int)
         return image
 
     def _update_grid_after_shrink(self, reduc_mask, reduced_num_pix):
