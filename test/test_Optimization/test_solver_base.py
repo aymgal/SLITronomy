@@ -49,18 +49,18 @@ class TestSparseSolverBase(object):
         self.kwargs_lens = [{'theta_E': 1, 'gamma': 2, 'center_x': 0, 'center_y': 0, 'e1': -0.05, 'e2': 0.05}]
 
         # wavelets scales for lens and source
-        # self.n_scales_source = 4
-        # self.n_scales_lens = 3
+        self.n_scales_source = 4
+        self.n_scales_lens = 3
 
         # list of source light profiles
         source_model = LightModel(['STARLETS'])
-        # self.kwargs_source = [{'coeffs': 1, 'n_scales': self.n_scales_source, 
-        #                        'n_pixels': self.num_pix_source**2}]
+        self.kwargs_source = [{'coeffs': 1, 'n_scales': self.n_scales_source, 
+                               'n_pixels': self.num_pix_source**2}]
 
         # list of lens light profiles
         lens_light_model = LightModel(['STARLETS'])
-        # self.kwargs_lens_light = [{'coeffs': 1, 'n_scales': self.n_scales_lens,
-        #                            'n_pixels': self.num_pix**2}]
+        self.kwargs_lens_light = [{'coeffs': 1, 'n_scales': self.n_scales_lens,
+                                   'n_pixels': self.num_pix**2}]
 
         # define some mask
         self.likelihood_mask = np.zeros((self.num_pix, self.num_pix))
@@ -129,6 +129,11 @@ class TestSparseSolverBase(object):
         self.solver.reset_data()
         npt.assert_equal(self.solver.Y, self.solver.Y_eff)
 
+    def test_noise_levels(self):
+        self.solver.lensingOperator.update_mapping(self.kwargs_lens)
+        self.solver.set_wavelet_scales(self.n_scales_source, self.n_scales_lens)
+        assert self.solver.noise_levels_image_plane.shape == (self.n_scales_lens, self.num_pix, self.num_pix)
+        assert self.solver.noise_levels_source_plane.shape == (self.n_scales_source, self.min_num_pix_source, self.min_num_pix_source)
 
 
 class TestRaise(unittest.TestCase):
@@ -185,7 +190,6 @@ class TestRaise(unittest.TestCase):
                                            psf_class=self.psf, convolution_class=self.conv)
         with self.assertRaises(ValueError):
             # solve is not fully implemented (on purpose) in the base class
-            
             result = self.solver.solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light)
 
 
