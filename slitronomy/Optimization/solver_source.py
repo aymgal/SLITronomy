@@ -17,7 +17,7 @@ class SparseSolverSource(SparseSolverBase):
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
-                 psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='simple',
+                 psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True,
                  min_num_pix_source=10, use_mask_for_minimal_source_plane=True,
                  max_threshold=5, max_threshold_high_freq=None, num_iter=50, num_iter_weights=1,
