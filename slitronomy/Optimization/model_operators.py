@@ -11,9 +11,8 @@ class ModelOperators(object):
 
     """Utility class for access to operator as defined in formal optimization equations"""
 
-    def __init__(self, data_class, lensing_operator_class,
-                 source_light_class, lens_light_class=None, convolution_class=None,
-                 likelihood_mask=None):
+    def __init__(self, data_class, lensing_operator_class, source_light_class, lens_light_class=None, 
+                 subgrid_res_source=1, convolution_class=None, likelihood_mask=None):
         if likelihood_mask is None:
             likelihood_mask = np.ones_like(data_class.data)
         self._mask = likelihood_mask
@@ -26,13 +25,14 @@ class ModelOperators(object):
             self._conv_transpose = None
         else:
             self._conv_transpose = convolution_class.copy_transpose()
-        self._prepare_data(data_class, self._mask)
+        self._prepare_data(data_class, subgrid_res_source, self._mask)
 
-    def _prepare_data(self, data_class, mask):
+    def _prepare_data(self, data_class, subgrid_res_source, mask):
         num_pix_x, num_pix_y = data_class.num_pixel_axes
         if num_pix_x != num_pix_y:
             raise ValueError("Only square images are supported")
         self._num_pix = num_pix_x
+        self._num_pix_source = int(num_pix_x * subgrid_res_source)
         self._image_data = np.copy(data_class.data)
         self._image_data_eff = np.copy(self._image_data)
 

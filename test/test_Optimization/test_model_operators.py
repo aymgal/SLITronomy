@@ -112,11 +112,11 @@ class TestModelOperators(object):
 
     def test_spectral_norm_source(self):
         self.model_op.set_wavelet_scales(self.n_scales_source)
-        npt.assert_almost_equal(self.model_op.spectral_norm_source, 0.9999999999, decimal=5)
+        npt.assert_almost_equal(self.model_op.spectral_norm_source, 0.999, decimal=3)
 
     def test_spectral_norm_lens(self):
         self.model_op.set_wavelet_scales(self.n_scales_source, n_scales_lens=self.n_scales_lens)
-        npt.assert_almost_equal(self.model_op.spectral_norm_lens, 0.9999999999, decimal=5)
+        npt.assert_almost_equal(self.model_op.spectral_norm_lens, 0.999, decimal=3)
 
     def test_data_terms(self):
         npt.assert_equal(self.model_op.Y, self.image_data)

@@ -15,6 +15,7 @@ from lenstronomy.Data.psf import PSF
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.LightModel.light_model import LightModel
 from lenstronomy.ImSim.Numerics.convolution import PixelKernelConvolution
+from lenstronomy.LightModel.Profiles.gaussian import Gaussian
 import lenstronomy.Util.util as l_util
 
 
@@ -39,13 +40,20 @@ class TestSparseSolverSource(object):
             = l_util.make_grid_with_coordtransform(numPix=self.num_pix, deltapix=delta_pix, subgrid_res=1, 
                                                          inverse=False, left_lower=False)
         
-        self.image_data = np.random.rand(self.num_pix, self.num_pix)
+        gaussian = Gaussian()
+        x, y = l_util.make_grid(self.num_pix, 1)
+        gaussian1 = gaussian.function(x, y, amp=5, sigma=1, center_x=-7, center_y=-7)
+        gaussian2 = gaussian.function(x, y, amp=20, sigma=2, center_x=-3, center_y=-3)
+        gaussian3 = gaussian.function(x, y, amp=60, sigma=4, center_x=+5, center_y=+5)
+        self.image_data = util.array2image(gaussian1 + gaussian2 + gaussian3)
+        background_rms = 0.1
+        self.image_data += background_rms * np.random.randn(self.num_pix, self.num_pix) 
         kwargs_data = {
             'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
             'transform_pix2angle': Mpix2coord,
             'image_data': self.image_data,
-            'background_rms': 0.01,
-            'noise_map': 0.01 * np.ones_like(self.image_data),
+            'background_rms': background_rms,
+            'noise_map': background_rms * np.ones_like(self.image_data),
         }
         data = ImageData(**kwargs_data)
 
@@ -53,12 +61,12 @@ class TestSparseSolverSource(object):
         self.kwargs_lens = [{'theta_E': 1, 'gamma': 2, 'center_x': 0, 'center_y': 0, 'e1': -0.05, 'e2': 0.05}]
 
         # list of source light profiles
-        self.source_model = LightModel(['STARLETS'])
+        self.source_lightModel = LightModel(['STARLETS'])
         self.kwargs_source = [{'coeffs': 1, 'n_scales': self.n_scales_source, 
                                'n_pixels': self.num_pix_source**2}]
 
         # list of lens light profiles
-        self.lens_light_model = LightModel(['STARLETS'])
+        self.lens_lightModel = LightModel(['STARLETS'])
         self.kwargs_lens_light = [{'coeffs': 1, 'n_scales': self.n_scales_lens,
                                    'n_pixels': self.num_pix**2}]
 
@@ -79,12 +87,12 @@ class TestSparseSolverSource(object):
         psf = PSF(**kwargs_psf)
         conv = PixelKernelConvolution(kernel_pixel)
 
-        self.num_iter_source = 4
-        self.num_iter_lens = 3
+        self.num_iter_source = 30
+        self.num_iter_lens = 5
         self.num_iter_weights = 2
 
         # init the solver
-        self.solver_source_ana = SparseSolverSource(data, lens_model, self.source_model, lens_light_model_class=None,
+        self.solver_source_ana = SparseSolverSource(data, lens_model, self.source_lightModel, lens_light_model_class=None,
                  psf_class=psf, convolution_class=conv, likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
@@ -92,7 +100,7 @@ class TestSparseSolverSource(object):
                  verbose=False, show_steps=False,
                  max_threshold=5, max_threshold_high_freq=None, 
                  num_iter=self.num_iter_source, num_iter_weights=self.num_iter_weights)
-        self.solver_lens_syn = SparseSolverSourceLens(data, lens_model, self.source_model, lens_light_model_class=self.lens_light_model,
+        self.solver_lens_syn = SparseSolverSourceLens(data, lens_model, self.source_lightModel, lens_light_model_class=self.lens_lightModel,
                  psf_class=psf, convolution_class=conv, likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
@@ -102,7 +110,7 @@ class TestSparseSolverSource(object):
                  num_iter_source=self.num_iter_source, num_iter_lens=self.num_iter_lens, 
                  num_iter_weights=self.num_iter_weights)
 
-    def test_solve(self):
+    def test_solve_source_analysis(self):
         # source solver
         image_model, source_light, lens_light, coeffs, scales = \
             self.solver_source_ana.solve(self.kwargs_lens, self.kwargs_source, kwargs_special=self.kwargs_special)
@@ -112,6 +120,47 @@ class TestSparseSolverSource(object):
         assert coeffs.shape == (self.num_pix_source**2*self.n_scales_source,)
         assert len(scales) == 4
 
+        # get the track
+        track = self.solver_source_ana.track
+        len_track_exp = self.num_iter_source*self.num_iter_weights
+        assert len(track['loss'][0, :]) == len_track_exp
+
+        # access models
+        image_model = self.solver_source_ana.image_model()
+        assert image_model.shape == self.image_data.shape
+        # PSF is dirac so...
+        npt.assert_almost_equal(self.solver_source_ana.image_model(unconvolved=True), 
+                                self.solver_source_ana.image_model(unconvolved=False),
+                                decimal=8)
+        source_light = self.solver_source_ana.source_model
+        assert source_light.shape == (self.num_pix_source, self.num_pix_source)
+
+        S = source_light
+
+        # loss function
+        loss = self.solver_source_ana.loss(S=S)
+        assert loss > 0
+
+        # reduced residuals map
+        red_res = self.solver_source_ana.reduced_residuals(S=S)
+        assert red_res.shape == self.image_data.shape
+
+        # L2-norm of difference of two arrays
+        S_ = np.random.rand(self.num_pix_source, self.num_pix_source)
+        assert self.solver_source_ana.norm_diff(S, S_) > 0
+
+        # reduced chi2
+        red_chi2 = self.solver_source_ana.reduced_chi2(S=S)
+        assert red_chi2 > 0
+        assert self.solver_source_ana.best_fit_reduced_chi2 == self.solver_source_ana.reduced_chi2(S=S)
+
+        # synthesis and analysis models
+        alpha_S = self.source_lightModel.func_list[0].decomposition_2d(S, self.n_scales_source)
+        ma = self.solver_source_ana.model_analysis(S)
+        ms = self.solver_source_ana.model_synthesis(alpha_S)
+        npt.assert_almost_equal(ma, ms, decimal=4)
+
+    def test_solve_lens_synthesis(self):
         # source+lens solver
         image_model, source_light, lens_light, coeffs, scales = \
             self.solver_lens_syn.solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light,
@@ -131,53 +180,35 @@ class TestSparseSolverSource(object):
         image_model = self.solver_lens_syn.image_model()
         assert image_model.shape == self.image_data.shape
         # PSF is dirac so...
-        npt.assert_equal(self.solver_lens_syn.image_model(unconvolved=True), 
-                         self.solver_lens_syn.image_model(unconvolved=False))
-        source_model = self.solver_lens_syn.source_model
-        assert image_model.shape == (self.num_pix_source, self.num_pix_source)
-        lens_light_model = self.solver_lens_syn.lens_light_model
+        npt.assert_almost_equal(self.solver_lens_syn.image_model(unconvolved=True), 
+                                self.solver_lens_syn.image_model(unconvolved=False),
+                                decimal=8)
+        source_light = self.solver_lens_syn.source_model
+        assert source_light.shape == (self.num_pix_source, self.num_pix_source)
+        lens_light = self.solver_lens_syn.lens_light_model
         assert image_model.shape == (self.num_pix, self.num_pix)
 
+        S, HG = source_light, lens_light
+
         # loss function
-        S = np.random.rand(self.num_pix_source, self.num_pix_source)
-        HG = np.random.rand(self.num_pix, self.num_pix)
-        loss = self.solver_source_ana.loss(S=S)
-        assert loss > 0
         loss = self.solver_lens_syn.loss(S=S, HG=HG)
         assert loss > 0
 
         # reduced residuals map
-        S = np.random.rand(self.num_pix_source, self.num_pix_source)
-        HG = np.random.rand(self.num_pix, self.num_pix)
-        red_res = self.solver_source_ana.reduced_residuals(S=S)
-        assert red_res.shape == self.image_data.shape
         red_res = self.solver_lens_syn.reduced_residuals(S=S, HG=HG)
         assert red_res.shape == self.image_data.shape
-
-        # L2-norm of difference of two arrays
-        S_ = np.random.rand(self.num_pix_source, self.num_pix_source)
-        assert self.solver_source_ana.norm_diff(S, S_) > 0
 
         # reduced chi2
         red_chi2 = self.solver_lens_syn.reduced_chi2(S=S, HG=HG)
         assert red_chi2 > 0
-        assert self.solver_lens_syn.best_fit_reduced_chi2 == self.solver_lens_syn.reduced_chi2(S=source_model, HG=lens_light_model)
+        assert self.solver_lens_syn.best_fit_reduced_chi2 == self.solver_lens_syn.reduced_chi2(S=S, HG=HG)
 
-    def test_model_synthesis_analysis(self):
-        _, S, _, _, _ = self.solver_source_ana.solve(self.kwargs_lens, self.kwargs_source, 
-                                                     kwargs_special=self.kwargs_special)
-        alpha_S = self.source_model.func_list[0].decomposition_2d(S, self.n_scales_source)
-        ma = self.solver_source_ana.model_analysis(S)
-        ms = self.solver_source_ana.model_synthesis(alpha_S)
-        npt.assert_almost_equal(ma, ms, decimal=7)
-
-        _, S, HG, _, _ = self.solver_lens_syn.solve(self.kwargs_lens, self.kwargs_source, 
-                                                    self.kwargs_lens_light, kwargs_special=self.kwargs_special)
-        alpha_S = self.source_model.func_list[0].decomposition_2d(S, self.n_scales_source)
-        alpha_HG = self.lens_light_model.func_list[0].decomposition_2d(HG, self.n_scales_lens)
+        # synthesis and analysis models
+        alpha_S = self.source_lightModel.func_list[0].decomposition_2d(S, self.n_scales_source)
+        alpha_HG = self.lens_lightModel.func_list[0].decomposition_2d(HG, self.n_scales_lens)
         ma = self.solver_lens_syn.model_analysis(S, HG)
         ms = self.solver_lens_syn.model_synthesis(alpha_S, alpha_HG)
-        npt.assert_almost_equal(ma, ms, decimal=7)
+        npt.assert_almost_equal(ma, ms, decimal=4)
 
 
 if __name__ == '__main__':

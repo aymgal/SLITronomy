@@ -131,7 +131,7 @@ def hard_threshold(array, thresh):
 
 def spectral_norm(num_pix, operator, inverse_operator, num_iter=20, tol=1e-10):
     """compute spectral norm from operator and its inverse"""
-    random_array = np.random.randn(num_pix, num_pix)
+    random_array = np.random.rand(num_pix, num_pix)
     norm = np.linalg.norm(random_array)
     random_array /= norm
 
