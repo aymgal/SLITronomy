@@ -21,20 +21,12 @@ class SparseSolverBase(ModelOperators):
     #TODO: create classes for lens and source models.
     # E.g. the method project_on_original_grid should be attached to a SourceModel class, not to the solver.
 
-    def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
-                 point_source_class=None, psf_class=None, numerics_class=None, likelihood_mask=None, 
-                 lensing_operator='interpol',
+    def __init__(self, data_class, lens_model_class, source_model_class, numerics_class,
+                 likelihood_mask=None, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True,
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False):
-        # consider only the first light profiles in model lists
-        source_light_class = source_model_class.func_list[0]
-        if lens_light_model_class is not None:
-            lens_light_class = lens_light_model_class.func_list[0]
-        else:
-            lens_light_class = None
-
         (num_pix_x, num_pix_y) = data_class.num_pixel_axes
         if num_pix_x != num_pix_y:
             raise ValueError("Only square images are supported")
@@ -46,11 +38,6 @@ class SparseSolverBase(ModelOperators):
 
         # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
         self._noise_map = np.sqrt(data_class.C_D)
-
-        if psf_class is not None:
-            self._psf_kernel = psf_class.kernel_point_source
-        else:
-            self._psf_kernel = None
 
         if lensing_operator == 'simple':
             lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source,
@@ -64,8 +51,7 @@ class SparseSolverBase(ModelOperators):
                                                      fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source,
                                                      use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane)
 
-        super(SparseSolverBase, self).__init__(data_class, lensing_operator_class,
-                                               source_light_class, lens_light_class=lens_light_class,
+        super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, source_model_class,
                                                subgrid_res_source=subgrid_res_source, numerics_class=numerics_class, 
                                                likelihood_mask=likelihood_mask)
 
@@ -308,10 +294,10 @@ class SparseSolverBase(ModelOperators):
         """boost_where_zero sets the multiplcative factor in fron tof the average noise levels
         at locations where noise is 0"""
         # get transposed blurring operator
-        if self._psf_kernel is None:
+        if self.psf_kernel is None:
             HT = util.dirac_impulse(self.lensingOperator.imagePlane.num_pix)
         else:
-            HT = self._psf_kernel.T
+            HT = self.psf_kernel.T
 
         HT_noise_diag = self._noise_map * np.sqrt(np.sum(HT**2))
         FT_HT_noise = self.F_T(HT_noise_diag)

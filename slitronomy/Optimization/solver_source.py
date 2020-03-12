@@ -17,31 +17,29 @@ class SparseSolverSource(SparseSolverBase):
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
     def __init__(self, data_class, lens_model_class, source_model_class,
-                 psf_class=None, numerics_class=None, likelihood_mask=None, lensing_operator='interpol',
+                 numerics_class, likelihood_mask=None, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True,
                  min_num_pix_source=10, use_mask_for_minimal_source_plane=True,
-                 max_threshold=5, max_threshold_high_freq=None, num_iter=50, num_iter_weights=1,
+                 max_threshold=5, max_threshold_high_freq=None, num_iter_source=50, num_iter_weights=1,
                  sparsity_prior_norm=1, force_positivity=True,
                  formulation='analysis', verbose=False, show_steps=False):
 
-        self._k_max = max_threshold
-        if max_threshold_high_freq is None:
-            self._k_max_high_freq = self._k_max + 1
-        else:
-            self._k_max_high_freq = max_threshold_high_freq
-        self._n_iter = num_iter
-        self._n_weights = num_iter_weights
-
         # TODO: remove duplicated parameters in __init__ call (use *args and **kwargs)
-        super(SparseSolverSource, self).__init__(data_class, lens_model_class, source_model_class,
-                                                 lens_light_model_class=None, psf_class=psf_class,
-                                                 numerics_class=numerics_class, likelihood_mask=likelihood_mask,
+        super(SparseSolverSource, self).__init__(data_class, lens_model_class, source_model_class, numerics_class,
+                                                 likelihood_mask=likelihood_mask,
                                                  lensing_operator=lensing_operator, subgrid_res_source=subgrid_res_source,
                                                  minimal_source_plane=minimal_source_plane, fix_minimal_source_plane=fix_minimal_source_plane,
                                                  use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
                                                  min_num_pix_source=min_num_pix_source,
                                                  sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity,
                                                  formulation=formulation, verbose=verbose, show_steps=show_steps)
+        self._k_max = max_threshold
+        if max_threshold_high_freq is None:
+            self._k_max_high_freq = self._k_max + 1
+        else:
+            self._k_max_high_freq = max_threshold_high_freq
+        self._n_iter_source = num_iter_source
+        self._n_weights = num_iter_weights
 
     def _solve(self):
         """
@@ -78,7 +76,7 @@ class SparseSolverSource(SparseSolverBase):
             prox_g = lambda x, y: self.proximal_sparsity_source(x, weights=weights)
 
             ######### Loop over iterations at fixed weights ########
-            for i in range(self._n_iter):
+            for i in range(self._n_iter_source):
 
                 if self.algorithm == 'FISTA':
                     alpha_S_next, fista_xi_next, fista_t_next \
@@ -93,7 +91,7 @@ class SparseSolverSource(SparseSolverBase):
                 self._tracker.save(S=S, S_next=S_next, print_bool=(i % 30 == 0),
                                    iteration_text="=== iteration {}-{} ===".format(j, i))
 
-                if self._show_steps and (i % ma.ceil(self._n_iter/2) == 0):
+                if self._show_steps and (i % ma.ceil(self._n_iter_source/2) == 0):
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i)
 
                 # update current estimate of source light and local parameters
