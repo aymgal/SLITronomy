@@ -4,6 +4,7 @@ __author__ = 'aymgal'
 
 import copy
 import numpy as np
+import math as ma
 
 from slitronomy.Optimization.solver_source import SparseSolverSource
 from slitronomy.Optimization import algorithms
@@ -15,24 +16,25 @@ class SparseSolverSourceLens(SparseSolverSource):
 
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
-    def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class,
-                 psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='simple',
+    def __init__(self, data_class, lens_model_class, source_model_class, numerics_class, lens_light_model_class,
+                 likelihood_mask=None, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
                  max_threshold=5, max_threshold_high_freq=None, num_iter_source=50, num_iter_lens=50, num_iter_weights=1, 
                  sparsity_prior_norm=1, force_positivity=True, 
                  formulation='analysis', verbose=False, show_steps=False):
 
-        super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, source_model_class, lens_light_model_class=lens_light_model_class,
-                                                     psf_class=psf_class, convolution_class=convolution_class, likelihood_mask=likelihood_mask, 
+        super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, source_model_class,
+                                                     numerics_class, likelihood_mask=likelihood_mask, 
                                                      lensing_operator=lensing_operator, subgrid_res_source=subgrid_res_source, 
                                                      minimal_source_plane=minimal_source_plane, fix_minimal_source_plane=fix_minimal_source_plane,
                                                      min_num_pix_source=min_num_pix_source, use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
                                                      sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity, 
                                                      formulation=formulation, verbose=verbose, show_steps=show_steps,
                                                      max_threshold=max_threshold, max_threshold_high_freq=max_threshold_high_freq, 
-                                                     num_iter=num_iter_source, num_iter_weights=num_iter_weights)
+                                                     num_iter_source=num_iter_source, num_iter_weights=num_iter_weights)
         self._n_iter_lens = num_iter_lens
+        self.add_lens_light(lens_light_model_class)
 
     def _solve(self):
         """
@@ -46,8 +48,8 @@ class SparseSolverSourceLens(SparseSolverSource):
         S, alpha_S = self.generate_initial_source()
         HG, alpha_HG = self.generate_initial_lens_light()
         if self._show_steps:
-            self._plotter.plot_init(S, show_now=True)
-            self._plotter.plot_init(HG, show_now=True)
+            self._plotter.plot_init(S)
+            self._plotter.plot_init(HG)
 
         # initialise weights
         weights_source = 1.
@@ -81,7 +83,7 @@ class SparseSolverSourceLens(SparseSolverSource):
                 # get the gradient of the cost function f = || Y - HFS - HG ||^2_2  wth respect to S
                 grad_f_s = lambda x: self.gradient_loss_source(x)
 
-                for i_s in range(self._n_iter):
+                for i_s in range(self._n_iter_source):
 
                     if self.algorithm == 'FISTA':
                         alpha_S_next, fista_xi_s_next, fista_t_s_next \
@@ -122,12 +124,12 @@ class SparseSolverSourceLens(SparseSolverSource):
 
                 # save current step to track
                 self._tracker.save(HG=HG, HG_next=HG_next, 
-                                   print_bool=(i_l % 10 == 0 and i_s == self._n_iter-1),
+                                   print_bool=(i_l % 10 == 0 and i_s == self._n_iter_source-1),
                                    iteration_text="=== iteration {}-{}-{} ===".format(j, i_l, i_s))
 
-                if self._show_steps and i_l % int(self._n_iter_lens/2) == 0 and i_s == self._n_iter-1:
-                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i_l, iter_3=i_s, show_now=True)
-                    self._plotter.plot_step(HG_next, iter_1=j, iter_2=i_l, iter_3=i_s, show_now=True)
+                if self._show_steps and i_l % ma.ceil(self._n_iter_lens/2) == 0 and i_s == self._n_iter_source-1:
+                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i_l, iter_3=i_s)
+                    self._plotter.plot_step(HG_next, iter_1=j, iter_2=i_l, iter_3=i_s)
 
                 # update current estimate of source light and local parameters
                 HG = HG_next

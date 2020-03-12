@@ -11,30 +11,40 @@ class ModelOperators(object):
 
     """Utility class for access to operator as defined in formal optimization equations"""
 
-    def __init__(self, data_class, lensing_operator_class,
-                 source_light_class, lens_light_class=None, convolution_class=None,
-                 likelihood_mask=None):
+    def __init__(self, data_class, lensing_operator_class, source_model_class, numerics_class,
+                 subgrid_res_source=1, likelihood_mask=None):
         if likelihood_mask is None:
             likelihood_mask = np.ones_like(data_class.data)
         self._mask = likelihood_mask
         self._mask_1d = util.image2array(likelihood_mask)
-        self._source_light = source_light_class
-        self._lens_light = lens_light_class
+        # takes the first source profile in the model list
+        self._source_light = source_model_class.func_list[0]
+        self._no_lens_light = True
+        self._no_point_source = True
         self._lensing_op = lensing_operator_class
-        self._conv = convolution_class
-        if self._conv is None:
-            self._conv_transpose = None
+        self._conv = numerics_class.convolution_class
+        if self._conv is not None:
+            self._conv_transpose = self._conv.copy_transpose()
         else:
-            self._conv_transpose = convolution_class.copy_transpose()
-        self._prepare_data(data_class, self._mask)
+            self._conv_transpose = None
+        self._prepare_data(data_class, subgrid_res_source, self._mask)
 
-    def _prepare_data(self, data_class, mask):
+    def _prepare_data(self, data_class, subgrid_res_source, mask):
         num_pix_x, num_pix_y = data_class.num_pixel_axes
         if num_pix_x != num_pix_y:
             raise ValueError("Only square images are supported")
         self._num_pix = num_pix_x
+        self._num_pix_source = int(num_pix_x * subgrid_res_source)
         self._image_data = np.copy(data_class.data)
         self._image_data_eff = np.copy(self._image_data)
+
+    def add_lens_light(self, lens_light_model_class):
+        # takes the first lens light profile in the model list
+        self._lens_light = lens_light_model_class.func_list[0]
+        self._no_lens_light = False
+
+    def add_point_source(self):
+        self._no_point_source = False
 
     def set_wavelet_scales(self, n_scales_source, n_scales_lens=None):
         self._n_scales_source = n_scales_source
@@ -86,7 +96,17 @@ class ModelOperators(object):
 
     @property
     def no_lens_light(self):
-        return (self._lens_light is None)
+        return self._no_lens_light
+
+    @property
+    def no_point_source(self):
+        return self._no_point_source
+
+    @property
+    def psf_kernel(self):
+        if self._conv is None:
+            return None
+        return self._conv.kernel
 
     @property
     def Y(self):
