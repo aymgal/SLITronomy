@@ -17,7 +17,7 @@ class SparseSolverSourcePS(SparseSolverSource):
 
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
-    def __init__(self, data_class, lens_model_class, source_model_class, numerics_class, point_source_class, 
+    def __init__(self, data_class, lens_model_class, source_model_class, numerics_class, 
                  point_source_painter, point_source_solver,
                  likelihood_mask=None, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, 
@@ -34,11 +34,11 @@ class SparseSolverSourcePS(SparseSolverSource):
                                                      sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity, 
                                                      formulation=formulation, verbose=verbose, show_steps=show_steps,
                                                      max_threshold=max_threshold, max_threshold_high_freq=max_threshold_high_freq, 
-                                                     num_iter=num_iter_source, num_iter_weights=num_iter_weights)
+                                                     num_iter_source=num_iter_source, num_iter_weights=num_iter_weights)
         self._n_iter_ps = num_iter_ps
         self._ps_painter = point_source_painter
         self._ps_solver = point_source_solver
-        self.add_point_source(point_source_class)
+        self.add_point_source()
 
     def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light, kwargs_ps, kwargs_special=None):
         """
@@ -56,7 +56,6 @@ class SparseSolverSourcePS(SparseSolverSource):
         # call solver
         image_model, source_light, lens_light, coeffs_source, coeffs_lens_light, amps_point_source \
             = self._solve(kwargs_lens, kwargs_ps)
-        print("END", amps_point_source)
 
         coeffs_lens_light = []
 
@@ -80,14 +79,14 @@ class SparseSolverSourcePS(SparseSolverSource):
         if self._show_steps:
             self._plotter.plot_init(S)
 
+        # initial point source model
+        P = self._ps_painter(kwargs_ps)
+
         # initialise weights
         weights = 1.
 
         # initialise tracker
         self._tracker.init()
-
-        # initial point source model
-        ps_model = self._ps_painter(kwargs_ps)
 
         ######### Loop to update weights ########
         loss_list = []
@@ -102,15 +101,15 @@ class SparseSolverSourcePS(SparseSolverSource):
                 ######### Loop over source light at fixed weights ########
 
                 # subtract lens light from data
-                self.subtract_from_data(ps_model)
+                self.subtract_from_data(P)
 
-                import matplotlib.pyplot as plt
-                plt.figure()
-                plt.imshow(self.Y_eff)
-                plt.show()
-                plt.close()
+                # import matplotlib.pyplot as plt
+                # plt.figure()
+                # plt.imshow(self.Y_eff)
+                # plt.show()
+                # plt.close()
 
-                for i_s in range(self._n_iter):
+                for i_s in range(self._n_iter_source):
 
                     if j == 0 and self.algorithm == 'FISTA':
                         fista_xi = np.copy(alpha_S)
@@ -133,7 +132,7 @@ class SparseSolverSourcePS(SparseSolverSource):
                                        print_bool=(i_p % 30 == 0 and i_s % 30 == 0),
                                        iteration_text="*** iteration {}-{}-{} ***".format(j, i_p, i_s))
 
-                    if self._show_steps and (i_s % ma.ceil(self._n_iter/2) == 0):
+                    if self._show_steps and (i_s % ma.ceil(self._n_iter_source/2) == 0):
                         self._plotter.plot_step(S_next, iter_1=j, iter_2=i)
 
                     # update current estimate of source light and local parameters
@@ -155,14 +154,15 @@ class SparseSolverSourcePS(SparseSolverSource):
                 # plt.close()
 
                 # solve for point source amplitudes
-                print("BEFORE", kwargs_ps)
-                d = util.image2array(self.Y_eff)  # effective data vector, with source light subtracted
-                ps_model, ps_model_error, ps_cov_param, ps_param = self._ps_solver(d, kwargs_lens, kwargs_ps, 
-                                                                                   kwargs_special=None, inv_bool=False)
+                # print("BEFORE", kwargs_ps)
+                current_model = self.model_analysis(S)
+                model_without_ps_1d = util.image2array(current_model)  # current model without point sources
+                P, P_error, ps_cov_param, ps_param = self._ps_solver(model_without_ps_1d, kwargs_lens, kwargs_ps, 
+                                                                     kwargs_special=None, inv_bool=False)
                 # kwargs should be updated now
-                print("AFTER", kwargs_ps)
+                # print("AFTER", kwargs_ps)
 
-                if self._show_steps and i_p % ma.ceil(self._n_iter_lens/2) == 0 and i_s == self._n_iter-1:
+                if self._show_steps and i_p % ma.ceil(self._n_iter_ps/2) == 0 and i_s == self._n_iter_source-1:
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i_p, iter_3=i_s)
                     # self._plotter.plot_step(HG_next, iter_1=j, iter_2=i_l, iter_3=i_s)
 
@@ -174,9 +174,13 @@ class SparseSolverSourcePS(SparseSolverSource):
 
         ######### ######## end weights ######## ########
 
+        # reset effective data to original data
+        self.reset_data()
+
         # store results
         self._tracker.finalize()
         self._source_model = S
+        self._ps_model = P
 
         # all optimized coefficients (flattened)
         coeffs_S_1d = util.cube2array(self.Phi_T_s(S))
@@ -185,4 +189,4 @@ class SparseSolverSourcePS(SparseSolverSource):
             self._plotter.plot_final(self._source_model)
 
         model = self.image_model(unconvolved=False)
-        return model, S, None, coeffs_S_1d, None, kwargs_ps
+        return model, S, None, coeffs_S_1d, None, kwargs_ps[0]['point_amp']

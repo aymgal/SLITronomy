@@ -128,30 +128,40 @@ class SparseSolverBase(ModelOperators):
         if not hasattr(self, '_lens_light_model') and not self.no_lens_light:
             raise ValueError("You must run the optimization before accessing the lens estimate")
         if self.no_lens_light:
-            return None
+            return np.zeros_like(self.image_data)
         return self._lens_light_model
 
-    def image_model(self, unconvolved=False):
-        return self._image_model(unconvolved=unconvolved)
+    @property
+    def point_source_model(self):
+        if not hasattr(self, '_ps_model') and not self.no_point_source:
+            raise ValueError("You must run the optimization before accessing the point source estimate")
+        if self.no_point_source:
+            return np.zeros_like(self.image_data)
+        return self._ps_model
 
-    def _image_model(self, unconvolved=False):
-        if self.no_lens_light:
+    def image_model(self, unconvolved=False):
+        if self.no_lens_light and self.no_point_source:
             S = self.source_model
             if unconvolved:
                 return self.F(S)
-            else:
-                return self.H(self.F(S))
+            return self.H(self.F(S))
+        elif not self.no_point_source:
+            S, P = self.source_model, self.point_source_model
+            if unconvolved:
+                raise ValueError("Deconvolution is only supported for source light")
+            return self.H(self.F(S)) + P
         else:
             S, HG = self.source_model, self.lens_light_model
+            if unconvolved:
+                raise ValueError("Deconvolution is only supported for source light")
             return self.H(self.F(S)) + HG
 
     @property
     def reduced_residuals_model(self):
-        """ returns || Y - HFS - HG ||^2_2 / sigma^2 """
-        if hasattr(self, '_lens_light_model'):
-            return self.reduced_residuals(self.source_model, HG=self.lens_light_model)
-        else:
-            return self.reduced_residuals(self.source_model)
+        """ returns || Y - HFS - HG - P ||^2_2 / sigma^2 """
+        return self.reduced_residuals(S=self.source_model, 
+                                      HG=self.lens_light_model, 
+                                      P=self.point_source_model)
 
     def generate_initial_source(self):
         num_pix = self.lensingOperator.sourcePlane.num_pix
@@ -184,23 +194,23 @@ class SparseSolverBase(ModelOperators):
 
     @property
     def best_fit_reduced_chi2(self):
-        return self.reduced_chi2(S=self.source_model, HG=self.lens_light_model)
+        return self.reduced_chi2(S=self.source_model, HG=self.lens_light_model, P=self.point_source_model)
 
-    def loss(self, S=None, HG=None):
-        """ returns f = || Y - HFS - HG ||^2_2 """
-        model = self.model_analysis(S=S, HG=HG)
+    def loss(self, S=None, HG=None, P=None):
+        """ returns f = || Y - HFS - HG - P ||^2_2 """
+        model = self.model_analysis(S=S, HG=HG, P=P)
         error = self.Y_eff - model
         norm_error = np.linalg.norm(error.flatten(), ord=2)  # flatten to ensure L2-norm
         return 0.5 * norm_error**2
 
-    def reduced_residuals(self, S=None, HG=None):
-        """ returns ( Y - HFS - HG ) / sigma """
-        model = self.model_analysis(S=S, HG=HG)
+    def reduced_residuals(self, S=None, HG=None, P=None):
+        """ returns ( Y - HFS - HG - P ) / sigma """
+        model = self.model_analysis(S=S, HG=HG, P=P)
         error = self.Y_eff - model
         return self.M(error / self._noise_map)
 
-    def reduced_chi2(self, S=None, HG=None):
-        chi2 = np.sum(self.reduced_residuals(S=S, HG=HG)**2)
+    def reduced_chi2(self, S=None, HG=None, P=None):
+        chi2 = np.sum(self.reduced_residuals(S=S, HG=HG, P=P)**2)
         return chi2 / self.num_data_points
 
     @staticmethod
@@ -209,21 +219,21 @@ class SparseSolverBase(ModelOperators):
         diff = S1 - S2
         return np.linalg.norm(diff.flatten(), ord=2)  # flatten to ensure L2-norm
 
-    def model_analysis(self, S=None, HG=None):
-        if S is not None and HG is None:
-            return self.H(self.F(S))
-        elif S is None and HG is not None:
-            return HG
-        else:
-            return self.H(self.F(S)) + HG
+    def model_analysis(self, S=None, HG=None, P=None):
+        model = self.H(self.F(S))
+        if HG is not None:
+            model += HG
+        if P is not None:
+            model += P
+        return model
 
-    def model_synthesis(self, alpha_S=None, alpha_HG=None):
-        if alpha_S is not None and alpha_HG is None:
-            return self.H(self.F(self.Phi_s(alpha_S)))
-        elif alpha_S is None and alpha_HG is not None:
-            return self.Phi_l(alpha_HG)
-        else:
-            return self.H(self.F(self.Phi_s(alpha_S))) + self.Phi_l(alpha_HG)
+    def model_synthesis(self, alpha_S=None, alpha_HG=None, P=None):
+        model = self.H(self.F(self.Phi_s(alpha_S)))
+        if alpha_HG is not None:
+            model += self.Phi_l(alpha_HG)
+        if P is not None:
+            model += P
+        return model
 
     def gradient_loss_source(self, array_S):
         if self._formulation == 'analysis':

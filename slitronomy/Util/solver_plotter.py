@@ -51,9 +51,13 @@ class SolverPlotter(object):
         # ax.imshow(self.lensingOperator.sourcePlane.reduction_mask, origin='lower', cmap='gray', alpha=0.1)
         plot_util.nice_colorbar(im)
         ax = axes[0, 1]
-        if self._solver.lens_light_model is not None:
+        if not self._solver.no_lens_light:
             ax.set_title("lens light model")
             img_model = self._solver.lens_light_model
+            print("Negative lens pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
+        elif not self._solver.no_point_source:
+            ax.set_title("point source model")
+            img_model = self._solver.point_source_model
             print("Negative lens pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
         else:
             ax.set_title("image model")

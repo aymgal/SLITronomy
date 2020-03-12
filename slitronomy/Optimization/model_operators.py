@@ -17,7 +17,10 @@ class ModelOperators(object):
             likelihood_mask = np.ones_like(data_class.data)
         self._mask = likelihood_mask
         self._mask_1d = util.image2array(likelihood_mask)
+        # takes the first source profile in the model list
         self._source_light = source_model_class.func_list[0]
+        self._no_lens_light = True
+        self._no_point_source = True
         self._lensing_op = lensing_operator_class
         self._conv = numerics_class.convolution_class
         if self._conv is not None:
@@ -36,10 +39,12 @@ class ModelOperators(object):
         self._image_data_eff = np.copy(self._image_data)
 
     def add_lens_light(self, lens_light_model_class):
+        # takes the first lens light profile in the model list
         self._lens_light = lens_light_model_class.func_list[0]
+        self._no_lens_light = False
 
-    def add_point_source(self, point_source_class):
-        self._point_source = lens_light_model_class.func_list[0]
+    def add_point_source(self):
+        self._no_point_source = False
 
     def set_wavelet_scales(self, n_scales_source, n_scales_lens=None):
         self._n_scales_source = n_scales_source
@@ -91,11 +96,11 @@ class ModelOperators(object):
 
     @property
     def no_lens_light(self):
-        return not hasattr(self, '_lens_light')
+        return self._no_lens_light
 
     @property
     def no_point_source(self):
-        return not hasattr(self, '_point_source')
+        return self._no_point_source
 
     @property
     def psf_kernel(self):
