@@ -100,14 +100,8 @@ class SparseSolverSourcePS(SparseSolverSource):
 
                 ######### Loop over source light at fixed weights ########
 
-                # subtract lens light from data
+                # subtract point sources from data
                 self.subtract_from_data(P)
-
-                # import matplotlib.pyplot as plt
-                # plt.figure()
-                # plt.imshow(self.Y_eff)
-                # plt.show()
-                # plt.close()
 
                 for i_s in range(self._n_iter_source):
 
@@ -148,19 +142,11 @@ class SparseSolverSourcePS(SparseSolverSource):
                 # subtract source light for point source linear amplitude optimization
                 self.subtract_source_from_data(S)
 
-                # plt.figure()
-                # plt.imshow(self.Y_eff)
-                # plt.show()
-                # plt.close()
-
                 # solve for point source amplitudes
-                # print("BEFORE", kwargs_ps)
                 current_model = self.model_analysis(S)
                 model_without_ps_1d = util.image2array(current_model)  # current model without point sources
                 P, P_error, ps_cov_param, ps_param = self._ps_solver(model_without_ps_1d, kwargs_lens, kwargs_ps, 
                                                                      kwargs_special=None, inv_bool=False)
-                # kwargs should be updated now
-                # print("AFTER", kwargs_ps)
 
                 if self._show_steps and i_p % ma.ceil(self._n_iter_ps/2) == 0 and i_s == self._n_iter_source-1:
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i_p, iter_3=i_s)
@@ -184,9 +170,10 @@ class SparseSolverSourcePS(SparseSolverSource):
 
         # all optimized coefficients (flattened)
         coeffs_S_1d = util.cube2array(self.Phi_T_s(S))
+        amps_P = ps_param
 
         if self._show_steps:
             self._plotter.plot_final(self._source_model)
 
         model = self.image_model(unconvolved=False)
-        return model, S, None, coeffs_S_1d, None, kwargs_ps[0]['point_amp']
+        return model, S, None, coeffs_S_1d, None, amps_P
