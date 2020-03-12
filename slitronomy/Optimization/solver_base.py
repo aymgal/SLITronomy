@@ -22,7 +22,8 @@ class SparseSolverBase(ModelOperators):
     # E.g. the method project_on_original_grid should be attached to a SourceModel class, not to the solver.
 
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
-                 psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='interpol',
+                 point_source_class=None, psf_class=None, numerics_class=None, likelihood_mask=None, 
+                 lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True,
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
@@ -65,7 +66,7 @@ class SparseSolverBase(ModelOperators):
 
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class,
                                                source_light_class, lens_light_class=lens_light_class,
-                                               subgrid_res_source=subgrid_res_source, convolution_class=convolution_class, 
+                                               subgrid_res_source=subgrid_res_source, numerics_class=numerics_class, 
                                                likelihood_mask=likelihood_mask)
 
         # fill masked pixel with background noise
@@ -83,7 +84,7 @@ class SparseSolverBase(ModelOperators):
         self._tracker = SolverTracker(self, verbose=verbose)
         self._plotter = SolverPlotter(self, show_now=True)
 
-    def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_special=None):
+    def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None):
         """
         main method to call from outside the class, calling self._solve()
 

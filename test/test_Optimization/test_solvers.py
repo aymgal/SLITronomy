@@ -92,7 +92,7 @@ class TestSparseSolverSource(object):
         self.num_iter_weights = 2
 
         # init the solver
-        self.solver_source_ana = SparseSolverSource(data, lens_model, self.source_lightModel, lens_light_model_class=None,
+        self.solver_source_ana = SparseSolverSource(data, lens_model, self.source_lightModel,
                  psf_class=psf, convolution_class=conv, likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,

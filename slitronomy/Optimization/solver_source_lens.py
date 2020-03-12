@@ -17,15 +17,17 @@ class SparseSolverSourceLens(SparseSolverSource):
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class,
-                 psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='interpol',
+                 psf_class=None, numerics_class=None, likelihood_mask=None, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
                  max_threshold=5, max_threshold_high_freq=None, num_iter_source=50, num_iter_lens=50, num_iter_weights=1, 
                  sparsity_prior_norm=1, force_positivity=True, 
                  formulation='analysis', verbose=False, show_steps=False):
 
+        self._n_iter_lens = num_iter_lens
+
         super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, source_model_class, lens_light_model_class=lens_light_model_class,
-                                                     psf_class=psf_class, convolution_class=convolution_class, likelihood_mask=likelihood_mask, 
+                                                     psf_class=psf_class, numerics_class=numerics_class, likelihood_mask=likelihood_mask, 
                                                      lensing_operator=lensing_operator, subgrid_res_source=subgrid_res_source, 
                                                      minimal_source_plane=minimal_source_plane, fix_minimal_source_plane=fix_minimal_source_plane,
                                                      min_num_pix_source=min_num_pix_source, use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
@@ -33,7 +35,6 @@ class SparseSolverSourceLens(SparseSolverSource):
                                                      formulation=formulation, verbose=verbose, show_steps=show_steps,
                                                      max_threshold=max_threshold, max_threshold_high_freq=max_threshold_high_freq, 
                                                      num_iter=num_iter_source, num_iter_weights=num_iter_weights)
-        self._n_iter_lens = num_iter_lens
 
     def _solve(self):
         """
