@@ -307,26 +307,42 @@ class LensingOperatorInterpol(LensingOperator):
         theta_x = source_theta_x[:num_pix]
         xbins = np.linspace(theta_x[0] - half_pix, theta_x[-1] + half_pix,
                             num_pix + 1)
-        index_x = np.digitize(beta_x, xbins) - 1
 
         theta_y = source_theta_y[::num_pix]
         ybins = np.linspace(theta_y[0] - half_pix, theta_y[-1] + half_pix,
                             num_pix + 1)
-        index_y = np.digitize(beta_y, ybins) - 1
 
         # Find the (1D) source plane pixel that (beta_x, beta_y) falls in
+        index_x = np.digitize(beta_x, xbins) - 1
+        index_y = np.digitize(beta_y, ybins) - 1
         index_1 = index_x + index_y * num_pix
+
+        # Handle ray-tracings outside the source grid
+        # if np.any(index_1 < 0 or index_1 >= self.sourcePlane.grid_size):
+            # print(np.where(index_1 < 0)[0])
+            # print(np.where(index_1 >= len(index_1)))
 
         # Compute distances between ray-traced betas and source grid points
         dx = beta_x - source_theta_x[index_1]
         dy = beta_y - source_theta_y[index_1]
+
+        # Prepare to remove duplicate (and triplicate) indices with a mask
+        # This is important for the csr_matrix to be generated correctly
+        zero_dx = list(np.where(dx == 0)[0])
+        zero_dy = list(np.where(dy == 0)[0])
+        unique, counts = np.unique(zero_dx + zero_dy, return_counts=True)
+        masked_indices = [ii * 4 + jj for (ii, count) in zip(unique, counts)
+                          for jj in range(0, 3, 3 - count)]
+        mask = np.ones(4 * self.imagePlane.grid_size, dtype=bool)
+        mask[masked_indices] = False
 
         # Find the three other nearest pixels
         index_2 = index_1 + np.sign(dx).astype(int)
         index_3 = index_1 + np.sign(dy).astype(int) * num_pix
         index_4 = index_2 + np.sign(dy).astype(int) * num_pix
 
-        # Gather indices (sorted for eventual correct SparseTensor ordering)
+        # Gather 2D indices (sorted for eventual correct SparseTensor ordering)
+        rows = np.repeat(np.arange(self.imagePlane.grid_size), 4)
         cols = np.sort([index_1, index_2, index_3, index_4], axis=0).T.flat
 
         # Compute bilinear weights like in Treu & Koopmans (2004)
@@ -334,19 +350,7 @@ class LensingOperatorInterpol(LensingOperator):
         dist_y = (np.repeat(beta_y, 4) - source_theta_y[cols]) / delta_pix
         weights = (1 - np.abs(dist_x)) * (1 - np.abs(dist_y))
 
-        # Check for duplicates and ignore them. This is important for the
-        # sparse csr_matrix to be generated correctly
-        # WARNING : This only works if there is 1 set of sequential duplicates !
-        mask = np.ones(len(weights), dtype=bool)
-        if np.any(weights == 1):
-            inds = np.where(weights == 1)[0]
-            mask[inds[1:]] = False  # Keep only the first instance
-
-        # Construct 2D indices for use in _compute_mapping
-        rows = np.repeat(np.arange(self.imagePlane.grid_size), 4)
-        indices = (rows[mask], cols[mask])
-
-        return indices, weights[mask]
+        return (rows[mask], cols[mask]), weights[mask]
 
 
 # class LensingOperatorInterpol(LensingOperator):
