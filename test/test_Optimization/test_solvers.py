@@ -14,7 +14,7 @@ from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.Data.psf import PSF
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.LightModel.light_model import LightModel
-from lenstronomy.ImSim.Numerics.convolution import PixelKernelConvolution
+from lenstronomy.ImSim.Numerics.numerics_subframe import NumericsSubFrame
 from lenstronomy.LightModel.Profiles.gaussian import Gaussian
 import lenstronomy.Util.util as l_util
 
@@ -85,23 +85,23 @@ class TestSparseSolverSource(object):
         kernel_pixel[int(self.num_pix/2), int(self.num_pix/2)] = 1  # just a dirac here
         kwargs_psf = {'psf_type': 'PIXEL', 'kernel_point_source': kernel_pixel}
         psf = PSF(**kwargs_psf)
-        conv = PixelKernelConvolution(kernel_pixel)
+        numerics = NumericsSubFrame(pixel_grid=data, psf=psf)
 
         self.num_iter_source = 30
         self.num_iter_lens = 5
         self.num_iter_weights = 2
 
         # init the solver
-        self.solver_source_ana = SparseSolverSource(data, lens_model, self.source_lightModel,
-                 psf_class=psf, convolution_class=conv, likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
+        self.solver_source_ana = SparseSolverSource(data, lens_model, self.source_lightModel, numerics, 
+                 likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False,
                  max_threshold=5, max_threshold_high_freq=None, 
-                 num_iter=self.num_iter_source, num_iter_weights=self.num_iter_weights)
-        self.solver_lens_syn = SparseSolverSourceLens(data, lens_model, self.source_lightModel, lens_light_model_class=self.lens_lightModel,
-                 psf_class=psf, convolution_class=conv, likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
+                 num_iter_source=self.num_iter_source, num_iter_weights=self.num_iter_weights)
+        self.solver_lens_syn = SparseSolverSourceLens(data, lens_model, self.source_lightModel, numerics, self.lens_lightModel,
+                 likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  sparsity_prior_norm=1, force_positivity=True, formulation='synthesis',

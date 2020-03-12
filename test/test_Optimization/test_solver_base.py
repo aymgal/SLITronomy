@@ -13,7 +13,7 @@ from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.Data.psf import PSF
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.LightModel.light_model import LightModel
-from lenstronomy.ImSim.Numerics.convolution import PixelKernelConvolution
+from lenstronomy.ImSim.Numerics.numerics_subframe import NumericsSubFrame
 import lenstronomy.Util.util as l_util
 
 
@@ -71,11 +71,11 @@ class TestSparseSolverBase(object):
         kernel_pixel[int(self.num_pix/2), int(self.num_pix/2)] = 1  # just a dirac here
         kwargs_psf = {'psf_type': 'PIXEL', 'kernel_point_source': kernel_pixel}
         psf = PSF(**kwargs_psf)
-        conv = PixelKernelConvolution(kernel_pixel)
+        numerics = NumericsSubFrame(pixel_grid=data, psf=psf)
 
         # init the solver
-        self.solver = SparseSolverBase(data, lens_model, source_model, lens_light_model_class=lens_light_model,
-                 psf_class=psf, convolution_class=conv, likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
+        self.solver = SparseSolverBase(data, lens_model, source_model, numerics, 
+                 likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=self.min_num_pix_source,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
@@ -166,28 +166,22 @@ class TestRaise(unittest.TestCase):
 
         self.kwargs_lens_light = [{'coeffs': 1, 'n_scales': 4,
                                    'n_pixels': self.num_pix**2}]
-        self.psf = PSF(psf_type='NONE')
-        self.conv = PixelKernelConvolution(self.psf.kernel_point_source)
-        self.solver = SparseSolverBase(self.data, self.lens_model, self.source_model, 
-                                       lens_light_model_class=self.lens_light_model,
-                                       psf_class=self.psf, convolution_class=self.conv)
+        psf = PSF(psf_type='NONE')
+        self.numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf)
+        self.solver = SparseSolverBase(self.data, self.lens_model, self.source_model, self.numerics)
         
     def test_raise(self):
         with self.assertRaises(ValueError):
             # wrong sparsitiy norm
-            solver = SparseSolverBase(self.data, self.lens_model, self.source_model, 
-                                           lens_light_model_class=self.lens_light_model,
-                                           psf_class=self.psf, convolution_class=self.conv,
-                                           sparsity_prior_norm=2)
+            solver = SparseSolverBase(self.data, self.lens_model, self.source_model, self.numerics,
+                                      sparsity_prior_norm=2)
         with self.assertRaises(ValueError):
             # non sqaure image
             kwargs_data = copy.deepcopy(self.kwargs_data)
             kwargs_data['image_data'] = np.ones((49, 60))
             kwargs_data['noise_map'] = 0.01 * np.ones((49, 60))
             data_nonsquare = ImageData(**kwargs_data)
-            solver = SparseSolverBase(data_nonsquare, self.lens_model, self.source_model, 
-                                           lens_light_model_class=self.lens_light_model,
-                                           psf_class=self.psf, convolution_class=self.conv)
+            solver = SparseSolverBase(data_nonsquare, self.lens_model, self.source_model, self.numerics)
         with self.assertRaises(ValueError):
             # solve is not fully implemented (on purpose) in the base class
             result = self.solver.solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light)
@@ -195,8 +189,6 @@ class TestRaise(unittest.TestCase):
             image_model = self.solver.image_model()
         with self.assertRaises(ValueError):
             image_model = self.solver.source_model
-        with self.assertRaises(ValueError):
-            image_model = self.solver.lens_light_model
 
 if __name__ == '__main__':
     pytest.main()

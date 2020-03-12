@@ -11,16 +11,13 @@ class ModelOperators(object):
 
     """Utility class for access to operator as defined in formal optimization equations"""
 
-    def __init__(self, data_class, lensing_operator_class, source_light_class, lens_light_class=None,
-                 point_source_class=None, 
-                 subgrid_res_source=1, numerics_class=None, likelihood_mask=None):
+    def __init__(self, data_class, lensing_operator_class, source_model_class, numerics_class,
+                 subgrid_res_source=1, likelihood_mask=None):
         if likelihood_mask is None:
             likelihood_mask = np.ones_like(data_class.data)
         self._mask = likelihood_mask
         self._mask_1d = util.image2array(likelihood_mask)
-        self._source_light = source_light_class
-        self._lens_light = lens_light_class
-        self._point_source = point_source_class
+        self._source_light = source_model_class.func_list[0]
         self._lensing_op = lensing_operator_class
         self._conv = numerics_class.convolution_class
         if self._conv is not None:
@@ -37,6 +34,12 @@ class ModelOperators(object):
         self._num_pix_source = int(num_pix_x * subgrid_res_source)
         self._image_data = np.copy(data_class.data)
         self._image_data_eff = np.copy(self._image_data)
+
+    def add_lens_light(self, lens_light_model_class):
+        self._lens_light = lens_light_model_class.func_list[0]
+
+    def add_point_source(self, point_source_class):
+        self._point_source = lens_light_model_class.func_list[0]
 
     def set_wavelet_scales(self, n_scales_source, n_scales_lens=None):
         self._n_scales_source = n_scales_source
@@ -88,11 +91,17 @@ class ModelOperators(object):
 
     @property
     def no_lens_light(self):
-        return (self._lens_light is None)
+        return not hasattr(self, '_lens_light')
 
     @property
     def no_point_source(self):
-        return (self._point_source is None)
+        return not hasattr(self, '_point_source')
+
+    @property
+    def psf_kernel(self):
+        if self._conv is None:
+            return None
+        return self._conv.kernel
 
     @property
     def Y(self):

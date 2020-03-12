@@ -6,6 +6,8 @@ from slitronomy.Optimization.solver_source import SparseSolverSource
 from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.LightModel.light_model import LightModel
+from lenstronomy.Data.psf import PSF
+from lenstronomy.ImSim.Numerics.numerics_subframe import NumericsSubFrame
 import lenstronomy.Util.util as l_util
 
 import numpy as np
@@ -42,9 +44,11 @@ class TestSolverTracker(object):
         source_model_class = LightModel(['STARLETS'])
         self.kwargs_source = [{'coeffs': 0, 'n_scales': 3, 'n_pixels': self.num_pix**2}]
 
+        numerics_class = NumericsSubFrame(pixel_grid=data_class, psf=PSF(psf_type='NONE'))
+
         # init sparse solver
-        self.solver = SparseSolverSource(data_class, lens_model_class, source_model_class,
-                                         num_iter=10)
+        self.solver = SparseSolverSource(data_class, lens_model_class, source_model_class, numerics_class,
+                                         num_iter_source=10)
 
         # init the tracker
         self.tracker_alone = SolverTracker(self.solver, verbose=True)

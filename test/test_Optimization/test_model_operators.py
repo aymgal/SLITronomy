@@ -13,7 +13,8 @@ from slitronomy.Util import util
 from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.LightModel.light_model import LightModel
-from lenstronomy.ImSim.Numerics.convolution import PixelKernelConvolution
+from lenstronomy.Data.psf import PSF
+from lenstronomy.ImSim.Numerics.numerics_subframe import NumericsSubFrame
 import lenstronomy.Util.util as l_util
 
 
@@ -50,13 +51,11 @@ class TestModelOperators(object):
 
         # list of source light profiles
         source_model = LightModel(['STARLETS'])
-        source_profile = source_model.func_list[0]
         self.kwargs_source = [{'coeffs': 1, 'n_scales': self.n_scales_source, 
                                'n_pixels': self.num_pix_source**2}]
 
         # list of lens light profiles
         lens_light_model = LightModel(['STARLETS'])
-        lens_light_profile = lens_light_model.func_list[0]
         self.kwargs_lens_light = [{'coeffs': 1, 'n_scales': self.n_scales_lens,
                                    'n_pixels': self.num_pix**2}]
 
@@ -70,16 +69,16 @@ class TestModelOperators(object):
         # get a convolution operator
         kernel_pixel = np.zeros((self.num_pix, self.num_pix))
         kernel_pixel[int(self.num_pix/2), int(self.num_pix/2)] = 1  # just a dirac here
-        self.conv = PixelKernelConvolution(kernel_pixel)
-        self.conv_transpose = self.conv.copy_transpose()
+        kwargs_psf = {'psf_type': 'PIXEL', 'kernel_point_source': kernel_pixel}
+        psf = PSF(**kwargs_psf)
+        self.numerics = NumericsSubFrame(pixel_grid=data, psf=psf)
 
-        self.model_op = ModelOperators(data, self.lensing_op, source_profile, 
-                                       lens_light_class=lens_light_profile, 
-                                       convolution_class=self.conv,
+        self.model_op = ModelOperators(data, self.lensing_op, source_model, 
+                                       numerics_class=self.numerics,
                                        likelihood_mask=likelihood_mask)
-        self.model_op_nolens = ModelOperators(data, self.lensing_op, source_profile, 
-                                       lens_light_class=None, 
-                                       convolution_class=self.conv,
+        self.model_op.add_lens_light(lens_light_model)
+        self.model_op_nolens = ModelOperators(data, self.lensing_op, source_model, 
+                                       numerics_class=self.numerics,
                                        likelihood_mask=likelihood_mask)
 
         # define some test images in direct space
@@ -124,9 +123,10 @@ class TestModelOperators(object):
 
     def test_convolution(self):
         H_X_s = self.model_op.H(self.X_s)
-        npt.assert_equal(H_X_s, self.conv.convolution2d(self.X_s))
+        npt.assert_equal(H_X_s, self.numerics.convolution_class.convolution2d(self.X_s))
         H_T_X_s = self.model_op.H_T(self.X_s)
-        npt.assert_equal(H_T_X_s, self.conv_transpose.convolution2d(self.X_s))
+        conv_transpose = self.numerics.convolution_class.copy_transpose()
+        npt.assert_equal(H_T_X_s, conv_transpose.convolution2d(self.X_s))
 
     def test_lensing(self):
         F_X_s = self.model_op.F(self.X_s)
@@ -167,15 +167,14 @@ class TestRaise(unittest.TestCase):
         }
         self.data_nonsquare = ImageData(**kwargs_data_nonsquare)
         self.data = ImageData(**kwargs_data)
+        self.numerics = NumericsSubFrame(pixel_grid=self.data, psf=PSF(psf_type='NONE'))
         lens_model = LensModel(['SPEP'])
-        source_model = LightModel(['STARLETS'])
-        self.source_profile = source_model.func_list[0]
-        lens_light_model = LightModel(['STARLETS'])
-        self.lens_light_profile = lens_light_model.func_list[0]
+        self.source_model_class = LightModel(['STARLETS'])
+        self.lens_light_model_class = LightModel(['STARLETS'])
         self.lensing_op = LensingOperator(self.data, lens_model)
-        self.model_op = ModelOperators(self.data, self.lensing_op, self.source_profile,
-                                       lens_light_class=self.lens_light_profile)
-        self.model_op_nolens = ModelOperators(self.data, self.lensing_op, self.source_profile)
+        self.model_op = ModelOperators(self.data, self.lensing_op, self.source_model_class, self.numerics)
+        self.model_op.add_lens_light(self.lens_light_model_class)
+        self.model_op_nolens = ModelOperators(self.data, self.lensing_op, self.source_model_class, self.numerics)
         
     def test_raise(self):
         with self.assertRaises(ValueError):
@@ -204,7 +203,7 @@ class TestRaise(unittest.TestCase):
             Phi_l_alpha = self.model_op_nolens.Phi_l(alpha_l)
         with self.assertRaises(ValueError):
             # ModelOperators init should raise an error with non square data image
-            model_op_error = ModelOperators(self.data_nonsquare, self.lensing_op, self.source_profile)
+            model_op_error = ModelOperators(self.data_nonsquare, self.lensing_op, self.source_model_class, self.numerics)
 
 
 if __name__ == '__main__':
