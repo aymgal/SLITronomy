@@ -18,6 +18,9 @@ class SparseSolverBase(ModelOperators):
     Base class that generally defines a sparse solver
     """
 
+    #TODO: create classes for lens and source models.
+    # E.g. the method project_on_original_grid should be attached to a SourceModel class, not to the solver.
+
     def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class=None,
                  psf_class=None, convolution_class=None, likelihood_mask=None, lensing_operator='simple',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True,
@@ -142,17 +145,15 @@ class SparseSolverBase(ModelOperators):
         return self._image_model(unconvolved=unconvolved)
 
     def _image_model(self, unconvolved=False):
-        if not hasattr(self, '_source_model'):
+        if self.no_lens_light:
+            S = self._source_model
             if unconvolved:
-                raise ValueError("Cannot provide *unconvolved* lens light")
-            return self._lens_light_model
-        elif not hasattr(self, '_lens_light_model'):
-            if unconvolved:
-                return self.F(self._source_model)
+                return self.F(S)
             else:
-                return self.H(self.F(self._source_model))
+                return self.H(self.F(S))
         else:
-            return self.H(self.F(self._source_model)) + self._lens_light_model
+            S, HG = self._source_model, self._lens_light_model
+            return self.H(self.F(S)) + HG
 
     @property
     def reduced_residuals_model(self):
@@ -161,12 +162,6 @@ class SparseSolverBase(ModelOperators):
             return self.reduced_residuals(self.source_model, HG=self.lens_light_model)
         else:
             return self.reduced_residuals(self.source_model)
-
-    @property
-    def solve_track(self):
-        if not hasattr(self, '_solve_track'):
-            raise ValueError("You must run the optimization before accessing the solver results")
-        return self._solve_track
 
     def generate_initial_source(self):
         num_pix = self.lensingOperator.sourcePlane.num_pix
@@ -184,7 +179,7 @@ class SparseSolverBase(ModelOperators):
     def apply_source_plane_mask(self, source_2d):
         return self.M_s(source_2d)
 
-    def project_original_grid_source(self, source_2d):
+    def project_on_original_grid_source(self, source_2d):
         return self.lensingOperator.sourcePlane.project_on_original_grid(source_2d)
 
     def psf_convolution(self, array_2d):
@@ -219,9 +214,9 @@ class SparseSolverBase(ModelOperators):
         return np.sum(chi2) / self.num_data_points
 
     def norm_diff(self, S1, S2):
-        """ returns || S1 - S2 ||^2_2 """
+        """ returns || S1 - S2 ||_2 """
         diff = S1 - S2
-        return np.linalg.norm(diff.flatten(), ord=2)**2  # flatten to ensure L2-norm
+        return np.linalg.norm(diff.flatten(), ord=2)  # flatten to ensure L2-norm
 
     def model_analysis(self, S=None, HG=None):
         if S is not None and HG is None:
@@ -340,13 +335,9 @@ class SparseSolverBase(ModelOperators):
 
     def _update_weights(self, alpha_S, alpha_HG=None):
         lambda_S = self.noise_levels_source_plane
-        lambda_S[0, :, :]  *= self._k_max_high_freq
-        lambda_S[1:, :, :] *= self._k_max
         weights_S  = 1. / ( 1 + np.exp(-10 * (lambda_S - alpha_S)) )  # Eq. (11) of Joseph et al. 2018
         if alpha_HG is not None:
             lambda_HG = self.noise_levels_image_plane
-            lambda_HG[0, :, :]  *= self._k_max_high_freq
-            lambda_HG[1:, :, :] *= self._k_max
             weights_HG = 1. / ( 1 + np.exp(-10 * (lambda_HG - alpha_HG)) )  # Eq. (11) of Joseph et al. 2018
         else:
             weights_HG = None

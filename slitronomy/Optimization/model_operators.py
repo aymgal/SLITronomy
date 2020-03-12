@@ -85,6 +85,10 @@ class ModelOperators(object):
         return self._spectral_norm_lens
 
     @property
+    def no_lens_light(self):
+        return (self._lens_light is None)
+
+    @property
     def Y(self):
         """
         Original imaging data.
@@ -141,7 +145,7 @@ class ModelOperators(object):
 
     def Phi_l(self, array_2d):
         """alias method for inverse wavelet transform"""
-        if self._lens_light is None:
+        if self.no_lens_light:
             raise ValueError("Wavelet operator needs lens light class")
         if not hasattr(self, '_n_scales_lens_light'):
             raise ValueError("Wavelet scales have not been set")
@@ -149,7 +153,7 @@ class ModelOperators(object):
 
     def Phi_T_l(self, array_2d):
         """alias method for wavelet transform"""
-        if self._lens_light is None:
+        if self.no_lens_light:
             raise ValueError("Wavelet operator needs lens light class")
         if not hasattr(self, '_n_scales_lens_light'):
             raise ValueError("Wavelet scales have not been set")

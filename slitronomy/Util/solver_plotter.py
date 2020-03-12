@@ -11,6 +11,7 @@ class SolverPlotter(object):
 
     _cmap_1 = 'cubehelix'
     _cmap_2 = 'gist_stern'
+    _cmap_3 = 'bwr'
 
     def __init__(self, solver_class, show_now=True):
         self._solver = solver_class
@@ -70,7 +71,7 @@ class SolverPlotter(object):
         ax = axes[0, 2]
         ax.set_title(r"(data - model)$/\sigma$")
         im = ax.imshow(self._solver.reduced_residuals_model, 
-                       origin='lower', cmap='bwr', vmin=res_vmin, vmax=res_vmax)
+                       origin='lower', cmap=self._cmap_3, vmin=res_vmin, vmax=res_vmax)
         text = r"$\chi^2={:.2f}$".format(self._solver.best_fit_reduced_chi2)
         ax.text(0.2, 0.1, text, color='black', fontsize=15, 
                 horizontalalignment='center', verticalalignment='center',

@@ -17,6 +17,8 @@ from lenstronomy.ImSim.Numerics.convolution import PixelKernelConvolution
 import lenstronomy.Util.util as l_util
 
 
+np.random.seed(18)
+
 class TestModelOperators(object):
     """
     tests the Lensing Operator classes
