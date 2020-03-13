@@ -16,6 +16,7 @@ services:
 before_install:
   - export ORIGINAL_PATH=$(pwd)
   - echo $ORIGINAL_PATH
+  - export PACKAGES_DIR=required_packages
 
   - if [ "$TRAVIS_OS_NAME" == "linux" ]; then
       sudo apt-get update;
@@ -58,8 +59,9 @@ install:
 
   # install the right branch of the fork of pysap
   - cd $ORIGINAL_PATH
-  - mkdir git_packages
-  - cd git_packages
+  - cd ..
+  - mkdir $PACKAGES_DIR
+  - cd $PACKAGES_DIR
   - git clone https://github.com/aymgal/pysap.git
   - cd pysap
   - git checkout dev-aym
@@ -68,7 +70,8 @@ install:
 
   # install the right branch of the fork of lenstronomy
   - cd $ORIGINAL_PATH
-  - cd git_packages
+  - cd ..
+  - cd $PACKAGES_DIR
   - git clone https://github.com/aymgal/lenstronomy.git
   - cd lenstronomy
   - git checkout dev_slit-algo
