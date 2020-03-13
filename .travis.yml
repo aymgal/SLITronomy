@@ -54,11 +54,20 @@ install:
   - pip install codecov
   - if [ "$TRAVIS_PYTHON_VERSION" == "2.7" ]; then pip install PySide; else pip install PyQt5==5.14.0; fi
   - pip install -r test_requirements.txt
-  - pip install python-pysap
+  # - pip install python-pysap
+
+  # install the right branch of the fork of pysap
+  - cd $ORIGINAL_PATH
+  - mkdir git_packages
+  - cd git_packages
+  - git clone https://github.com/aymgal/pysap.git
+  - cd pysap
+  - git checkout dev-aym
+  - pip install .
+  # - pip install -e git://github.com/aymgal/pysap@dev.aym#egg=pysap
 
   # install the right branch of the fork of lenstronomy
-  - cd ..
-  - mkdir git_packages
+  - cd $ORIGINAL_PATH
   - cd git_packages
   - git clone https://github.com/aymgal/lenstronomy.git
   - cd lenstronomy
