@@ -90,8 +90,9 @@ class TestModelOperators(object):
         self.alpha_l = np.random.rand(self.n_scales_lens, self.num_pix, self.num_pix)  # lens light
 
     def test_set_wavelet_scales(self):
-        self.model_op.set_wavelet_scales(self.n_scales_source, n_scales_lens=self.n_scales_lens)
+        self.model_op.set_source_wavelet_scales(self.n_scales_source)
         Phi_T_s_X = self.model_op.Phi_T_s(self.X_s)
+        self.model_op.set_lens_wavelet_scales(self.n_scales_lens)
         Phi_T_l_X = self.model_op.Phi_T_l(self.X_l)
         # test that transformed image has the right shape in terms of number of scales
         assert Phi_T_s_X.shape[0] == self.n_scales_source
@@ -110,11 +111,11 @@ class TestModelOperators(object):
         # pass
 
     def test_spectral_norm_source(self):
-        self.model_op.set_wavelet_scales(self.n_scales_source)
+        self.model_op.set_source_wavelet_scales(self.n_scales_source)
         npt.assert_almost_equal(self.model_op.spectral_norm_source, 0.999, decimal=3)
 
     def test_spectral_norm_lens(self):
-        self.model_op.set_wavelet_scales(self.n_scales_source, n_scales_lens=self.n_scales_lens)
+        self.model_op.set_lens_wavelet_scales(self.n_scales_lens)
         npt.assert_almost_equal(self.model_op.spectral_norm_lens, 0.999, decimal=3)
 
     def test_data_terms(self):
@@ -136,7 +137,8 @@ class TestModelOperators(object):
 
     def test_wavelet_transform(self):
         # TODO : do more accurate tests here
-        self.model_op.set_wavelet_scales(self.n_scales_source, n_scales_lens=self.n_scales_lens)
+        self.model_op.set_source_wavelet_scales(self.n_scales_source)
+        self.model_op.set_lens_wavelet_scales(self.n_scales_lens)
         Phi_alpha_s = self.model_op.Phi_s(self.alpha_s)
         Phi_alpha_l = self.model_op.Phi_l(self.alpha_l)
         assert Phi_alpha_s.shape == (self.num_pix*self.subgrid_res_source, self.num_pix*self.subgrid_res_source)

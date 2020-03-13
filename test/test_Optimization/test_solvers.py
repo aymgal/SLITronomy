@@ -100,7 +100,7 @@ class TestSparseSolverSource(object):
                  verbose=False, show_steps=False,
                  max_threshold=5, max_threshold_high_freq=None, 
                  num_iter_source=self.num_iter_source, num_iter_weights=self.num_iter_weights)
-        self.solver_lens_syn = SparseSolverSourceLens(data, lens_model, self.source_lightModel, numerics, self.lens_lightModel,
+        self.solver_lens_syn = SparseSolverSourceLens(data, lens_model, self.source_lightModel, self.lens_lightModel, numerics,
                  likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
@@ -112,13 +112,11 @@ class TestSparseSolverSource(object):
 
     def test_solve_source_analysis(self):
         # source solver
-        image_model, source_light, lens_light, coeffs, scales = \
+        image_model, optim_param, fixed_param = \
             self.solver_source_ana.solve(self.kwargs_lens, self.kwargs_source, kwargs_special=self.kwargs_special)
         assert image_model.shape == self.image_data.shape
-        assert source_light.shape == (self.num_pix_source, self.num_pix_source)
-        assert lens_light is None
-        assert coeffs.shape == (self.num_pix_source**2*self.n_scales_source,)
-        assert len(scales) == 4
+        assert optim_param.shape == (self.num_pix_source**2*self.n_scales_source,)
+        assert len(fixed_param) == 4
 
         # get the track
         track = self.solver_source_ana.track
@@ -161,16 +159,14 @@ class TestSparseSolverSource(object):
         ms = self.solver_source_ana.model_synthesis(alpha_S)
         npt.assert_almost_equal(ma, ms, decimal=4)
 
-    def test_solve_lens_synthesis(self):
+    def test_solve_source_lens_synthesis(self):
         # source+lens solver
-        image_model, source_light, lens_light, coeffs, scales = \
+        image_model, optim_param, fixed_param = \
             self.solver_lens_syn.solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light,
                                    kwargs_special=self.kwargs_special)
         assert image_model.shape == self.image_data.shape
-        assert source_light.shape == (self.num_pix_source, self.num_pix_source)
-        assert lens_light.shape == (self.num_pix, self.num_pix)
-        assert coeffs.shape == (self.num_pix**2*self.n_scales_lens + self.num_pix_source**2*self.n_scales_source,)
-        assert len(scales) == 4
+        assert optim_param.shape == (self.num_pix**2*self.n_scales_lens + self.num_pix_source**2*self.n_scales_source,)
+        assert len(fixed_param) == 4
 
         # get the track
         track = self.solver_lens_syn.track
@@ -180,10 +176,6 @@ class TestSparseSolverSource(object):
         # access models
         image_model = self.solver_lens_syn.image_model()
         assert image_model.shape == self.image_data.shape
-        # PSF is dirac so...
-        npt.assert_almost_equal(self.solver_lens_syn.image_model(unconvolved=True), 
-                                self.solver_lens_syn.image_model(unconvolved=False),
-                                decimal=8)
         source_light = self.solver_lens_syn.source_model
         assert source_light.shape == (self.num_pix_source, self.num_pix_source)
         lens_light = self.solver_lens_syn.lens_light_model
@@ -211,6 +203,49 @@ class TestSparseSolverSource(object):
         ma = self.solver_lens_syn.model_analysis(S, HG)
         ms = self.solver_lens_syn.model_synthesis(alpha_S, alpha_HG)
         npt.assert_almost_equal(ma, ms, decimal=4)
+
+
+class TestRaise(unittest.TestCase):
+
+    def __init__(self, *args, **kwargs):
+        super(TestRaise, self).__init__(*args, **kwargs)
+        self.num_pix = 49  # cutout pixel size
+        self.subgrid_res_source = 1
+        self.num_pix_source = self.num_pix * self.subgrid_res_source
+
+        delta_pix = 0.24
+        _, _, ra_at_xy_0, dec_at_xy_0, _, _, Mpix2coord, _ \
+            = l_util.make_grid_with_coordtransform(numPix=self.num_pix, deltapix=delta_pix, subgrid_res=1, 
+                                                         inverse=False, left_lower=False)
+        image_data = np.random.rand(self.num_pix, self.num_pix)
+        self.kwargs_data = {
+            'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
+            'transform_pix2angle': Mpix2coord,
+            'image_data': image_data,
+            'background_rms': 0.01,
+            'noise_map': 0.01 * np.ones_like(image_data),
+        }
+        self.data = ImageData(**self.kwargs_data)
+        self.lens_model = LensModel(['SPEP'])
+        self.kwargs_lens = [{'theta_E': 1, 'gamma': 2, 'center_x': 0, 'center_y': 0, 'e1': -0.05, 'e2': 0.05}]
+        self.source_model = LightModel(['STARLETS'])
+        self.lens_light_model = LightModel(['STARLETS'])
+        self.kwargs_source = [{'coeffs': 1, 'n_scales': 4, 
+                               'n_pixels': self.num_pix_source**2}]
+
+        self.kwargs_lens_light = [{'coeffs': 1, 'n_scales': 4,
+                                   'n_pixels': self.num_pix**2}]
+        psf = PSF(psf_type='NONE')
+        self.numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf)
+        self.solver_source_lens = SparseSolverSourceLens(self.data, self.lens_model, self.source_model, 
+                                                         self.lens_light_model, self.numerics,
+                                                         num_iter_source=1, num_iter_lens=1, num_iter_weights=1)
+        
+    def test_raise(self):
+        with self.assertRaises(ValueError):
+            self.solver_source_lens.solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light)
+            # no deconvolution of lens light is performed, so raises an error
+            image_model_deconvolved = self.solver_source_lens.image_model(unconvolved=True)
 
 
 if __name__ == '__main__':

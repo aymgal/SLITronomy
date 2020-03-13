@@ -110,7 +110,7 @@ class SparseSolverBase(ModelOperators):
 
         return image_model, optim_param, fixed_param
 
-    def _solve(self):
+    def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
         raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
 
     @property
@@ -239,7 +239,9 @@ class SparseSolverBase(ModelOperators):
         return np.linalg.norm(diff.flatten(), ord=2)  # flatten to ensure L2-norm
 
     def model_analysis(self, S=None, HG=None, P=None):
-        model = self.H(self.F(S))
+        model = 0
+        if S is not None:
+            model += self.H(self.F(S))
         if HG is not None:
             model += HG
         if P is not None:
@@ -247,7 +249,9 @@ class SparseSolverBase(ModelOperators):
         return model
 
     def model_synthesis(self, alpha_S=None, alpha_HG=None, P=None):
-        model = self.H(self.F(self.Phi_s(alpha_S)))
+        model = 0
+        if alpha_S is not None:
+            model = self.H(self.F(self.Phi_s(alpha_S)))
         if alpha_HG is not None:
             model += self.Phi_l(alpha_HG)
         if P is not None:
