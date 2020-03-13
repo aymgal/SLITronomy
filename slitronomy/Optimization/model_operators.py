@@ -46,8 +46,10 @@ class ModelOperators(object):
     def add_point_source(self):
         self._no_point_source = False
 
-    def set_wavelet_scales(self, n_scales_source, n_scales_lens=None):
+    def set_source_wavelet_scales(self, n_scales_source):
         self._n_scales_source = n_scales_source
+
+    def set_lens_wavelet_scales(self, n_scales_lens):
         self._n_scales_lens_light = n_scales_lens
 
     def subtract_from_data(self, array_2d):

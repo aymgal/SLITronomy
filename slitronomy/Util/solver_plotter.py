@@ -34,7 +34,7 @@ class SolverPlotter(object):
         title = "final reconstruction"
         return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_2)
 
-    def plot_results(self, model_log_scale=False, res_vmin=None, res_vmax=None):
+    def plot_results(self, model_log_scale=False, res_vmin=-6, res_vmax=6, cmap_1=None, cmap_2=None):
         fig, axes = plt.subplots(2, 3, figsize=(18, 10))
         ax = axes[0, 0]
         ax.set_title("source model")
@@ -47,18 +47,18 @@ class SolverPlotter(object):
             im = ax.imshow(src_model, origin='lower', cmap=self._cmap_1, 
                            norm=LogNorm(vmin=vmin, vmax=vmax))
         else:
-            im = ax.imshow(src_model, origin='lower', cmap=self._cmap_1)
+            if cmap_1 is None:
+                cmap_1 = self._cmap_1
+            im = ax.imshow(src_model, origin='lower', cmap=cmap_1)
         # ax.imshow(self.lensingOperator.sourcePlane.reduction_mask, origin='lower', cmap='gray', alpha=0.1)
         plot_util.nice_colorbar(im)
         ax = axes[0, 1]
         if not self._solver.no_lens_light:
             ax.set_title("lens light model")
             img_model = self._solver.lens_light_model
-            print("Negative lens pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
-        elif not self._solver.no_point_source:
-            ax.set_title("point source model")
-            img_model = self._solver.point_source_model
-            print("Negative lens pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
+        # elif not self._solver.no_point_source:
+        #     ax.set_title("point source model")
+        #     img_model = self._solver.point_source_model
         else:
             ax.set_title("image model")
             img_model = self._solver.image_model(unconvolved=False)
@@ -70,7 +70,9 @@ class SolverPlotter(object):
             im = ax.imshow(img_model, origin='lower', cmap=self._cmap_1,
                            norm=LogNorm(vmin=vmin, vmax=vmax))
         else:
-            im = ax.imshow(img_model, origin='lower', cmap=self._cmap_1)
+            if cmap_2 is None:
+                cmap_2 = self._cmap_2
+            im = ax.imshow(img_model, origin='lower', cmap=cmap_2)
         plot_util.nice_colorbar(im)
         ax = axes[0, 2]
         ax.set_title(r"(data - model)$/\sigma$")

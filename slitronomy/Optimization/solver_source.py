@@ -41,7 +41,7 @@ class SparseSolverSource(SparseSolverBase):
         self._n_iter_source = num_iter_source
         self._n_weights = num_iter_weights
 
-    def _solve(self):
+    def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
         """
         implements the SLIT algorithm
         """
@@ -117,13 +117,13 @@ class SparseSolverSource(SparseSolverBase):
         self._source_model = S
 
         # all optimized coefficients (flattened)
-        coeffs_S_1d = util.cube2array(self.Phi_T_s(S))
+        coeffs_S_1d = util.cube2array(alpha_S)
 
         if self._show_steps:
             self._plotter.plot_final(self._source_model)
 
         model = self.image_model(unconvolved=False)
-        return model, S, None, coeffs_S_1d, None
+        return model, coeffs_S_1d, None, None
 
     def _gradient_loss_analysis_source(self, S):
         """
