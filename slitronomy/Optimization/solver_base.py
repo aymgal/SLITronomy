@@ -70,7 +70,8 @@ class SparseSolverBase(ModelOperators):
         self._tracker = SolverTracker(self, verbose=verbose)
         self._plotter = SolverPlotter(self, show_now=True)
 
-    def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None):
+    def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None,
+              init_ps_model=None):
         """
         main method to call from outside the class, calling self._solve()
 
@@ -79,21 +80,35 @@ class SparseSolverBase(ModelOperators):
         # update image <-> source plane mapping from lens model parameters
         size_image, pixel_scale_image, size_source, pixel_scale_source \
             = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
-        # get number of decomposition scales
-        n_scales_source = kwargs_source[0]['n_scales']
-        if kwargs_lens_light is not None and len(kwargs_lens_light) > 0:
-            n_scales_lens_light = kwargs_lens_light[0]['n_scales']
+
+        # get number of decomposition scales and save in cache
+        self.set_source_wavelet_scales(kwargs_source[0]['n_scales'])
+        if not self.no_lens_light:
+            self.set_lens_wavelet_scales(kwargs_lens_light[0]['n_scales'])
+
+        # point source initial model
+        if self.no_point_source:
+            self._init_ps_model = None
         else:
-            n_scales_lens_light = None
-        # save number of scales
-        self.set_wavelet_scales(n_scales_source, n_scales_lens_light)
+            if init_ps_model is None:
+                raise ValueError("A rough point source model is meeded as input to optimize point source amplitudes")
+            self._init_ps_model = init_ps_model
+
         # call solver
-        image_model, source_light, lens_light, coeffs_source, coeffs_lens_light = self._solve()
-        if lens_light is None: coeffs_lens_light = []
-        # concatenate coefficients and fixed parameters
-        coeffs = np.concatenate([coeffs_source, coeffs_lens_light])
-        scales = [size_source, pixel_scale_source, size_image, pixel_scale_image]
-        return image_model, source_light, lens_light, coeffs, scales
+        image_model, coeffs_source, coeffs_lens_light, amps_ps = self._solve(kwargs_lens=kwargs_lens, 
+                                                                             kwargs_ps=kwargs_ps,
+                                                                             kwargs_special=kwargs_special)
+        if coeffs_lens_light is None:
+            coeffs_lens_light = []
+        if amps_ps is None:
+            amps_ps = []
+
+        # concatenate optimized parameters (wavelets coefficients, point source amplitudes)
+        # and fixed parameters (wavelets number of scales, number of pixel in reconstructed images)
+        optim_param = np.concatenate([coeffs_source, coeffs_lens_light, amps_ps])
+        fixed_param = [size_source, pixel_scale_source, size_image, pixel_scale_image]
+
+        return image_model, optim_param, fixed_param
 
     def _solve(self):
         raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
@@ -207,7 +222,11 @@ class SparseSolverBase(ModelOperators):
         """ returns ( Y - HFS - HG - P ) / sigma """
         model = self.model_analysis(S=S, HG=HG, P=P)
         error = self.Y_eff - model
-        return self.M(error / self._noise_map)
+        if hasattr(self, '_ps_error'):
+            sigma = self._noise_map + self._ps_error
+        else:
+            sigma = self._noise_map
+        return self.M(error / sigma)
 
     def reduced_chi2(self, S=None, HG=None, P=None):
         chi2 = np.sum(self.reduced_residuals(S=S, HG=HG, P=P)**2)
@@ -268,6 +287,10 @@ class SparseSolverBase(ModelOperators):
         """Update "effective" data by subtracting the input (convolved) lens light estimation"""
         lens_model = self.model_analysis(S=None, HG=HG)
         self.subtract_from_data(lens_model)
+
+    def subtract_point_source_from_data(self, P):
+        """Update "effective" data by subtracting the input (convolved) lens light estimation"""
+        self.subtract_from_data(P)
 
     @property
     def algorithm(self):

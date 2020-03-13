@@ -36,7 +36,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         self._n_iter_lens = num_iter_lens
         self.add_lens_light(lens_light_model_class)
 
-    def _solve(self):
+    def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
         """
         implements the SLIT_MCA algorithm
         """
@@ -153,15 +153,15 @@ class SparseSolverSourceLens(SparseSolverSource):
         self._lens_light_model = HG
 
         # get wavelets coefficients
-        coeffs_S_1d = util.cube2array(self.Phi_T_s(S))
-        coeffs_HG_1d = util.cube2array(self.Phi_T_l(HG))
+        coeffs_S_1d = util.cube2array(alpha_S)
+        coeffs_HG_1d = util.cube2array(alpha_HG)
         
         if self._show_steps:
             self._plotter.plot_final(self._source_model)
             self._plotter.plot_final(self._lens_light_model)
         
         model = self.image_model(unconvolved=False)
-        return model, S, HG, coeffs_S_1d, coeffs_HG_1d
+        return model, coeffs_S_1d, coeffs_HG_1d, None
 
     def _gradient_loss_analysis_lens(self, HG):
         """

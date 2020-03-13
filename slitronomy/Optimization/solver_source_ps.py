@@ -18,8 +18,7 @@ class SparseSolverSourcePS(SparseSolverSource):
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
     def __init__(self, data_class, lens_model_class, source_model_class, numerics_class, 
-                 point_source_painter, point_source_solver,
-                 likelihood_mask=None, lensing_operator='interpol',
+                 point_source_linear_solver, likelihood_mask=None, lensing_operator='interpol',
                  subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
                  max_threshold=5, max_threshold_high_freq=None, num_iter_source=50, num_iter_ps=50, num_iter_weights=1, 
@@ -36,35 +35,10 @@ class SparseSolverSourcePS(SparseSolverSource):
                                                      max_threshold=max_threshold, max_threshold_high_freq=max_threshold_high_freq, 
                                                      num_iter_source=num_iter_source, num_iter_weights=num_iter_weights)
         self._n_iter_ps = num_iter_ps
-        self._ps_painter = point_source_painter
-        self._ps_solver = point_source_solver
+        self._ps_solver = point_source_linear_solver
         self.add_point_source()
 
-    def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light, kwargs_ps, kwargs_special=None):
-        """
-        main method to call from outside the class, calling self._solve()
-
-        any class that inherits SparseSolverSource should have the self._solve() method implemented, with correct output.
-        """
-        # update image <-> source plane mapping from lens model parameters
-        size_image, pixel_scale_image, size_source, pixel_scale_source \
-            = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
-        # get number of decomposition scales
-        n_scales_source = kwargs_source[0]['n_scales']
-        # save number of scales
-        self.set_wavelet_scales(n_scales_source)
-        # call solver
-        image_model, source_light, lens_light, coeffs_source, coeffs_lens_light, amps_point_source \
-            = self._solve(kwargs_lens, kwargs_ps)
-
-        coeffs_lens_light = []
-
-        # concatenate coefficients and fixed parameters
-        coeffs = np.concatenate([coeffs_source, coeffs_lens_light])
-        scales = [size_source, pixel_scale_source, size_image, pixel_scale_image]
-        return image_model, source_light, lens_light, coeffs, scales
-
-    def _solve(self, kwargs_lens, kwargs_ps):
+    def _solve(self, kwargs_lens, kwargs_ps, kwargs_special):
         """
         implements the SLIT algorithm with point source support
         """
@@ -80,7 +54,7 @@ class SparseSolverSourcePS(SparseSolverSource):
             self._plotter.plot_init(S)
 
         # initial point source model
-        P = self._ps_painter(kwargs_ps)
+        P = self._init_ps_model
 
         # initialise weights
         weights = 1.
@@ -101,7 +75,7 @@ class SparseSolverSourcePS(SparseSolverSource):
                 ######### Loop over source light at fixed weights ########
 
                 # subtract point sources from data
-                self.subtract_from_data(P)
+                self.subtract_point_source_from_data(P)
 
                 for i_s in range(self._n_iter_source):
 
@@ -145,12 +119,11 @@ class SparseSolverSourcePS(SparseSolverSource):
                 # solve for point source amplitudes
                 current_model = self.model_analysis(S)
                 model_without_ps_1d = util.image2array(current_model)  # current model without point sources
-                P, P_error, ps_cov_param, ps_param = self._ps_solver(model_without_ps_1d, kwargs_lens, kwargs_ps, 
-                                                                     kwargs_special=None, inv_bool=False)
+                P, ps_error, ps_cov_param, ps_param = self._ps_solver(model_without_ps_1d, kwargs_lens, kwargs_ps, 
+                                                                      kwargs_special=kwargs_special, inv_bool=False)
 
                 if self._show_steps and i_p % ma.ceil(self._n_iter_ps/2) == 0 and i_s == self._n_iter_source-1:
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i_p, iter_3=i_s)
-                    # self._plotter.plot_step(HG_next, iter_1=j, iter_2=i_l, iter_3=i_s)
 
             ######### ######## end point source ######## ########
 
@@ -169,11 +142,11 @@ class SparseSolverSourcePS(SparseSolverSource):
         self._ps_model = P
 
         # all optimized coefficients (flattened)
-        coeffs_S_1d = util.cube2array(self.Phi_T_s(S))
+        coeffs_S_1d = util.cube2array(alpha_S)
         amps_P = ps_param
 
         if self._show_steps:
             self._plotter.plot_final(self._source_model)
 
         model = self.image_model(unconvolved=False)
-        return model, S, None, coeffs_S_1d, None, amps_P
+        return model, coeffs_S_1d, None, amps_P
