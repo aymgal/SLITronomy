@@ -130,7 +130,17 @@ def hard_threshold(array, thresh):
 
 
 def spectral_norm(num_pix, operator, inverse_operator, num_iter=20, tol=1e-10):
-    """compute spectral norm from operator and its inverse"""
+    """
+
+    compute spectral norm from operator and its inverse
+
+    Sometimes referred to as the Lipschitz constant, it is essentially the greatest singular value of a matrix/operator
+    (in this case the Starlet transform operator)
+    This is particularly important for determining the optimal amplitude of gradient descent step in a minimization problem.
+
+    See e.g. http://fourier.eng.hmc.edu/e161/lectures/algebra/node12.html
+
+    """
     random_array = np.random.rand(num_pix, num_pix)
     norm = np.linalg.norm(random_array)
     random_array /= norm

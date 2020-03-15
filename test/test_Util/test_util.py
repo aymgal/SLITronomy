@@ -9,6 +9,8 @@ import numpy.testing as npt
 import pytest
 import unittest
 
+np.random.seed(18)
+
 
 def test_make_grid():
     numPix = 11
@@ -108,17 +110,29 @@ def test_dirac_impulse():
     dirac_odd = util.dirac_impulse(21)
     assert dirac_odd[10, 10] == 1
 
+
+
 def test_spectral_norm():
-    num_pix = 100
+    num_pix = 10
     operator = lambda X: X
     inverse_operator = lambda X: X
-    npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=8)
+    npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=5)
+
     operator = lambda X: X**2
     inverse_operator = lambda X: np.sqrt(X)
-    npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=8)
+    npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=5)
+
+    A = np.diag(np.arange(1, num_pix+1))
+    operator = lambda X: A.dot(X)
+    inverse_operator = lambda X: A.T.dot(X)
+    true_norm = np.real(np.linalg.eigvals(A.T.dot(A)).max())
+    npt.assert_almost_equal(true_norm, util.spectral_norm(num_pix, operator, inverse_operator), decimal=2)
+
+    from lenstronomy.LightModel.Profiles.starlets import Starlets
     starlets = Starlets()
-    operator = lambda X: starlets.decomposition_2d(X, 3)
-    inverse_operator = lambda X: starlets.function_2d(X, 3)
+    n_scales = 3
+    operator = lambda X: starlets.decomposition_2d(X, n_scales)
+    inverse_operator = lambda X: starlets.function_2d(X, n_scales)
     npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=8)
 
 
