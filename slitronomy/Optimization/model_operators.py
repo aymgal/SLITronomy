@@ -108,7 +108,7 @@ class ModelOperators(object):
     def psf_kernel(self):
         if self._conv is None:
             return None
-        return self._conv.kernel
+        return self._conv.pixel_kernel()
 
     @property
     def Y(self):

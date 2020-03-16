@@ -87,6 +87,8 @@ class SourcePlaneGrid(AbstractPlaneGrid):
 
     """Class that defines the grid on which source galaxy is projected"""
 
+    # TODO : use lenstronomy's util.make_subgrid(), it will automatically align the center of source plane
+
     def __init__(self, data_class, subgrid_res=1):
         super(SourcePlaneGrid, self).__init__(data_class)
         self._subgrid_res = subgrid_res

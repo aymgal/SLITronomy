@@ -18,6 +18,9 @@ class SparseSolverBase(ModelOperators):
     Base class that generally defines a sparse solver
     """
 
+    #TODO: raises an error when number of decomposition scales is not consistent with image size
+    # (also when reducing source plane size, re-check consistency)
+
     #TODO: create classes for lens and source models.
     # E.g. the method project_on_original_grid should be attached to a SourceModel class, not to the solver.
 
@@ -78,8 +81,7 @@ class SparseSolverBase(ModelOperators):
         any class that inherits SparseSolverSource should have the self._solve() method implemented, with correct output.
         """
         # update image <-> source plane mapping from lens model parameters
-        size_image, pixel_scale_image, size_source, pixel_scale_source \
-            = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
+        size_source, pixel_scale_source = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         # get number of decomposition scales and save in cache
         self.set_source_wavelet_scales(kwargs_source[0]['n_scales'])
@@ -105,10 +107,12 @@ class SparseSolverBase(ModelOperators):
 
         # concatenate optimized parameters (wavelets coefficients, point source amplitudes)
         # and fixed parameters (wavelets number of scales, number of pixel in reconstructed images)
-        optim_param = np.concatenate([coeffs_source, coeffs_lens_light, amps_ps])
-        fixed_param = [size_source, pixel_scale_source, size_image, pixel_scale_image]
-
-        return image_model, optim_param, fixed_param
+        all_param = np.concatenate([coeffs_source, 
+                                    coeffs_lens_light, 
+                                    amps_ps, 
+                                    [size_source],
+                                    [pixel_scale_source]])
+        return image_model, all_param
 
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
         raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
@@ -194,7 +198,11 @@ class SparseSolverBase(ModelOperators):
     def apply_source_plane_mask(self, source_2d):
         return self.M_s(source_2d)
 
-    def project_on_original_grid_source(self, source_2d):
+    def project_on_original_grid_source(self, source):
+        if len(source.shape) == 2:
+            source_2d = util.array2image(source)
+        else:
+            source_2d = source
         return self.lensingOperator.sourcePlane.project_on_original_grid(source_2d)
 
     def psf_convolution(self, array_2d):

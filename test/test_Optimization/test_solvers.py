@@ -112,11 +112,10 @@ class TestSparseSolverSource(object):
 
     def test_solve_source_analysis(self):
         # source solver
-        image_model, optim_param, fixed_param = \
+        image_model, param = \
             self.solver_source_ana.solve(self.kwargs_lens, self.kwargs_source, kwargs_special=self.kwargs_special)
         assert image_model.shape == self.image_data.shape
-        assert optim_param.shape == (self.num_pix_source**2*self.n_scales_source,)
-        assert len(fixed_param) == 4
+        assert len(param) == self.num_pix_source**2*self.n_scales_source + 2
 
         # get the track
         track = self.solver_source_ana.track
@@ -161,12 +160,11 @@ class TestSparseSolverSource(object):
 
     def test_solve_source_lens_synthesis(self):
         # source+lens solver
-        image_model, optim_param, fixed_param = \
+        image_model, param = \
             self.solver_lens_syn.solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light,
                                    kwargs_special=self.kwargs_special)
         assert image_model.shape == self.image_data.shape
-        assert optim_param.shape == (self.num_pix**2*self.n_scales_lens + self.num_pix_source**2*self.n_scales_source,)
-        assert len(fixed_param) == 4
+        assert len(param) == self.num_pix**2*self.n_scales_lens + self.num_pix_source**2*self.n_scales_source + 2
 
         # get the track
         track = self.solver_lens_syn.track

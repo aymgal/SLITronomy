@@ -86,7 +86,7 @@ class TestSolverPlotter(object):
 
     def test_plot_results(self):
         # launch solver first
-        _, _, _ = self.solver.solve(self.kwargs_lens, self.kwargs_source)
+        _, _ = self.solver.solve(self.kwargs_lens, self.kwargs_source)
         self.plotter.plot_results(model_log_scale=True)
         plt.close()
 

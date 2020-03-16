@@ -57,7 +57,7 @@ class TestSolverTracker(object):
         track_before = self.solver.track
         assert track_before is None  # before solver has been ran
         # launch solver
-        _, _, _ = self.solver.solve(self.kwargs_lens, self.kwargs_source)
+        _, _ = self.solver.solve(self.kwargs_lens, self.kwargs_source)
         track_after = self.solver.track
         assert isinstance(track_after, dict)
         assert len(track_after['loss'][0]) > 1
