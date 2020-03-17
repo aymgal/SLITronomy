@@ -18,7 +18,7 @@ class SparseSolverSource(SparseSolverBase):
 
     def __init__(self, data_class, lens_model_class, source_model_class,
                  numerics_class, likelihood_mask=None, lensing_operator='interpol',
-                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True,
+                 subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True,
                  min_num_pix_source=10, use_mask_for_minimal_source_plane=True,
                  max_threshold=5, max_threshold_high_freq=None, num_iter_source=50, num_iter_weights=1,
                  sparsity_prior_norm=1, force_positivity=True,
@@ -117,13 +117,14 @@ class SparseSolverSource(SparseSolverBase):
         self._source_model = S
 
         # all optimized coefficients (flattened)
-        coeffs_S_1d = util.cube2array(alpha_S)
+        alpha_S_final = self.Phi_T_s(self.project_on_original_grid_source(S))
+        coeffs_S_1d = util.cube2array(alpha_S_final)
 
         if self._show_steps:
             self._plotter.plot_final(self._source_model)
 
         model = self.image_model(unconvolved=False)
-        return model, coeffs_S_1d, None, None
+        return model, coeffs_S_1d, [], []
 
     def _gradient_loss_analysis_source(self, S):
         """

@@ -67,7 +67,7 @@ class SolverPlotter(object):
             vmin = max(img_model.min(), 1e-3)
             vmax = min(img_model.max(), 1e10)
             img_model[img_model <= 0.] = 1e-10
-            im = ax.imshow(img_model, origin='lower', cmap=self._cmap_1,
+            im = ax.imshow(img_model, origin='lower', cmap=self._cmap_2,
                            norm=LogNorm(vmin=vmin, vmax=vmax))
         else:
             if cmap_2 is None:

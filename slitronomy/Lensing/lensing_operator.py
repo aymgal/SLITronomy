@@ -23,6 +23,7 @@ class LensingOperator(object):
         self.lensModel = lens_model_class
         self.imagePlane  = ImagePlaneGrid(data_class)
         self.sourcePlane = SourcePlaneGrid(data_class, subgrid_res=subgrid_res_source)
+        self._subgrid_res_source = subgrid_res_source
         self._likelihood_mask = likelihood_mask
         self._minimal_source_plane = minimal_source_plane
         self._fix_minimal_source_plane = fix_minimal_source_plane
@@ -30,13 +31,16 @@ class LensingOperator(object):
         self._min_num_pix_source = min_num_pix_source
         self._matrix_prod = matrix_prod
 
-    def source2image(self, source_1d, kwargs_lens=None, update=False):
-        if (not hasattr(self, '_lens_mapping') or update) and kwargs_lens is not None:
-            self.update_mapping(kwargs_lens)
+    def source2image(self, source_1d, kwargs_lens=None, kwargs_special=None, update_lens=False):
+        if not hasattr(self, '_lens_mapping') or update_lens:
+            if kwargs_lens is None:
+                raise ValueError("'kwargs_lens' is required to update lensing operator")
+            self.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
         if self._matrix_prod:
-            return self._source2image_matrix(source_1d)
+            image = self._source2image_matrix(source_1d)
         else:
-            return self._source2image_list(source_1d)
+            image = self._source2image_list(source_1d)
+        return image
 
     def source2image_2d(self, source, **kwargs):
         source_1d = util.image2array(source)
@@ -54,31 +58,35 @@ class LensingOperator(object):
             image_1d[indices_i] = source_1d[j]
         return image_1d
 
-    def image2source(self, image_1d, kwargs_lens=None, update=False, test_unit_image=False):
-        """if test_unit_image is True, do not normalize light flux to better visualize the mapping"""
-        if (not hasattr(self, '_lens_mapping') or update) and kwargs_lens is not None:
-            self.update_mapping(kwargs_lens)
+    def image2source(self, image_1d, kwargs_lens=None, kwargs_special=None, update_lens=False,
+                     no_flux_norm=False):
+        """if no_flux_norm is True, do not normalize light flux to better visualize the mapping"""
+        if not hasattr(self, '_lens_mapping') or update_lens:
+            if kwargs_lens is None:
+                raise ValueError("'kwargs_lens' is required to update lensing operator")
+            self.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
         if self._matrix_prod:
-            return self._image2source_matrix(image_1d, update=update, test_unit_image=test_unit_image)
+            source = self._image2source_matrix(image_1d, update_lens=update_lens, no_flux_norm=no_flux_norm)
         else:
-            return self._image2source_list(image_1d, update=update, test_unit_image=test_unit_image)
+            source = self._image2source_list(image_1d, update_lens=update_lens, no_flux_norm=no_flux_norm)
+        return source
 
     def image2source_2d(self, image, **kwargs):
         image_1d = util.image2array(image)
         return util.array2image(self.image2source(image_1d, **kwargs))
 
-    def _image2source_matrix(self, image_1d, update=False, test_unit_image=False):
-        if not hasattr(self, '_norm_image2source') or update:
+    def _image2source_matrix(self, image_1d, update_lens=False, no_flux_norm=False):
+        if not hasattr(self, '_norm_image2source') or update_lens:
             # avoid computing it each time, save normalisation factors
             # normalization is sum of weights for each source pixel
             self._norm_image2source = np.squeeze(np.maximum(1, self._lens_mapping.sum(axis=0)).A)
         source_1d = self._lens_mapping.T.dot(image_1d)
-        if not test_unit_image:
+        if not no_flux_norm:
             # normalization
             source_1d /= self._norm_image2source
         return source_1d
 
-    def _image2source_list(self, image_1d, update=False, test_unit_image=False):
+    def _image2source_list(self, image_1d, update_lens=False, no_flux_norm=False):
         source_1d = np.zeros(self.sourcePlane.grid_size)
         # loop over source plane pixels
         for j in range(source_1d.size):
@@ -86,7 +94,7 @@ class LensingOperator(object):
             indices_i = np.where(self._lens_mapping == j)
             flux_i = image_1d[indices_i]
             flux_j = np.sum(flux_i)
-            if not test_unit_image:
+            if not no_flux_norm:
                 # normalization
                 flux_j /= max(1, flux_i.size)
             source_1d[j] = flux_j
@@ -100,13 +108,18 @@ class LensingOperator(object):
     def image_plane_coordinates(self):
         return self.imagePlane.theta_x, self.imagePlane.theta_y
 
+    @property
+    def pixel_area_ratio(self):
+        """source pixel area divide by image pixel area"""
+        return self._subgrid_res_source**2
+
     def update_mapping(self, kwargs_lens, kwargs_special=None):
         # reset source plane grid if it was altered by previous mass model
-        if not self._fix_minimal_source_plane and self.sourcePlane.shrinked:
+        if not self._fix_minimal_source_plane:
             self._reset_source_plane_grid()
 
         # compute mapping between image and source plances due to lensing
-        self._compute_mapping(kwargs_lens, kwargs_special)
+        self._compute_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         # compute areas on source plane where you have no constrains
         self._compute_source_mask()

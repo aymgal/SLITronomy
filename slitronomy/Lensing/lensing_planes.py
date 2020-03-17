@@ -149,9 +149,14 @@ class SourcePlaneGrid(AbstractPlaneGrid):
 
     def project_on_original_grid(self, image):
         if hasattr(self, '_num_pix_large'):
+            input_is_1d = (len(image.shape) == 1)
             array_large = np.zeros(self._num_pix_large**2)
-            array_large[self._reduc_mask_1d] = util.image2array(image)[:]
-            return util.array2image(array_large)
+            if input_is_1d:
+                array_large[self._reduc_mask_1d] = image[:]
+                return array_large
+            else:
+                array_large[self._reduc_mask_1d] = util.image2array(image)[:]
+                return util.array2image(array_large)
         else:
             return image
 

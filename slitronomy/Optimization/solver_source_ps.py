@@ -19,21 +19,21 @@ class SparseSolverSourcePS(SparseSolverSource):
 
     def __init__(self, data_class, lens_model_class, source_model_class, numerics_class, 
                  point_source_linear_solver, likelihood_mask=None, lensing_operator='interpol',
-                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, 
+                 subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
                  max_threshold=5, max_threshold_high_freq=None, num_iter_source=50, num_iter_ps=50, num_iter_weights=1, 
                  sparsity_prior_norm=1, force_positivity=True, 
                  formulation='analysis', verbose=False, show_steps=False):
 
         super(SparseSolverSourcePS, self).__init__(data_class, lens_model_class, source_model_class,
-                                                     numerics_class, likelihood_mask=likelihood_mask, 
-                                                     lensing_operator=lensing_operator, subgrid_res_source=subgrid_res_source, 
-                                                     minimal_source_plane=minimal_source_plane, fix_minimal_source_plane=fix_minimal_source_plane,
-                                                     min_num_pix_source=min_num_pix_source, use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
-                                                     sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity, 
-                                                     formulation=formulation, verbose=verbose, show_steps=show_steps,
-                                                     max_threshold=max_threshold, max_threshold_high_freq=max_threshold_high_freq, 
-                                                     num_iter_source=num_iter_source, num_iter_weights=num_iter_weights)
+                                                   numerics_class, likelihood_mask=likelihood_mask, 
+                                                   lensing_operator=lensing_operator, subgrid_res_source=subgrid_res_source, 
+                                                   minimal_source_plane=minimal_source_plane, fix_minimal_source_plane=fix_minimal_source_plane,
+                                                   min_num_pix_source=min_num_pix_source, use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
+                                                   sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity, 
+                                                   formulation=formulation, verbose=verbose, show_steps=show_steps,
+                                                   max_threshold=max_threshold, max_threshold_high_freq=max_threshold_high_freq, 
+                                                   num_iter_source=num_iter_source, num_iter_weights=num_iter_weights)
         self._n_iter_ps = num_iter_ps
         self._ps_solver = point_source_linear_solver
         self.add_point_source()
@@ -101,7 +101,7 @@ class SparseSolverSourcePS(SparseSolverSource):
                                        iteration_text="*** iteration {}-{}-{} ***".format(j, i_p, i_s))
 
                     if self._show_steps and (i_s % ma.ceil(self._n_iter_source/2) == 0):
-                        self._plotter.plot_step(S_next, iter_1=j, iter_2=i)
+                        self._plotter.plot_step(S_next, iter_1=j, iter_2=i_p, iter_3=i_s)
 
                     # update current estimate of source light and local parameters
                     S = S_next
@@ -117,9 +117,8 @@ class SparseSolverSourcePS(SparseSolverSource):
                 self.subtract_source_from_data(S)
 
                 # solve for point source amplitudes
-                current_model = self.model_analysis(S)
-                model_without_ps_1d = util.image2array(current_model)  # current model without point sources
-                P, ps_error, ps_cov_param, ps_param = self._ps_solver(model_without_ps_1d, kwargs_lens, kwargs_ps, 
+                current_model_no_ps = self.model_analysis(S=S)  # current model without point sources
+                P, ps_error, ps_cov_param, ps_param = self._ps_solver(current_model_no_ps, kwargs_lens, kwargs_ps, 
                                                                       kwargs_special=kwargs_special, inv_bool=False)
 
                 if self._show_steps and i_p % ma.ceil(self._n_iter_ps/2) == 0 and i_s == self._n_iter_source-1:
@@ -142,11 +141,12 @@ class SparseSolverSourcePS(SparseSolverSource):
         self._ps_model = P
 
         # all optimized coefficients (flattened)
-        coeffs_S_1d = util.cube2array(alpha_S)
+        alpha_S_final = self.Phi_T_s(self.project_on_original_grid_source(S))
+        coeffs_S_1d = util.cube2array(alpha_S_final)
         amps_P = ps_param
 
         if self._show_steps:
             self._plotter.plot_final(self._source_model)
 
         model = self.image_model(unconvolved=False)
-        return model, coeffs_S_1d, None, amps_P
+        return model, coeffs_S_1d, [], amps_P

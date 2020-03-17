@@ -26,7 +26,7 @@ class SparseSolverBase(ModelOperators):
 
     def __init__(self, data_class, lens_model_class, source_model_class, numerics_class,
                  likelihood_mask=None, lensing_operator='interpol',
-                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True,
+                 subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True,
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False):
@@ -125,8 +125,8 @@ class SparseSolverBase(ModelOperators):
     def plotter(self):
         return self._plotter
 
-    def plot_results(self, model_log_scale=False, res_vmin=None, res_vmax=None):
-        return self.plotter.plot_results(model_log_scale=model_log_scale, res_vmin=res_vmin, res_vmax=res_vmax)
+    def plot_results(self, **kwargs):
+        return self.plotter.plot_results(**kwargs)
 
     @property
     def image_data(self):
@@ -199,11 +199,7 @@ class SparseSolverBase(ModelOperators):
         return self.M_s(source_2d)
 
     def project_on_original_grid_source(self, source):
-        if len(source.shape) == 2:
-            source_2d = util.array2image(source)
-        else:
-            source_2d = source
-        return self.lensingOperator.sourcePlane.project_on_original_grid(source_2d)
+        return self.lensingOperator.sourcePlane.project_on_original_grid(source)
 
     def psf_convolution(self, array_2d):
         return self.H(array_2d)
