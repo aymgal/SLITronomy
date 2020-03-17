@@ -58,7 +58,7 @@ class SparseSolverBase(ModelOperators):
                                                subgrid_res_source=subgrid_res_source, numerics_class=numerics_class, 
                                                likelihood_mask=likelihood_mask)
 
-        # fill masked pixel with background noise
+        # fill masked pixels with background noise
         self.fill_masked_data(self._background_rms)
 
         self._formulation = formulation
@@ -80,38 +80,18 @@ class SparseSolverBase(ModelOperators):
 
         any class that inherits SparseSolverSource should have the self._solve() method implemented, with correct output.
         """
-        # update image <-> source plane mapping from lens model parameters
-        size_source, pixel_scale_source = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
-
-        # get number of decomposition scales and save in cache
-        self.set_source_wavelet_scales(kwargs_source[0]['n_scales'])
-        if not self.no_lens_light:
-            self.set_lens_wavelet_scales(kwargs_lens_light[0]['n_scales'])
-
-        # point source initial model
-        if self.no_point_source:
-            self._init_ps_model = None
-        else:
-            if init_ps_model is None:
-                raise ValueError("A rough point source model is meeded as input to optimize point source amplitudes")
-            self._init_ps_model = init_ps_model
+        # update lensing operator and noise levels
+        self.update_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
+                           kwargs_ps=kwargs_ps, kwargs_special=kwargs_special, 
+                           init_ps_model=init_ps_model)
 
         # call solver
         image_model, coeffs_source, coeffs_lens_light, amps_ps = self._solve(kwargs_lens=kwargs_lens, 
                                                                              kwargs_ps=kwargs_ps,
                                                                              kwargs_special=kwargs_special)
-        if coeffs_lens_light is None:
-            coeffs_lens_light = []
-        if amps_ps is None:
-            amps_ps = []
 
         # concatenate optimized parameters (wavelets coefficients, point source amplitudes)
-        # and fixed parameters (wavelets number of scales, number of pixel in reconstructed images)
-        all_param = np.concatenate([coeffs_source, 
-                                    coeffs_lens_light, 
-                                    amps_ps, 
-                                    [size_source],
-                                    [pixel_scale_source]])
+        all_param = np.concatenate([coeffs_source, coeffs_lens_light, amps_ps])
         return image_model, all_param
 
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
@@ -121,12 +101,8 @@ class SparseSolverBase(ModelOperators):
     def track(self):
         return self._tracker.track
 
-    @property
-    def plotter(self):
-        return self._plotter
-
     def plot_results(self, **kwargs):
-        return self.plotter.plot_results(**kwargs)
+        return self._plotter.plot_results(**kwargs)
 
     @property
     def image_data(self):
@@ -222,6 +198,26 @@ class SparseSolverBase(ModelOperators):
         norm_error = np.linalg.norm(error.flatten(), ord=2)  # flatten to ensure L2-norm
         return 0.5 * norm_error**2
 
+    def regularization(self, S=None, HG=None, P=None):
+        """ returns p = lambda * || W_S ø alpha_S ||_0,1 + lambda * || W_HG ø alpha_HG ||_0,1 """
+        return self.reg_source(S) + self.reg_lens(HG)
+
+    def reg_source(self, S):
+        if S is None: return 0
+        lambda_WS = self.noise_levels_source_plane
+        lambda_WS[0, :, :]  *= self._k_max_high_freq
+        lambda_WS[1:, :, :] *= self._k_max
+        lambda_WS_alpha_S = lambda_WS * self.Phi_T_s(S)
+        return np.linalg.norm(lambda_WS_alpha_S.flatten(), ord=self._sparsity_prior_norm)
+
+    def reg_lens(self, HG):
+        if HG is None: return 0
+        lambda_WHG = self.noise_levels_image_plane
+        lambda_WHG[0, :, :]  *= self._k_max_high_freq
+        lambda_WHG[1:, :, :] *= self._k_max
+        lambda_WHG_alpha_HG = lambda_WHG * self.Phi_T_l(HG)
+        return np.linalg.norm(lambda_WHG_alpha_HG.flatten(), ord=self._sparsity_prior_norm)
+
     def reduced_residuals(self, S=None, HG=None, P=None):
         """ returns ( Y - HFS - HG - P ) / sigma """
         model = self.model_analysis(S=S, HG=HG, P=P)
@@ -308,10 +304,42 @@ class SparseSolverBase(ModelOperators):
             return 'FISTA'
 
     @property
+    def noise_levels_source_plane(self):
+        if not hasattr(self, '_noise_levels_src'):
+            self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
+        return self._noise_levels_src
+
+    @property
     def noise_levels_image_plane(self):
         if not hasattr(self, '_noise_levels_img'):
             self._noise_levels_img = self._compute_noise_levels_img()
         return self._noise_levels_img
+
+    def update_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
+                      kwargs_ps=None, kwargs_special=None, init_ps_model=None):
+        # update image <-> source plane mapping from lens model parameters
+        _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
+
+        # update number of decomposition scales
+        self.set_source_wavelet_scales(kwargs_source[0]['n_scales'])
+        if not self.no_lens_light:
+            self.set_lens_wavelet_scales(kwargs_lens_light[0]['n_scales'])
+
+        # update noise levels
+        self.recompute_noise_levels()
+        
+        # point source initial model, if any
+        if self.no_point_source:
+            self._init_ps_model = None
+        else:
+            if init_ps_model is None:
+                raise ValueError("A rough point source model is meeded as input to optimize point source amplitudes")
+            self._init_ps_model = init_ps_model
+
+    def recompute_noise_levels(self):
+        self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
+        if not self.no_lens_light:
+            self._noise_levels_img = self._compute_noise_levels_img()
 
     def _compute_noise_levels_img(self):
         # starlet transform of a dirac impulse in image plane
@@ -324,12 +352,6 @@ class SparseSolverBase(ModelOperators):
             scale_power2 = np.sum(dirac_coeffs2[scale_idx, :, :])
             noise_levels[scale_idx, :, :] = self._noise_map * np.sqrt(scale_power2)
         return noise_levels
-
-    @property
-    def noise_levels_source_plane(self):
-        if not hasattr(self, '_noise_levels_src'):
-            self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
-        return self._noise_levels_src
 
     def _compute_noise_levels_src(self, boost_where_zero):
         """boost_where_zero sets the multiplcative factor in fron tof the average noise levels
