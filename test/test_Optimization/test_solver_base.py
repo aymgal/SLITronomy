@@ -84,9 +84,6 @@ class TestSparseSolverBase(object):
     def test_solve(self):
         pass # tested in inheriting classes
 
-    def test_plotter(self):
-        plotter = self.solver.plotter
-
     def test_plot_results(self):
         pass # should run the algorithm
 

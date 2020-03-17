@@ -171,7 +171,7 @@ class TestLensingOperator(object):
         assert len(source_1d_lensed.shape) == 1
 
         source_2d = self.source_light_delensed
-        source_2d_lensed = lensing_op.source2image_2d(source_2d, kwargs_lens=self.kwargs_lens, update=True)
+        source_2d_lensed = lensing_op.source2image_2d(source_2d, kwargs_lens=self.kwargs_lens, update_lens=True)
         assert len(source_2d_lensed.shape) == 2
 
     def test_image2source(self):
@@ -181,7 +181,7 @@ class TestLensingOperator(object):
         assert len(image_1d_delensed.shape) == 1
 
         image_2d = self.source_light_lensed
-        image_2d_delensed = lensing_op.image2source_2d(image_2d, kwargs_lens=self.kwargs_lens, update=True)
+        image_2d_delensed = lensing_op.image2source_2d(image_2d, kwargs_lens=self.kwargs_lens, update_lens=True)
         assert len(image_2d_delensed.shape) == 2
 
     # def test_identity(self):

@@ -51,13 +51,11 @@ class TestModelOperators(object):
 
         # list of source light profiles
         source_model = LightModel(['STARLETS'])
-        self.kwargs_source = [{'coeffs': 1, 'n_scales': self.n_scales_source, 
-                               'n_pixels': self.num_pix_source**2}]
+        self.kwargs_source = [{'n_scales': self.n_scales_source}]
 
         # list of lens light profiles
         lens_light_model = LightModel(['STARLETS'])
-        self.kwargs_lens_light = [{'coeffs': 1, 'n_scales': self.n_scales_lens,
-                                   'n_pixels': self.num_pix**2}]
+        self.kwargs_lens_light = [{'n_scales': self.n_scales_lens}]
 
         # define some mask
         likelihood_mask = np.ones((self.num_pix, self.num_pix))

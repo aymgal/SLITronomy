@@ -99,7 +99,7 @@ class TestSourcePlaneGrid(object):
         unit_image = np.ones((self.num_pix, self.num_pix))
         mask_image = np.zeros((self.num_pix, self.num_pix))
         mask_image[2:-2, 2:-2] = 1  # some binary image that mask out borders
-        self.unit_image_mapped = lensing_op.image2source_2d(unit_image, test_unit_image=False)
+        self.unit_image_mapped = lensing_op.image2source_2d(unit_image, no_flux_norm=False)
         self.mask_mapped = lensing_op.image2source_2d(mask_image)
 
     def test_grid(self):

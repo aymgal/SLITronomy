@@ -1,5 +1,9 @@
 __author__ = 'aymgal'
 
+import matplotlib
+matplotlib.use('agg')
+from matplotlib import pyplot as plt
+
 import numpy as np
 import numpy.testing as npt
 import pytest
@@ -62,13 +66,11 @@ class TestSparseSolverSource(object):
 
         # list of source light profiles
         self.source_lightModel = LightModel(['STARLETS'])
-        self.kwargs_source = [{'coeffs': 1, 'n_scales': self.n_scales_source, 
-                               'n_pixels': self.num_pix_source**2}]
+        self.kwargs_source = [{'n_scales': self.n_scales_source}]
 
         # list of lens light profiles
         self.lens_lightModel = LightModel(['STARLETS'])
-        self.kwargs_lens_light = [{'coeffs': 1, 'n_scales': self.n_scales_lens,
-                                   'n_pixels': self.num_pix**2}]
+        self.kwargs_lens_light = [{'n_scales': self.n_scales_lens}]
 
         # source grid offsets
         self.kwargs_special = {
@@ -115,7 +117,7 @@ class TestSparseSolverSource(object):
         image_model, param = \
             self.solver_source_ana.solve(self.kwargs_lens, self.kwargs_source, kwargs_special=self.kwargs_special)
         assert image_model.shape == self.image_data.shape
-        assert len(param) == self.num_pix_source**2*self.n_scales_source + 2
+        assert len(param) == self.num_pix_source**2*self.n_scales_source
 
         # get the track
         track = self.solver_source_ana.track
@@ -153,10 +155,14 @@ class TestSparseSolverSource(object):
         assert self.solver_source_ana.best_fit_reduced_chi2 == self.solver_source_ana.reduced_chi2(S=S)
 
         # synthesis and analysis models
-        alpha_S = self.source_lightModel.func_list[0].decomposition_2d(S, self.n_scales_source)
+        alpha_S = self.source_lightModel.func_list[0].decomposition_2d(S, n_scales=self.n_scales_source)
         ma = self.solver_source_ana.model_analysis(S)
         ms = self.solver_source_ana.model_synthesis(alpha_S)
         npt.assert_almost_equal(ma, ms, decimal=4)
+
+        # test plot results
+        fig = self.solver_source_ana.plot_results()
+        plt.close()
 
     def test_solve_source_lens_synthesis(self):
         # source+lens solver
@@ -164,7 +170,7 @@ class TestSparseSolverSource(object):
             self.solver_lens_syn.solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light,
                                    kwargs_special=self.kwargs_special)
         assert image_model.shape == self.image_data.shape
-        assert len(param) == self.num_pix**2*self.n_scales_lens + self.num_pix_source**2*self.n_scales_source + 2
+        assert len(param) == self.num_pix**2*self.n_scales_lens + self.num_pix_source**2*self.n_scales_source
 
         # get the track
         track = self.solver_lens_syn.track
@@ -228,11 +234,9 @@ class TestRaise(unittest.TestCase):
         self.kwargs_lens = [{'theta_E': 1, 'gamma': 2, 'center_x': 0, 'center_y': 0, 'e1': -0.05, 'e2': 0.05}]
         self.source_model = LightModel(['STARLETS'])
         self.lens_light_model = LightModel(['STARLETS'])
-        self.kwargs_source = [{'coeffs': 1, 'n_scales': 4, 
-                               'n_pixels': self.num_pix_source**2}]
+        self.kwargs_source = [{'n_scales': 4}]
 
-        self.kwargs_lens_light = [{'coeffs': 1, 'n_scales': 4,
-                                   'n_pixels': self.num_pix**2}]
+        self.kwargs_lens_light = [{'n_scales': 4}]
         psf = PSF(psf_type='NONE')
         self.numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf)
         self.solver_source_lens = SparseSolverSourceLens(self.data, self.lens_model, self.source_model, 
