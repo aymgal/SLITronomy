@@ -22,7 +22,7 @@ class SparseSolverSourceLens(SparseSolverSource):
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
                  max_threshold=5, max_threshold_high_freq=None, num_iter_source=50, num_iter_lens=50, num_iter_weights=1, 
                  sparsity_prior_norm=1, force_positivity=True, 
-                 formulation='analysis', verbose=False, show_steps=False):
+                 formulation='analysis', verbose=False, show_steps=False, thread_count=1):
 
         super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, source_model_class,
                                                      numerics_class, likelihood_mask=likelihood_mask, 
@@ -32,7 +32,7 @@ class SparseSolverSourceLens(SparseSolverSource):
                                                      sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity, 
                                                      formulation=formulation, verbose=verbose, show_steps=show_steps,
                                                      max_threshold=max_threshold, max_threshold_high_freq=max_threshold_high_freq, 
-                                                     num_iter_source=num_iter_source, num_iter_weights=num_iter_weights)
+                                                     num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, thread_count=thread_count)
         self._n_iter_lens = num_iter_lens
         self.add_lens_light(lens_light_model_class)
 

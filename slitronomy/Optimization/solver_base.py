@@ -29,7 +29,7 @@ class SparseSolverBase(ModelOperators):
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True,
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
-                 verbose=False, show_steps=False):
+                 verbose=False, show_steps=False, thread_count=1):
         (num_pix_x, num_pix_y) = data_class.num_pixel_axes
         if num_pix_x != num_pix_y:
             raise ValueError("Only square images are supported")
@@ -56,7 +56,7 @@ class SparseSolverBase(ModelOperators):
 
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, source_model_class,
                                                subgrid_res_source=subgrid_res_source, numerics_class=numerics_class, 
-                                               likelihood_mask=likelihood_mask)
+                                               likelihood_mask=likelihood_mask, thread_count=thread_count)
 
         # fill masked pixels with background noise
         self.fill_masked_data(self._background_rms)

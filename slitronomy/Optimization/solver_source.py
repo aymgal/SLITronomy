@@ -22,7 +22,7 @@ class SparseSolverSource(SparseSolverBase):
                  min_num_pix_source=10, use_mask_for_minimal_source_plane=True,
                  max_threshold=5, max_threshold_high_freq=None, num_iter_source=50, num_iter_weights=1,
                  sparsity_prior_norm=1, force_positivity=True,
-                 formulation='analysis', verbose=False, show_steps=False):
+                 formulation='analysis', verbose=False, show_steps=False, thread_count=1):
 
         # TODO: remove duplicated parameters in __init__ call (use *args and **kwargs)
         super(SparseSolverSource, self).__init__(data_class, lens_model_class, source_model_class, numerics_class,
@@ -32,7 +32,7 @@ class SparseSolverSource(SparseSolverBase):
                                                  use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
                                                  min_num_pix_source=min_num_pix_source,
                                                  sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity,
-                                                 formulation=formulation, verbose=verbose, show_steps=show_steps)
+                                                 formulation=formulation, verbose=verbose, show_steps=show_steps, thread_count=thread_count)
         self._k_max = max_threshold
         if max_threshold_high_freq is None:
             self._k_max_high_freq = self._k_max + 1

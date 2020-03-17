@@ -12,15 +12,12 @@ class ModelOperators(object):
     """Utility class for access to operator as defined in formal optimization equations"""
 
     def __init__(self, data_class, lensing_operator_class, source_model_class, numerics_class,
-                 subgrid_res_source=1, likelihood_mask=None):
+                 subgrid_res_source=1, likelihood_mask=None, thread_count=1):
         if likelihood_mask is None:
             likelihood_mask = np.ones_like(data_class.data)
         self._mask = likelihood_mask
         self._mask_1d = util.image2array(likelihood_mask)
-        # takes the first source profile in the model list
-        self._source_light = source_model_class.func_list[0]
-        self._no_lens_light = True
-        self._no_point_source = True
+        self._thread_count = thread_count
         self._lensing_op = lensing_operator_class
         self._conv = numerics_class.convolution_class
         if self._conv is not None:
@@ -28,6 +25,9 @@ class ModelOperators(object):
         else:
             self._conv_transpose = None
         self._prepare_data(data_class, subgrid_res_source, self._mask)
+        self._add_source_light(source_model_class)
+        self._no_lens_light = True
+        self._no_point_source = True
 
     def _prepare_data(self, data_class, subgrid_res_source, mask):
         num_pix_x, num_pix_y = data_class.num_pixel_axes
@@ -38,9 +38,17 @@ class ModelOperators(object):
         self._image_data = np.copy(data_class.data)
         self._image_data_eff = np.copy(self._image_data)
 
+    def _add_source_light(self, source_model_class):
+        # takes the first source light profile in the model list
+        self._source_light = source_model_class.func_list[0]
+        if hasattr(self._source_light, 'thread_count'):
+            self._source_light.thread_count = self._thread_count
+
     def add_lens_light(self, lens_light_model_class):
         # takes the first lens light profile in the model list
         self._lens_light = lens_light_model_class.func_list[0]
+        if hasattr(self._lens_light, 'thread_count'):
+            self._lens_light.thread_count = self._thread_count
         self._no_lens_light = False
 
     def add_point_source(self):
@@ -164,8 +172,7 @@ class ModelOperators(object):
         """alias method for wavelet transform"""
         if not hasattr(self, '_n_scales_source'):
             raise ValueError("Wavelet scales have not been set")
-        return self._source_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_source,
-                                                   n_pixels=array_2d.size)
+        return self._source_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_source)
 
     def Phi_l(self, array_2d):
         """alias method for inverse wavelet transform"""
@@ -182,5 +189,4 @@ class ModelOperators(object):
             raise ValueError("Wavelet operator needs lens light class")
         if not hasattr(self, '_n_scales_lens_light'):
             raise ValueError("Wavelet scales have not been set")
-        return self._lens_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_lens_light,
-                                                 n_pixels=array_2d.size)
+        return self._lens_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_lens_light)
