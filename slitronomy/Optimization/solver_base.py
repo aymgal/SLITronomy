@@ -81,9 +81,12 @@ class SparseSolverBase(ModelOperators):
         any class that inherits SparseSolverSource should have the self._solve() method implemented, with correct output.
         """
         # update lensing operator and noise levels
-        self.update_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
-                           kwargs_ps=kwargs_ps, kwargs_special=kwargs_special, 
-                           init_ps_model=init_ps_model)
+        update_bool = self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
+                                          kwargs_ps=kwargs_ps, kwargs_special=kwargs_special, 
+                                          init_ps_model=init_ps_model)
+        if update_bool is False:
+            #TODO
+            return None, None
 
         # call solver
         image_model, coeffs_source, coeffs_lens_light, amps_ps = self._solve(kwargs_lens=kwargs_lens, 
@@ -315,10 +318,15 @@ class SparseSolverBase(ModelOperators):
             self._noise_levels_img = self._compute_noise_levels_img()
         return self._noise_levels_img
 
-    def update_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
-                      kwargs_ps=None, kwargs_special=None, init_ps_model=None):
+    def prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
+                       kwargs_ps=None, kwargs_special=None, init_ps_model=None):
         # update image <-> source plane mapping from lens model parameters
-        _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
+        try:
+            _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
+        except Exception as e:
+            if isinstance(e, IndexError) or isinstance(e, ValueError):
+                return False #TODO
+            raise e
 
         # update number of decomposition scales
         self.set_source_wavelet_scales(kwargs_source[0]['n_scales'])
@@ -335,6 +343,7 @@ class SparseSolverBase(ModelOperators):
             if init_ps_model is None:
                 raise ValueError("A rough point source model is meeded as input to optimize point source amplitudes")
             self._init_ps_model = init_ps_model
+        return True
 
     def recompute_noise_levels(self):
         self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
