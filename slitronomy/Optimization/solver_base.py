@@ -66,25 +66,6 @@ class SparseSolverBase(ModelOperators):
         :param thread_count: number of threads (multithreading) to speedup wavelets computations (only works if pySAP is properly installed).
         Defaults to 1.
         """
-        (num_pix_x, num_pix_y) = data_class.num_pixel_axes
-        if num_pix_x != num_pix_y:
-            raise ValueError("Only square images are supported")
-        self._num_pix = num_pix_x
-        self._delta_pix = data_class.pixel_width
-
-        # background noise
-        self._background_rms = data_class.background_rms
-
-        # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
-        self._noise_map = np.sqrt(data_class.C_D)
-
-        # threshold level k_max (in units of the noise)
-        self._k_max = max_threshold
-        if max_threshold_high_freq is None:
-            self._k_max_high_freq = self._k_max + 1
-        else:
-            self._k_max_high_freq = max_threshold_high_freq
-
         lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source,
                                                  likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
                                                  fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source,
@@ -95,13 +76,26 @@ class SparseSolverBase(ModelOperators):
                                                subgrid_res_source=subgrid_res_source,
                                                likelihood_mask=likelihood_mask, thread_count=thread_count)
 
+        # background noise
+        self._background_rms = data_class.background_rms
+
+        # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
+        self._noise_map = np.sqrt(data_class.C_D)
+
         # fill masked pixels with background noise
         self.fill_masked_data(self._background_rms)
 
-        self._formulation = formulation
+        # threshold level k_max (in units of the noise)
+        self._k_max = max_threshold
+        if max_threshold_high_freq is None:
+            self._k_max_high_freq = self._k_max + 1
+        else:
+            self._k_max_high_freq = max_threshold_high_freq
+
         if sparsity_prior_norm not in [0, 1]:
             raise ValueError("Sparsity prior norm can only be 0 or 1 (l0-norm or l1-norm)")
         self._sparsity_prior_norm = sparsity_prior_norm
+        self._formulation = formulation
         self._force_positivity = force_positivity
 
         self._verbose = verbose
@@ -122,8 +116,7 @@ class SparseSolverBase(ModelOperators):
 
         # update lensing operator and noise levels
         prepare_bool = self._prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
-                                            kwargs_ps=kwargs_ps, kwargs_special=kwargs_special, 
-                                            init_ps_model=init_ps_model)
+                                            kwargs_special=kwargs_special, init_ps_model=init_ps_model)
         if prepare_bool is False:
             return None, None  #TODO
 
@@ -146,16 +139,12 @@ class SparseSolverBase(ModelOperators):
     def track(self):
         return self._tracker.track
 
+    @property
+    def component_names(self):
+        return 'S', 'HG', 'P'
+
     def plot_results(self, **kwargs):
         return self._plotter.plot_results(**kwargs)
-
-    @property
-    def image_data(self):
-        return self._image_data
-
-    @property
-    def lensingOperator(self):
-        return self._lensing_op
 
     @property
     def source_model(self):
@@ -249,17 +238,18 @@ class SparseSolverBase(ModelOperators):
 
     def reg_source(self, S):
         if S is None: return 0
-        lambda_WS = self.noise_levels_source_plane
-        lambda_WS[0, :, :]  *= self._k_max_high_freq
-        lambda_WS[1:, :, :] *= self._k_max
+        lambda_WS = np.zeros_like(self.noise_levels_source_plane)
+        lambda_WS[0, :, :]  = self._k_max_high_freq * self.noise_levels_source_plane[0, :, :]
+        lambda_WS[1:, :, :] = self._k_max * self.noise_levels_source_plane[1:, :, :]
         lambda_WS_alpha_S = lambda_WS * self.Phi_T_s(S)
         return np.linalg.norm(lambda_WS_alpha_S.flatten(), ord=self._sparsity_prior_norm)
 
     def reg_lens(self, HG):
         if HG is None: return 0
-        lambda_WHG = self.noise_levels_image_plane
-        lambda_WHG[0, :, :]  *= self._k_max_high_freq
-        lambda_WHG[1:, :, :] *= self._k_max
+        WHG = self.noise_levels_image_plane
+        lambda_WHG = np.zeros_like(WHG)
+        lambda_WHG[0, :, :]  = self._k_max_high_freq * WHG[0, :, :]
+        lambda_WHG[1:, :, :] = self._k_max * WHG[1:, :, :]
         lambda_WHG_alpha_HG = lambda_WHG * self.Phi_T_l(HG)
         return np.linalg.norm(lambda_WHG_alpha_HG.flatten(), ord=self._sparsity_prior_norm)
 
@@ -361,7 +351,7 @@ class SparseSolverBase(ModelOperators):
         return self._noise_levels_img
 
     def _prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
-                        kwargs_ps=None, kwargs_special=None, init_ps_model=None):
+                        kwargs_special=None, init_ps_model=None):
         # update image <-> source plane mapping from lens model parameters
         try:
             _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
@@ -376,7 +366,7 @@ class SparseSolverBase(ModelOperators):
             self.set_lens_wavelet_scales(kwargs_lens_light[0]['n_scales'])
 
         # update noise levels
-        self.recompute_noise_levels()
+        self.update_noise_levels()
         
         # point source initial model, if any
         if self.no_point_source:
@@ -387,10 +377,48 @@ class SparseSolverBase(ModelOperators):
             self._init_ps_model = init_ps_model
         return True
 
-    def recompute_noise_levels(self):
+    def update_noise_levels(self):
         self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
         if not self.no_lens_light:
             self._noise_levels_img = self._compute_noise_levels_img()
+
+    def _compute_noise_levels_src(self, boost_where_zero):
+        """boost_where_zero sets the multiplcative factor in fron tof the average noise levels
+        at locations where noise is 0"""
+        # get transposed blurring operator
+        if self.psf_kernel is None:
+            HT = util.dirac_impulse(self.lensingOperator.imagePlane.num_pix)
+        else:
+            HT = self.psf_kernel.T
+
+        # map noise map to source plane
+        HT_noise_diag = self._noise_map * np.sqrt(np.sum(HT**2))
+        FT_HT_noise = self.F_T(HT_noise_diag)
+
+        # introduce artitifically noise to pixels where there are not signal in source plane
+        # to ensure threshold of starlet coefficients at these locations
+        FT_HT_noise[FT_HT_noise == 0] = boost_where_zero * np.mean(FT_HT_noise[FT_HT_noise != 0])
+
+        # \Gamma^2 in  Equation (16) of Joseph+19)
+        FT_HT_noise2 = FT_HT_noise**2
+
+        # compute starlet transform of a dirac impulse in source plane
+        dirac = util.dirac_impulse(self.lensingOperator.sourcePlane.num_pix)
+        dirac_coeffs = self.Phi_T_s(dirac)
+
+        # \Delta_s^2 in  Equation (16) of Joseph+19)
+        dirac_coeffs2 = dirac_coeffs**2
+
+        n_scale, n_pix1, npix2 = dirac_coeffs2.shape
+        noise_levels = np.zeros((n_scale, n_pix1, npix2))
+        for scale_idx in range(n_scale):
+            # starlet transform of dirac impulse at a given scale
+            dirac_scale2 = dirac_coeffs2[scale_idx, :, :]
+            # Equation (16) of Joseph+19
+            levels = signal.fftconvolve(dirac_scale2, FT_HT_noise2, mode='same')
+            # save noise at each pixel for this scale
+            noise_levels[scale_idx, :, :] = np.sqrt(np.abs(levels))
+        return noise_levels
 
     def _compute_noise_levels_img(self):
         # starlet transform of a dirac impulse in image plane
@@ -402,42 +430,6 @@ class SparseSolverBase(ModelOperators):
         for scale_idx in range(n_scale):
             scale_power2 = np.sum(dirac_coeffs2[scale_idx, :, :])
             noise_levels[scale_idx, :, :] = self._noise_map * np.sqrt(scale_power2)
-        return noise_levels
-
-    def _compute_noise_levels_src(self, boost_where_zero):
-        """boost_where_zero sets the multiplcative factor in fron tof the average noise levels
-        at locations where noise is 0"""
-        # get transposed blurring operator
-        if self.psf_kernel is None:
-            HT = util.dirac_impulse(self.lensingOperator.imagePlane.num_pix)
-        else:
-            HT = self.psf_kernel.T
-
-        HT_noise_diag = self._noise_map * np.sqrt(np.sum(HT**2))
-        FT_HT_noise = self.F_T(HT_noise_diag)
-
-        # introduce artitifically noise to pixels where there are not signal in source plane
-        # to ensure threshold of starlet coefficients at these locations
-        FT_HT_noise[FT_HT_noise == 0] = np.mean(FT_HT_noise[FT_HT_noise != 0]) * boost_where_zero
-
-        # \Gamma^2 in  Equation (16) of Joseph+18)
-        FT_HT_noise2 = FT_HT_noise**2
-
-        # compute starlet transform of a dirac impulse in image plane
-        dirac_coeffs = self.Phi_T_s(util.dirac_impulse(self.lensingOperator.sourcePlane.num_pix))
-
-        # \Delta_s^2 in  Equation (16) of Joseph+18)
-        dirac_coeffs2 = dirac_coeffs**2
-
-        n_scale, n_pix1, npix2 = dirac_coeffs2.shape
-        noise_levels = np.zeros((n_scale, n_pix1, npix2))
-        for scale_idx in range(n_scale):
-            # starlet transform of dirac impulse at a given scale
-            dirac_scale2 = dirac_coeffs2[scale_idx, :, :]
-            # Equation (16) of Joseph+18
-            levels = signal.fftconvolve(dirac_scale2, FT_HT_noise2, mode='same')
-            # save noise at each pixel for this scale
-            noise_levels[scale_idx, :, :] = np.sqrt(np.abs(levels))
         return noise_levels
 
     def _update_weights(self, alpha_S, alpha_HG=None):
