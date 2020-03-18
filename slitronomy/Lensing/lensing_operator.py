@@ -166,11 +166,11 @@ class LensingOperator(object):
         grid_offset_y = kwargs_special.get('delta_y_source_grid', 0)
         return grid_offset_x, grid_offset_y
 
-    def _compute_mapping(self, kwargs_lens, kwargs_special):
+    def _compute_mapping(self, kwargs_lens, kwargs_special=None):
         if self._interpolation == 'nearest':
-            self._compute_mapping_nearest(kwargs_lens, kwargs_special)
+            self._compute_mapping_nearest(kwargs_lens, kwargs_special=kwargs_special)
         elif self._interpolation == 'bilinear':
-            self._compute_mapping_bilinear(kwargs_lens, kwargs_special)
+            self._compute_mapping_bilinear(kwargs_lens, kwargs_special=kwargs_special)
 
     def _compute_mapping_bilinear(self, kwargs_lens, kwargs_special):
         """Compute mapping between image and source plane pixels.

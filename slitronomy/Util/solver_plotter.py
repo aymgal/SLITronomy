@@ -12,6 +12,7 @@ class SolverPlotter(object):
     _cmap_1 = 'cubehelix'
     _cmap_2 = 'gist_stern'
     _cmap_3 = 'bwr'
+    _color_cycle = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
 
     def __init__(self, solver_class, show_now=True):
         self._solver = solver_class
@@ -35,6 +36,8 @@ class SolverPlotter(object):
         return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_2)
 
     def plot_results(self, model_log_scale=False, res_vmin=-6, res_vmax=6, cmap_1=None, cmap_2=None):
+        n_comp = self._solver.track['loss'].shape[0]
+        names = self._solver.component_names
         fig, axes = plt.subplots(2, 3, figsize=(18, 10))
         ax = axes[0, 0]
         ax.set_title("source model")
@@ -84,17 +87,39 @@ class SolverPlotter(object):
                 transform=ax.transAxes, bbox={'color': 'white', 'alpha': 0.8})
         plot_util.nice_colorbar(im)
         ax = axes[1, 0]
-        ax.set_title("loss function")
-        ax.plot(self._solver.track['loss'].T, '.')
+        ax.set_title("loss | regularization")
+        for i in range(n_comp):
+            data = self._solver.track['loss'][i, :]
+            if np.all(np.isnan(data)): continue
+            ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i], 
+                    label='loss({})'.format(names[i]))
         ax.set_xlabel("iterations")
+        # ax.set_ylabel("loss")
+        ax.legend(loc=(0.7, 0.9))
+        ax2 = ax.twinx()
+        for i in range(n_comp):
+            data = self._solver.track['reg'][i, :]
+            if np.all(np.isnan(data)): continue
+            ax2.plot(data, linestyle='none', marker='.', color=self._color_cycle[i+n_comp], 
+                     label='reg({})'.format(names[i]))
+        # ax2.set_ylabel("regularization")
+        ax2.legend(loc=(0.7, 0.7))
         ax = axes[1, 1]
         ax.set_title("reduced chi2")
-        ax.plot(self._solver.track['red_chi2'].T, '.')
+        for i in range(n_comp):
+            data = self._solver.track['red_chi2'][i, :]
+            if np.all(np.isnan(data)): continue
+            ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i])
         ax.set_xlabel("iterations")
+        ax.set_ylabel(r"$\chi^2_{\nu}$")
         ax = axes[1, 2]
         ax.set_title("step-to-step difference")
-        ax.semilogy(self._solver.track['step_diff'].T, '.')
+        for i in range(n_comp):
+            data = self._solver.track['step_diff'][i, :]
+            if np.all(np.isnan(data)): continue
+            ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i])
         ax.set_xlabel("iterations")
+        ax.set_ylabel(r"$||x_{i+1}-x_{i}||_2$")
         return fig
 
     @staticmethod
