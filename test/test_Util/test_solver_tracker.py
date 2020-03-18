@@ -47,7 +47,7 @@ class TestSolverTracker(object):
         numerics_class = NumericsSubFrame(pixel_grid=data_class, psf=PSF(psf_type='NONE'))
 
         # init sparse solver
-        self.solver = SparseSolverSource(data_class, lens_model_class, source_model_class, numerics_class,
+        self.solver = SparseSolverSource(data_class, lens_model_class, numerics_class, source_model_class,
                                          num_iter_source=10)
 
         # init the tracker

@@ -37,6 +37,9 @@ class SparseSolverSourcePS(SparseSolverSource):
         self._n_iter_ps = num_iter_ps
         self._ps_solver = point_source_linear_solver
 
+    def _ready(self):
+        return not self.no_source_light and not self.no_point_source
+
     def _solve(self, kwargs_lens, kwargs_ps, kwargs_special):
         """
         implements the SLIT algorithm with point source support

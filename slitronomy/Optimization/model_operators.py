@@ -3,119 +3,20 @@ __author__ = 'aymgal'
 
 import numpy as np
 
+from slitronomy.Optimization.model_manager import ModelManager
 from slitronomy.Util import util
 
 
-
-class ModelOperators(object):
+class ModelOperators(ModelManager):
 
     """Utility class for access to operator as defined in formal optimization equations"""
 
     def __init__(self, data_class, lensing_operator_class, numerics_class,
                  subgrid_res_source=1, likelihood_mask=None, thread_count=1):
-        if likelihood_mask is None:
-            likelihood_mask = np.ones_like(data_class.data)
-        self._mask = likelihood_mask
-        self._mask_1d = util.image2array(likelihood_mask)
-        self._thread_count = thread_count
-        self._lensing_op = lensing_operator_class
-        self._conv = numerics_class.convolution_class
-        if self._conv is not None:
-            self._conv_transpose = self._conv.copy_transpose()
-        else:
-            self._conv_transpose = None
-        self._prepare_data(data_class, subgrid_res_source, self._mask)
-        self._no_lens_light = True
-        self._no_point_source = True
-
-    def _prepare_data(self, data_class, subgrid_res_source, mask):
-        num_pix_x, num_pix_y = data_class.num_pixel_axes
-        if num_pix_x != num_pix_y:
-            raise ValueError("Only square images are supported")
-        self._num_pix = num_pix_x
-        self._num_pix_source = int(num_pix_x * subgrid_res_source)
-        self._image_data = np.copy(data_class.data)
-        self._image_data_eff = np.copy(self._image_data)
-
-    def add_source_light(self, source_model_class):
-        # takes the first source light profile in the model list
-        self._source_light = source_model_class.func_list[0]
-        if hasattr(self._source_light, 'thread_count'):
-            self._source_light.thread_count = self._thread_count
-
-    def add_lens_light(self, lens_light_model_class):
-        # takes the first lens light profile in the model list
-        self._lens_light = lens_light_model_class.func_list[0]
-        if hasattr(self._lens_light, 'thread_count'):
-            self._lens_light.thread_count = self._thread_count
-        self._no_lens_light = False
-
-    def add_point_source(self):
-        self._no_point_source = False
-
-    def set_source_wavelet_scales(self, n_scales_source):
-        self._n_scales_source = n_scales_source
-
-    def set_lens_wavelet_scales(self, n_scales_lens):
-        self._n_scales_lens_light = n_scales_lens
-
-    def subtract_from_data(self, array_2d):
-        """Update "effective" data by subtracting the input array"""
-        self._image_data_eff = self._image_data - array_2d
-
-    def reset_data(self):
-        """cancel any previous call to self.subtract_from_data()"""
-        self._image_data_eff = np.copy(self._image_data)
-
-    def fill_masked_data(self, background_rms):
-        """Replace masked pixels with background noise"""
-        noise = background_rms * np.random.randn(*self._image_data_eff.shape)
-        self._image_data[self._mask == 0] = noise[self._mask == 0]
-        self._image_data_eff = np.copy(self._image_data)
-
-    @property
-    def spectral_norm_source(self):
-        if not hasattr(self, '_spectral_norm_source'):
-            def _operator(x):
-                x = self.H_T(x)
-                x = self.F_T(x)
-                x = self.Phi_T_s(x)
-                return x
-            def _inverse_operator(x):
-                x = self.Phi_s(x)
-                x = self.F(x)
-                x = self.H(x)
-                return x
-            self._spectral_norm_source = util.spectral_norm(self._num_pix, _operator, _inverse_operator,
-                                                            num_iter=20, tol=1e-10)
-        return self._spectral_norm_source
-
-    @property
-    def spectral_norm_lens(self):
-        if not hasattr(self, '_spectral_norm_lens'):
-            def _operator(x):
-                x = self.Phi_T_l(x)
-                return x
-            def _inverse_operator(x):
-                x = self.Phi_l(x)
-                return x
-            self._spectral_norm_lens = util.spectral_norm(self._num_pix, _operator, _inverse_operator,
-                                                            num_iter=20, tol=1e-10)
-        return self._spectral_norm_lens
-
-    @property
-    def no_lens_light(self):
-        return self._no_lens_light
-
-    @property
-    def no_point_source(self):
-        return self._no_point_source
-
-    @property
-    def psf_kernel(self):
-        if self._conv is None:
-            return None
-        return self._conv.pixel_kernel()
+        super(ModelOperators, self).__init__(data_class, lensing_operator_class, numerics_class,
+                                             subgrid_res_source=subgrid_res_source, 
+                                             likelihood_mask=likelihood_mask, 
+                                             thread_count=thread_count)
 
     @property
     def Y(self):
@@ -189,3 +90,39 @@ class ModelOperators(object):
         if not hasattr(self, '_n_scales_lens_light'):
             raise ValueError("Wavelet scales have not been set")
         return self._lens_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_lens_light)
+
+    @property
+    def psf_kernel(self):
+        if self._conv is None:
+            return None
+        return self._conv.pixel_kernel()
+
+    @property
+    def spectral_norm_source(self):
+        if not hasattr(self, '_spectral_norm_source'):
+            def _operator(x):
+                x = self.H_T(x)
+                x = self.F_T(x)
+                x = self.Phi_T_s(x)
+                return x
+            def _inverse_operator(x):
+                x = self.Phi_s(x)
+                x = self.F(x)
+                x = self.H(x)
+                return x
+            self._spectral_norm_source = util.spectral_norm(self._num_pix, _operator, _inverse_operator,
+                                                            num_iter=20, tol=1e-10)
+        return self._spectral_norm_source
+
+    @property
+    def spectral_norm_lens(self):
+        if not hasattr(self, '_spectral_norm_lens'):
+            def _operator(x):
+                x = self.Phi_T_l(x)
+                return x
+            def _inverse_operator(x):
+                x = self.Phi_l(x)
+                return x
+            self._spectral_norm_lens = util.spectral_norm(self._num_pix, _operator, _inverse_operator,
+                                                            num_iter=20, tol=1e-10)
+        return self._spectral_norm_lens

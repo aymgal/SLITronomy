@@ -15,7 +15,10 @@ SLITronomy
     :target: https://badge.fury.io/py/slitronomy
 
 .. image:: https://img.shields.io/badge/python-3.6-blue.svg
-    :target: https://badge.fury.io/py/python-pySAP
+    :target: https://badge.fury.io/py/slitronomy
+
+.. image:: https://img.shields.io/badge/python-3.7-blue.svg
+    :target: https://badge.fury.io/py/slitronomy
 
 .. image:: https://img.shields.io/badge/license-MIT-blue.svg?style=flat
     :target: https://github.com/aymgal/slitronomy/blob/master/LICENSE

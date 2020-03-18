@@ -115,15 +115,17 @@ class SparseSolverBase(ModelOperators):
         """
         main method to call from outside the class, calling self._solve()
 
-        any class that inherits SparseSolverSource should have the self._solve() method implemented, with correct output.
+        any class that inherits SparseSolverSource should have self._ready() and self._solve() methods implemented, 
+        with correct output.
         """
+        if not self._ready(): return
+
         # update lensing operator and noise levels
-        update_bool = self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
-                                          kwargs_ps=kwargs_ps, kwargs_special=kwargs_special, 
-                                          init_ps_model=init_ps_model)
-        if update_bool is False:
-            #TODO
-            return None, None
+        prepare_bool = self._prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
+                                            kwargs_ps=kwargs_ps, kwargs_special=kwargs_special, 
+                                            init_ps_model=init_ps_model)
+        if prepare_bool is False:
+            return None, None  #TODO
 
         # call solver
         image_model, coeffs_source, coeffs_lens_light, amps_ps = self._solve(kwargs_lens=kwargs_lens, 
@@ -135,6 +137,9 @@ class SparseSolverBase(ModelOperators):
         return image_model, all_param
 
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
+        raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
+
+    def _ready(self):
         raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
 
     @property
@@ -355,8 +360,8 @@ class SparseSolverBase(ModelOperators):
             self._noise_levels_img = self._compute_noise_levels_img()
         return self._noise_levels_img
 
-    def prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
-                       kwargs_ps=None, kwargs_special=None, init_ps_model=None):
+    def _prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
+                        kwargs_ps=None, kwargs_special=None, init_ps_model=None):
         # update image <-> source plane mapping from lens model parameters
         try:
             _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)

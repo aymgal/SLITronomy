@@ -94,16 +94,16 @@ class TestSparseSolverSource(object):
         self.num_iter_weights = 2
 
         # init the solver
-        self.solver_source_ana = SparseSolverSource(data, lens_model, self.source_lightModel, numerics, 
-                 likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
+        self.solver_source_ana = SparseSolverSource(data, lens_model, numerics, self.source_lightModel, 
+                 likelihood_mask=self.likelihood_mask, source_interpolation='bilinear',
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False,
                  max_threshold=5, max_threshold_high_freq=None, 
                  num_iter_source=self.num_iter_source, num_iter_weights=self.num_iter_weights)
-        self.solver_lens_syn = SparseSolverSourceLens(data, lens_model, self.source_lightModel, self.lens_lightModel, numerics,
-                 likelihood_mask=self.likelihood_mask, lensing_operator='interpol',
+        self.solver_lens_syn = SparseSolverSourceLens(data, lens_model, numerics, self.source_lightModel, self.lens_lightModel,
+                 likelihood_mask=self.likelihood_mask, source_interpolation='bilinear',
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  sparsity_prior_norm=1, force_positivity=True, formulation='synthesis',
@@ -239,8 +239,8 @@ class TestRaise(unittest.TestCase):
         self.kwargs_lens_light = [{'n_scales': 4}]
         psf = PSF(psf_type='NONE')
         self.numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf)
-        self.solver_source_lens = SparseSolverSourceLens(self.data, self.lens_model, self.source_model, 
-                                                         self.lens_light_model, self.numerics,
+        self.solver_source_lens = SparseSolverSourceLens(self.data, self.lens_model, self.numerics,
+                                                         self.source_model, self.lens_light_model,
                                                          num_iter_source=1, num_iter_lens=1, num_iter_weights=1)
         
     def test_raise(self):

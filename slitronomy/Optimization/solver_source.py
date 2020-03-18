@@ -30,10 +30,13 @@ class SparseSolverSource(SparseSolverBase):
         super(SparseSolverSource, self).__init__(data_class, lens_model_class, numerics_class, **base_kwargs)
         self.add_source_light(source_model_class)
         self._n_iter_source = num_iter_source
-        if sparsity_prior_norm == 1:
+        if self._sparsity_prior_norm == 1:
             self._n_iter_weights = num_iter_weights
         else:
             self._n_iter_weights = 1   # reweighting scheme only defined for l1-norm sparsity
+
+    def _ready(self):
+        return not self.no_source_light
 
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
         """

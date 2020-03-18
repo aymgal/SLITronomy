@@ -34,6 +34,9 @@ class SparseSolverSourceLens(SparseSolverSource):
         self.add_lens_light(lens_light_model_class)
         self._n_iter_lens = num_iter_lens
 
+    def _ready(self):
+        return not self.no_source_light and not self.no_lens_light
+
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
         """
         implements the SLIT_MCA algorithm

@@ -71,13 +71,13 @@ class TestModelOperators(object):
         psf = PSF(**kwargs_psf)
         self.numerics = NumericsSubFrame(pixel_grid=data, psf=psf)
 
-        self.model_op = ModelOperators(data, self.lensing_op, source_model, 
-                                       numerics_class=self.numerics,
+        self.model_op = ModelOperators(data, self.lensing_op, self.numerics,
                                        likelihood_mask=likelihood_mask)
+        self.model_op.add_source_light(source_model)
         self.model_op.add_lens_light(lens_light_model)
-        self.model_op_nolens = ModelOperators(data, self.lensing_op, source_model, 
-                                       numerics_class=self.numerics,
+        self.model_op_nolens = ModelOperators(data, self.lensing_op, self.numerics,
                                        likelihood_mask=likelihood_mask)
+        self.model_op_nolens.add_source_light(source_model)
 
         # define some test images in direct space
         self.X_s = np.random.rand(self.num_pix_source, self.num_pix_source)  # source light
@@ -105,12 +105,9 @@ class TestModelOperators(object):
         npt.assert_equal(self.model_op.Y, self.image_data)
         npt.assert_equal(self.model_op.Y_eff, self.image_data)
 
-    # def test_fill_masked_data(self):
-        # pass
-
     def test_spectral_norm_source(self):
         self.model_op.set_source_wavelet_scales(self.n_scales_source)
-        npt.assert_almost_equal(self.model_op.spectral_norm_source, 0.999, decimal=3)
+        npt.assert_almost_equal(self.model_op.spectral_norm_source, 0.979, decimal=3)
 
     def test_spectral_norm_lens(self):
         self.model_op.set_lens_wavelet_scales(self.n_scales_lens)
@@ -172,9 +169,9 @@ class TestRaise(unittest.TestCase):
         self.source_model_class = LightModel(['STARLETS'])
         self.lens_light_model_class = LightModel(['STARLETS'])
         self.lensing_op = LensingOperator(self.data, lens_model)
-        self.model_op = ModelOperators(self.data, self.lensing_op, self.source_model_class, self.numerics)
+        self.model_op = ModelOperators(self.data, self.lensing_op, self.numerics)
         self.model_op.add_lens_light(self.lens_light_model_class)
-        self.model_op_nolens = ModelOperators(self.data, self.lensing_op, self.source_model_class, self.numerics)
+        self.model_op_nolens = ModelOperators(self.data, self.lensing_op, self.numerics)
         
     def test_raise(self):
         with self.assertRaises(ValueError):
@@ -203,7 +200,7 @@ class TestRaise(unittest.TestCase):
             Phi_l_alpha = self.model_op_nolens.Phi_l(alpha_l)
         with self.assertRaises(ValueError):
             # ModelOperators init should raise an error with non square data image
-            model_op_error = ModelOperators(self.data_nonsquare, self.lensing_op, self.source_model_class, self.numerics)
+            model_op_error = ModelOperators(self.data_nonsquare, self.lensing_op, self.numerics)
 
 
 if __name__ == '__main__':
