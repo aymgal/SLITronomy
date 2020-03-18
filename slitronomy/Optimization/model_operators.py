@@ -11,7 +11,7 @@ class ModelOperators(object):
 
     """Utility class for access to operator as defined in formal optimization equations"""
 
-    def __init__(self, data_class, lensing_operator_class, source_model_class, numerics_class,
+    def __init__(self, data_class, lensing_operator_class, numerics_class,
                  subgrid_res_source=1, likelihood_mask=None, thread_count=1):
         if likelihood_mask is None:
             likelihood_mask = np.ones_like(data_class.data)
@@ -25,7 +25,6 @@ class ModelOperators(object):
         else:
             self._conv_transpose = None
         self._prepare_data(data_class, subgrid_res_source, self._mask)
-        self._add_source_light(source_model_class)
         self._no_lens_light = True
         self._no_point_source = True
 
@@ -38,7 +37,7 @@ class ModelOperators(object):
         self._image_data = np.copy(data_class.data)
         self._image_data_eff = np.copy(self._image_data)
 
-    def _add_source_light(self, source_model_class):
+    def add_source_light(self, source_model_class):
         # takes the first source light profile in the model list
         self._source_light = source_model_class.func_list[0]
         if hasattr(self._source_light, 'thread_count'):

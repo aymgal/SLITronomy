@@ -16,25 +16,23 @@ class SparseSolverSourceLens(SparseSolverSource):
 
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
-    def __init__(self, data_class, lens_model_class, source_model_class, lens_light_model_class, numerics_class,
-                 likelihood_mask=None, lensing_operator='interpol',
-                 subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
-                 use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
-                 max_threshold=5, max_threshold_high_freq=None, num_iter_source=50, num_iter_lens=50, num_iter_weights=1, 
-                 sparsity_prior_norm=1, force_positivity=True, 
-                 formulation='analysis', verbose=False, show_steps=False, thread_count=1):
-
-        super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, source_model_class,
-                                                     numerics_class, likelihood_mask=likelihood_mask, 
-                                                     lensing_operator=lensing_operator, subgrid_res_source=subgrid_res_source, 
-                                                     minimal_source_plane=minimal_source_plane, fix_minimal_source_plane=fix_minimal_source_plane,
-                                                     min_num_pix_source=min_num_pix_source, use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
-                                                     sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity, 
-                                                     formulation=formulation, verbose=verbose, show_steps=show_steps,
-                                                     max_threshold=max_threshold, max_threshold_high_freq=max_threshold_high_freq, 
-                                                     num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, thread_count=thread_count)
-        self._n_iter_lens = num_iter_lens
+    def __init__(self, data_class, lens_model_class, numerics_class, source_model_class, lens_light_model_class, 
+                 num_iter_source=10, num_iter_lens=10, num_iter_weights=3, **base_kwargs):
+        """
+        :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
+        :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
+        :param numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance.
+        :param source_model_class: lenstronomy.light_model.LightModel instance describing the source light.
+        :param lens_light_model_class: lenstronomy.light_model.LightModel instance describing the lens light.
+        :param num_iter_source: number of iterations for sparse optimization of the source light. 
+        :param num_iter_lens: number of iterations for sparse optimization of the lens light. 
+        :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
+        """
+        super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, numerics_class, source_model_class,
+                                                     num_iter_source=num_iter_source, num_iter_weights=num_iter_weights,
+                                                     **base_kwargs)
         self.add_lens_light(lens_light_model_class)
+        self._n_iter_lens = num_iter_lens
 
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
         """
@@ -59,7 +57,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         self._tracker.init()
 
         ######### Loop to update weights ########
-        for j in range(self._n_weights):
+        for j in range(self._n_iter_weights):
 
             if j == 0 and self.algorithm == 'FISTA':
                 fista_xi_l = np.copy(alpha_HG)
@@ -139,8 +137,9 @@ class SparseSolverSourceLens(SparseSolverSource):
 
             ######### ######## end lens light ######## ########
 
-            # update weights
-            weights_source, weights_lens = self._update_weights(alpha_S, alpha_HG=alpha_HG)
+            # update weights if necessary
+            if self._n_iter_weights > 1:
+                weights_source, weights_lens = self._update_weights(alpha_S, alpha_HG=alpha_HG)
 
         ######### ######## end weights ######## ########
 

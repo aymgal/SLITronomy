@@ -15,28 +15,27 @@ from slitronomy.Util import util
 
 class SparseSolverSourcePS(SparseSolverSource):
 
-    """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
+    """Implements the original SLIT algorithm with point source support"""
 
-    def __init__(self, data_class, lens_model_class, source_model_class, numerics_class, 
-                 point_source_linear_solver, likelihood_mask=None, lensing_operator='interpol',
-                 subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
-                 use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
-                 max_threshold=5, max_threshold_high_freq=None, num_iter_source=50, num_iter_ps=50, num_iter_weights=1, 
-                 sparsity_prior_norm=1, force_positivity=True, 
-                 formulation='analysis', verbose=False, show_steps=False, thread_count=1):
+    def __init__(self, point_source_linear_solver, num_iter_source=10, num_iter_ps=10,
+                 num_iter_weights=3, **base_kwargs):
 
-        super(SparseSolverSourcePS, self).__init__(data_class, lens_model_class, source_model_class,
-                                                   numerics_class, likelihood_mask=likelihood_mask, 
-                                                   lensing_operator=lensing_operator, subgrid_res_source=subgrid_res_source, 
-                                                   minimal_source_plane=minimal_source_plane, fix_minimal_source_plane=fix_minimal_source_plane,
-                                                   min_num_pix_source=min_num_pix_source, use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
-                                                   sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity, 
-                                                   formulation=formulation, verbose=verbose, show_steps=show_steps,
-                                                   max_threshold=max_threshold, max_threshold_high_freq=max_threshold_high_freq, 
-                                                   num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, thread_count=thread_count)
+        """
+        :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
+        :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
+        :param numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance.
+        :param source_model_class: lenstronomy.light_model.LightModel instance describing the source light.
+        :param point_source_linear_solver: method that linearly solve the amplitude of point sources,
+        given a source subtracted image. This might change in the future.
+        :param num_iter_source: number of iterations for sparse optimization of the source light. 
+        :param num_iter_ps: number of iterations for the point source linear inversion.
+        :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
+        """
+        super(SparseSolverSourcePS, self).__init__(data_class, lens_model_class, numerics_class, source_model_class,
+                                                   num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, **base_kwargs)
+        self.add_point_source()
         self._n_iter_ps = num_iter_ps
         self._ps_solver = point_source_linear_solver
-        self.add_point_source()
 
     def _solve(self, kwargs_lens, kwargs_ps, kwargs_special):
         """
@@ -66,7 +65,7 @@ class SparseSolverSourcePS(SparseSolverSource):
         loss_list = []
         red_chi2_list = []
         step_diff_list = []
-        for j in range(self._n_weights):
+        for j in range(self._n_iter_weights):
 
             ######### Loop over point source optimization at fixed weights ########
 
@@ -127,7 +126,7 @@ class SparseSolverSourcePS(SparseSolverSource):
             ######### ######## end point source ######## ########
 
             # update weights if necessary
-            if self._n_weights > 1:
+            if self._n_iter_weights > 1:
                 weights, _ = self._update_weights(alpha_S)
 
         ######### ######## end weights ######## ########

@@ -16,30 +16,24 @@ class SparseSolverSource(SparseSolverBase):
 
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
-    def __init__(self, data_class, lens_model_class, source_model_class,
-                 numerics_class, likelihood_mask=None, lensing_operator='interpol',
-                 subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True,
-                 min_num_pix_source=10, use_mask_for_minimal_source_plane=True,
-                 max_threshold=5, max_threshold_high_freq=None, num_iter_source=50, num_iter_weights=1,
-                 sparsity_prior_norm=1, force_positivity=True,
-                 formulation='analysis', verbose=False, show_steps=False, thread_count=1):
-
-        # TODO: remove duplicated parameters in __init__ call (use *args and **kwargs)
-        super(SparseSolverSource, self).__init__(data_class, lens_model_class, source_model_class, numerics_class,
-                                                 likelihood_mask=likelihood_mask,
-                                                 lensing_operator=lensing_operator, subgrid_res_source=subgrid_res_source,
-                                                 minimal_source_plane=minimal_source_plane, fix_minimal_source_plane=fix_minimal_source_plane,
-                                                 use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
-                                                 min_num_pix_source=min_num_pix_source,
-                                                 sparsity_prior_norm=sparsity_prior_norm, force_positivity=force_positivity,
-                                                 formulation=formulation, verbose=verbose, show_steps=show_steps, thread_count=thread_count)
-        self._k_max = max_threshold
-        if max_threshold_high_freq is None:
-            self._k_max_high_freq = self._k_max + 1
-        else:
-            self._k_max_high_freq = max_threshold_high_freq
+    def __init__(self, data_class, lens_model_class, numerics_class, source_model_class, 
+                 num_iter_source=10, num_iter_weights=3, **base_kwargs):
+        """
+        :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
+        :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
+        :param numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance.
+        :param source_model_class: lenstronomy.light_model.LightModel instance describing the source light.
+        :param num_iter_source: number of iterations for sparse optimization of the source light. 
+        :param num_iter_lens: number of iterations for sparse optimization of the lens light. 
+        :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
+        """
+        super(SparseSolverSource, self).__init__(data_class, lens_model_class, numerics_class, **base_kwargs)
+        self.add_source_light(source_model_class)
         self._n_iter_source = num_iter_source
-        self._n_weights = num_iter_weights
+        if sparsity_prior_norm == 1:
+            self._n_iter_weights = num_iter_weights
+        else:
+            self._n_iter_weights = 1   # reweighting scheme only defined for l1-norm sparsity
 
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
         """
@@ -66,7 +60,7 @@ class SparseSolverSource(SparseSolverBase):
         loss_list = []
         red_chi2_list = []
         step_diff_list = []
-        for j in range(self._n_weights):
+        for j in range(self._n_iter_weights):
 
             if j == 0 and self.algorithm == 'FISTA':
                 fista_xi = np.copy(alpha_S)
@@ -101,7 +95,7 @@ class SparseSolverSource(SparseSolverBase):
                     fista_xi, fista_t = fista_xi_next, fista_t_next
 
             # update weights if necessary
-            if self._n_weights > 1:
+            if self._n_iter_weights > 1:
                 weights, _ = self._update_weights(alpha_S)
 
             # if j > 0:

@@ -7,7 +7,7 @@ import numpy as np
 from scipy import signal
 
 from slitronomy.Optimization.model_operators import ModelOperators
-from slitronomy.Lensing.lensing_operator import LensingOperator, LensingOperatorInterpol
+from slitronomy.Lensing.lensing_operator import LensingOperator
 from slitronomy.Util.solver_plotter import SolverPlotter
 from slitronomy.Util.solver_tracker import SolverTracker
 from slitronomy.Util import util
@@ -24,12 +24,48 @@ class SparseSolverBase(ModelOperators):
     #TODO: create classes for lens and source models.
     # E.g. the method project_on_original_grid should be attached to a SourceModel class, not to the solver.
 
-    def __init__(self, data_class, lens_model_class, source_model_class, numerics_class,
-                 likelihood_mask=None, lensing_operator='interpol',
+    def __init__(self, data_class, lens_model_class, numerics_class,
+                 likelihood_mask=None, source_interpolation='bilinear',
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True,
-                 use_mask_for_minimal_source_plane=True, min_num_pix_source=10,
+                 use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
+                 max_threshold=3, max_threshold_high_freq=None,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False, thread_count=1):
+        """
+        :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
+        :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
+        :param numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance.
+        :param likelihood_mask: boolean mask to exclude pixels from the optimization and chi2 computation.
+        Defaults to None.
+        :param source_interpolation: type of interpolation of source pixels on the source plane grid.
+        It can be 'nearest' for nearest-neighbor or 'bilinear' for bilinear interpolation. Defaults to 'bilinear'.
+        :param subgrid_res_source: resolution factor of the source plane wrt to image plane.
+        subgrid_res_source = 2 leads to source pixels two times smaller than data pixels. Defaults to 1.
+        :param minimal_source_plane: if True, reduce the source plane grid size to the minimum set by min_num_pix_source.
+         Defaults to False.
+        :param fix_minimal_source_plane: if True, the reduced source grid size will not be updated for a new lens model.
+         Defaults to 1.
+        :param use_mask_for_minimal_source_plane: if True, use the likelihood_mask to compute minimal source plane.
+         Defaults to True.
+        :param min_num_pix_source: minimal number of pixels on a side of the square source grid.
+        Only used when minimal_source_plane is True. Defaults to 20.
+        :param max_threshold: in unit of the noise (sigma), maximum threshold for wavelets denoising.
+        Typically between 3 (more conservative thresholding) and 5 (more aggressive thresholding). Defaults to 3.
+        :param max_threshold_high_freq: same than max_threshold, but for highest frequencies on wavelets space.
+        If None, equals to max_threshold + 1. Defaults to None.
+        :param sparsity_prior_norm: prior l-norm (0 or 1). If 1, l1-norm and soft-thresholding are applied.
+        If 0, it is l0-norm and hard-thresholding. Defaults to 1.
+        :param force_positivity: if True, apply positivity constraint to the source flux.
+        Defaults to True.
+        :param formulation: type of formalism for the minimization problem. 'analysis' solves the problem in direct space.
+        'synthesis' solves the peoblem in wavelets space. Defaults to 'analysis'.
+        :param verbose: if True, prints statements during optimization.
+        Defaults to False.
+        :param show_steps: if True, displays plot of the reconstructed light profiles during optimization.
+        Defaults to False.
+        :param thread_count: number of threads (multithreading) to speedup wavelets computations (only works if pySAP is properly installed).
+        Defaults to 1.
+        """
         (num_pix_x, num_pix_y) = data_class.num_pixel_axes
         if num_pix_x != num_pix_y:
             raise ValueError("Only square images are supported")
@@ -42,20 +78,21 @@ class SparseSolverBase(ModelOperators):
         # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
         self._noise_map = np.sqrt(data_class.C_D)
 
-        if lensing_operator == 'simple':
-            lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source,
-                                                     likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
-                                                     fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source, 
-                                                     use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
-                                                     matrix_prod=True)
-        elif lensing_operator == 'interpol':
-            lensing_operator_class = LensingOperatorInterpol(data_class, lens_model_class, subgrid_res_source=subgrid_res_source,
-                                                     likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
-                                                     fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source,
-                                                     use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane)
+        # threshold level k_max (in units of the noise)
+        self._k_max = max_threshold
+        if max_threshold_high_freq is None:
+            self._k_max_high_freq = self._k_max + 1
+        else:
+            self._k_max_high_freq = max_threshold_high_freq
 
-        super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, source_model_class,
-                                               subgrid_res_source=subgrid_res_source, numerics_class=numerics_class, 
+        lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source,
+                                                 likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
+                                                 fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source,
+                                                 use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
+                                                 source_interpolation=source_interpolation)
+
+        super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, numerics_class,
+                                               subgrid_res_source=subgrid_res_source,
                                                likelihood_mask=likelihood_mask, thread_count=thread_count)
 
         # fill masked pixels with background noise
