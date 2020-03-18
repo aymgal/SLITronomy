@@ -7,9 +7,7 @@ import numpy as np
 import math as ma
 
 from slitronomy.Optimization.solver_source import SparseSolverSource
-from slitronomy.Optimization.solver_source import SparseSolverBase
 from slitronomy.Optimization import algorithms
-from slitronomy.Optimization import proximals
 from slitronomy.Util import util
 
 
@@ -17,8 +15,8 @@ class SparseSolverSourcePS(SparseSolverSource):
 
     """Implements the original SLIT algorithm with point source support"""
 
-    def __init__(self, point_source_linear_solver, num_iter_source=10, num_iter_ps=10,
-                 num_iter_weights=3, **base_kwargs):
+    def __init__(self, data_class, lens_model_class, numerics_class, source_model_class, point_source_linear_solver, 
+                 likelihood_mask=None, num_iter_source=10, num_iter_ps=10, num_iter_weights=3, **base_kwargs):
 
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
@@ -30,9 +28,11 @@ class SparseSolverSourcePS(SparseSolverSource):
         :param num_iter_source: number of iterations for sparse optimization of the source light. 
         :param num_iter_ps: number of iterations for the point source linear inversion.
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
+        :param base_kwargs: keyword arguments for SparseSolverBase.
         """
         super(SparseSolverSourcePS, self).__init__(data_class, lens_model_class, numerics_class, source_model_class,
-                                                   num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, **base_kwargs)
+                                                   likelihood_mask=likelihood_mask, num_iter_source=num_iter_source, 
+                                                   num_iter_weights=num_iter_weights, **base_kwargs)
         self.add_point_source()
         self._n_iter_ps = num_iter_ps
         self._ps_solver = point_source_linear_solver

@@ -9,7 +9,7 @@ from slitronomy.Util import util
 
 class ModelManager(object):
 
-    """Utility class for access to operator as defined in formal optimization equations"""
+    """Utility class for initializing model operators and managing model components"""
 
     def __init__(self, data_class, lensing_operator_class, numerics_class,
                  subgrid_res_source=1, likelihood_mask=None, thread_count=1):
@@ -24,9 +24,9 @@ class ModelManager(object):
         else:
             self._conv_transpose = None
         self._prepare_data(data_class, subgrid_res_source, self._mask)
+        self._no_source_light = True
         self._no_lens_light = True
         self._no_point_source = True
-        self._no_source_light = True
         self._thread_count = thread_count
 
     def add_source_light(self, source_model_class):
@@ -62,9 +62,17 @@ class ModelManager(object):
 
     def fill_masked_data(self, background_rms):
         """Replace masked pixels with background noise"""
-        noise = background_rms * np.random.randn(*self._image_data_eff.shape)
+        noise = background_rms * np.random.randn(*self._image_data.shape)
         self._image_data[self._mask == 0] = noise[self._mask == 0]
-        self._image_data_eff = np.copy(self._image_data)
+        self._image_data_eff[self._mask == 0] = noise[self._mask == 0]
+
+    @property
+    def image_data(self):
+        return self._image_data
+
+    @property
+    def lensingOperator(self):
+        return self._lensing_op
 
     @property
     def no_source_light(self):

@@ -17,7 +17,7 @@ class SparseSolverSource(SparseSolverBase):
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
     def __init__(self, data_class, lens_model_class, numerics_class, source_model_class, 
-                 num_iter_source=10, num_iter_weights=3, **base_kwargs):
+                 likelihood_mask=None, num_iter_source=10, num_iter_weights=3, **base_kwargs):
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
         :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
@@ -26,8 +26,10 @@ class SparseSolverSource(SparseSolverBase):
         :param num_iter_source: number of iterations for sparse optimization of the source light. 
         :param num_iter_lens: number of iterations for sparse optimization of the lens light. 
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
+        :param base_kwargs: keyword arguments for SparseSolverBase.
         """
-        super(SparseSolverSource, self).__init__(data_class, lens_model_class, numerics_class, **base_kwargs)
+        super(SparseSolverSource, self).__init__(data_class, lens_model_class, numerics_class, 
+                                                 likelihood_mask=likelihood_mask, **base_kwargs)
         self.add_source_light(source_model_class)
         self._n_iter_source = num_iter_source
         if self._sparsity_prior_norm == 1:
