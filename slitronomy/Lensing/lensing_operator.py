@@ -289,8 +289,11 @@ class LensingOperatorInterpol(LensingOperator):
     def _find_source_pixels(self, beta_x, beta_y, grid_offset_x, grid_offset_y):
         """Fast binning of ray-traced coordinates and weight calculation.
 
-        NOTE : We probably still need to verify what happens when ray-traced
-               coordinates fall outside of the source plane grid.
+        NOTE : Ray-traced coordinates from the image plane are simply removed
+               if they fall outside of the source plane grid. Although this
+               should only rarely occur in practice, e.g. for extreme
+               parameters of the lens model, a better approach would still be
+               to expand the source plane instead.
 
         """
         # Standardize inputs for vectorization
