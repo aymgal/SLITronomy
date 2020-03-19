@@ -242,7 +242,8 @@ class LensingOperator(object):
 class LensingOperatorInterpol(LensingOperator):
     """Map pixelated light profiles between image and source planes."""
     def __init__(self, data_class, lens_model_class, subgrid_res_source=1,
-                 likelihood_mask=None, minimal_source_plane=False, use_mask_for_minimal_source_plane=True,
+                 likelihood_mask=None, minimal_source_plane=False,
+                 use_mask_for_minimal_source_plane=True,
                  fix_minimal_source_plane=True, min_num_pix_source=10):
         _matrix_prod = True
         super(LensingOperatorInterpol, self).__init__(data_class,
@@ -357,12 +358,14 @@ class LensingOperatorInterpol(LensingOperator):
         mask[(repeat_row, repeat_col)] = False
 
         # Generate 2D indices of non-zero elements for the sparse matrix
-        rows = np.tile(range(num_beta), (4, 1))[mask]
+        rows = np.tile(np.nonzero(selection)[0], (4, 1))[mask]
         cols = np.array([index_1, index_2, index_3, index_4])[mask]
 
         # Compute bilinear weights like in Treu & Koopmans (2004)
-        dist_x = (np.tile(beta_x, (4, 1))[mask] - source_theta_x[cols]) / delta_pix
-        dist_y = (np.tile(beta_y, (4, 1))[mask] - source_theta_y[cols]) / delta_pix
+        beta_x_tiled = np.tile(beta_x, (4, 1))
+        beta_y_tiled = np.tile(beta_y, (4, 1))
+        dist_x = (beta_x_tiled[mask] - source_theta_x[cols]) / delta_pix
+        dist_y = (beta_y_tiled[mask] - source_theta_y[cols]) / delta_pix
         weights = (1 - np.abs(dist_x)) * (1 - np.abs(dist_y))
 
         return (rows, cols), weights
