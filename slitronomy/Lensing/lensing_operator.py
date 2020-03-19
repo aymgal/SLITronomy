@@ -340,7 +340,7 @@ class LensingOperatorInterpol(LensingOperator):
         # Treat these index arrays as four copies stacked vertically
         # Prepare to mask out out-of-bounds pixels as well as repeats
         # This is important for the csr_matrix to be generated correctly
-        max_index = lensingOperator.imagePlane.grid_size - 1  # Upper index lim
+        max_index = self.imagePlane.grid_size - 1  # Upper index lim
         mask = np.ones((4, num_beta), dtype=bool)  # Mask for the betas
 
         # Mask out any neighboring pixels that are out of bounds
