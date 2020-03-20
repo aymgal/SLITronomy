@@ -357,9 +357,9 @@ class SparseSolverBase(ModelOperators):
             self.set_lens_wavelet_scales(kwargs_lens_light[0]['n_scales'])
 
         # update spectral norm of operators
-        self._spectral_norm_source = self._compute_spectral_norm_source()
+        self._spectral_norm_source = self.compute_spectral_norm_source()
         if not self.no_lens_light:
-            self._spectral_norm_lens = self._compute_spectral_norm_lens()
+            self._spectral_norm_lens = self.compute_spectral_norm_lens()
 
         # update noise levels in source plane
         self.noise.update_source_plane(self.num_pix_image, self.num_pix_source,
@@ -375,40 +375,6 @@ class SparseSolverBase(ModelOperators):
                 raise ValueError("A rough point source model is meeded as input to optimize point source amplitudes")
             self._init_ps_model = init_ps_model
         return True
-
-    @property
-    def spectral_norm_source(self):
-        if not hasattr(self, '_spectral_norm_source'):
-            self._spectral_norm_source = self._compute_spectral_norm_source()
-        return self._spectral_norm_source
-
-    def _compute_spectral_norm_source(self):
-        def _operator(x):
-            x = self.H_T(x)
-            x = self.F_T(x)
-            x = self.Phi_T_s(x)
-            return x
-        def _inverse_operator(x):
-            x = self.Phi_s(x)
-            x = self.F(x)
-            x = self.H(x)
-            return x
-        return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)
-
-    @property
-    def spectral_norm_lens(self):
-        if not hasattr(self, '_spectral_norm_lens'):
-            self._spectral_norm_lens = self._compute_spectral_norm_lens()
-        return self._spectral_norm_lens
-
-    def _compute_spectral_norm_lens(self):
-        def _operator(x):
-            x = self.Phi_T_l(x)
-            return x
-        def _inverse_operator(x):
-            x = self.Phi_l(x)
-            return x
-        return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)
 
     def _update_weights(self, alpha_S, alpha_HG=None):
         lambda_S = self.noise.levels_source
