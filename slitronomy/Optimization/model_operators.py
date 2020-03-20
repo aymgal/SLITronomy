@@ -96,33 +96,3 @@ class ModelOperators(ModelManager):
         if self._conv is None:
             return None
         return self._conv.pixel_kernel()
-
-    @property
-    def spectral_norm_source(self):
-        if not hasattr(self, '_spectral_norm_source'):
-            def _operator(x):
-                x = self.H_T(x)
-                x = self.F_T(x)
-                x = self.Phi_T_s(x)
-                return x
-            def _inverse_operator(x):
-                x = self.Phi_s(x)
-                x = self.F(x)
-                x = self.H(x)
-                return x
-            self._spectral_norm_source = util.spectral_norm(self._num_pix, _operator, _inverse_operator,
-                                                            num_iter=20, tol=1e-10)
-        return self._spectral_norm_source
-
-    @property
-    def spectral_norm_lens(self):
-        if not hasattr(self, '_spectral_norm_lens'):
-            def _operator(x):
-                x = self.Phi_T_l(x)
-                return x
-            def _inverse_operator(x):
-                x = self.Phi_l(x)
-                return x
-            self._spectral_norm_lens = util.spectral_norm(self._num_pix, _operator, _inverse_operator,
-                                                            num_iter=20, tol=1e-10)
-        return self._spectral_norm_lens

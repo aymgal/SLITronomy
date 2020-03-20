@@ -338,18 +338,6 @@ class SparseSolverBase(ModelOperators):
         elif self._formulation == 'synthesis':
             return 'FISTA'
 
-    @property
-    def noise_levels_source_plane(self):
-        if not hasattr(self, '_noise_levels_src'):
-            self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
-        return self._noise_levels_src
-
-    @property
-    def noise_levels_image_plane(self):
-        if not hasattr(self, '_noise_levels_img'):
-            self._noise_levels_img = self._compute_noise_levels_img()
-        return self._noise_levels_img
-
     def _prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
                         kwargs_special=None, init_ps_model=None):
         # update image <-> source plane mapping from lens model parameters
@@ -361,9 +349,10 @@ class SparseSolverBase(ModelOperators):
             raise e
 
         # update number of decomposition scales
-        self.set_source_wavelet_scales(kwargs_source[0]['n_scales'])
-        if not self.no_lens_light:
-            self.set_lens_wavelet_scales(kwargs_lens_light[0]['n_scales'])
+        self.update_scales(kwargs_source, kwargs_lens_light)
+
+        # update spectral norm of operators
+        self.update_spectral_norms()
 
         # update noise levels
         self.update_noise_levels()
@@ -376,6 +365,62 @@ class SparseSolverBase(ModelOperators):
                 raise ValueError("A rough point source model is meeded as input to optimize point source amplitudes")
             self._init_ps_model = init_ps_model
         return True
+
+    def update_scales(self, kwargs_source, kwargs_lens_light):
+        self.set_source_wavelet_scales(kwargs_source[0]['n_scales'])
+        if not self.no_lens_light:
+            self.set_lens_wavelet_scales(kwargs_lens_light[0]['n_scales'])
+
+    @property
+    def spectral_norm_source(self):
+        if not hasattr(self, '_spectral_norm_source'):
+            self._spectral_norm_source = self._compute_spectral_norm_source()
+        return self._spectral_norm_source
+
+    def _compute_spectral_norm_source(self):
+        def _operator(x):
+            x = self.H_T(x)
+            x = self.F_T(x)
+            x = self.Phi_T_s(x)
+            return x
+        def _inverse_operator(x):
+            x = self.Phi_s(x)
+            x = self.F(x)
+            x = self.H(x)
+            return x
+        return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)
+
+    @property
+    def spectral_norm_lens(self):
+        if not hasattr(self, '_spectral_norm_lens'):
+            self._spectral_norm_lens = self._compute_spectral_norm_lens()
+        return self._spectral_norm_lens
+
+    def _compute_spectral_norm_lens(self):
+        def _operator(x):
+            x = self.Phi_T_l(x)
+            return x
+        def _inverse_operator(x):
+            x = self.Phi_l(x)
+            return x
+        return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)
+
+    def update_spectral_norms(self):
+        self._spectral_norm_source = self._compute_spectral_norm_source()
+        if not self.no_lens_light:
+            self._spectral_norm_lens = self._compute_spectral_norm_lens()
+
+    @property
+    def noise_levels_source_plane(self):
+        if not hasattr(self, '_noise_levels_src'):
+            self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
+        return self._noise_levels_src
+
+    @property
+    def noise_levels_image_plane(self):
+        if not hasattr(self, '_noise_levels_img'):
+            self._noise_levels_img = self._compute_noise_levels_img()
+        return self._noise_levels_img
 
     def update_noise_levels(self):
         self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
