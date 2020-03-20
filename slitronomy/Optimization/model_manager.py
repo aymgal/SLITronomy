@@ -86,6 +86,14 @@ class ModelManager(object):
     def no_point_source(self):
         return self._no_point_source
 
+    @property
+    def num_pix_image(self):
+        return self._lensing_op.imagePlane.num_pix
+
+    @property
+    def num_pix_source(self):
+        return self._lensing_op.sourcePlane.num_pix
+
     def _prepare_data(self, data_class, subgrid_res_source, mask):
         num_pix_x, num_pix_y = data_class.num_pixel_axes
         if num_pix_x != num_pix_y:

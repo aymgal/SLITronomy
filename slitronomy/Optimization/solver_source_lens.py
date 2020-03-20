@@ -197,7 +197,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         n_scales = self._n_scales_lens_light
         level_const = self._k_max * np.ones(n_scales)
         level_const[0] = self._k_max_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
-        level_pixels = weights * self.noise_levels_image_plane
+        level_pixels = weights * self.noise.levels_image
 
         alpha_HG = self.Phi_T_l(HG)
 
@@ -224,7 +224,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         n_scales = self._n_scales_lens_light
         level_const = self._k_max * np.ones(n_scales)
         level_const[0] = self._k_max_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
-        level_pixels = weights * self.noise_levels_image_plane
+        level_pixels = weights * self.noise.levels_image
 
         # apply proximal operator
         step = 1  # because threshold is already expressed in data units
