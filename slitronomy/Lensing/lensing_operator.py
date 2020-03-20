@@ -278,17 +278,20 @@ class LensingOperator(object):
         mask[(repeat_row, repeat_col)] = False
 
         # Generate 2D indices of non-zero elements for the sparse matrix
-        rows = np.tile(np.nonzero(selection)[0], (4, 1))[mask]
-        cols = np.array([index_1, index_2, index_3, index_4])[mask]
+        rows = np.tile(np.nonzero(selection)[0], (4, 1))
+        cols = np.array([index_1, index_2, index_3, index_4])
 
         # Compute bilinear weights like in Treu & Koopmans (2004)
-        beta_x_tiled = np.tile(beta_x, (4, 1))
-        beta_y_tiled = np.tile(beta_y, (4, 1))
-        dist_x = (beta_x_tiled[mask] - source_theta_x[cols]) / delta_pix
-        dist_y = (beta_y_tiled[mask] - source_theta_y[cols]) / delta_pix
+        cols[~mask] = 0  # Avoid accessing source_thetas out of bounds
+        dist_x = (np.tile(beta_x, (4, 1)) - source_theta_x[cols]) / delta_pix
+        dist_y = (np.tile(beta_y, (4, 1)) - source_theta_y[cols]) / delta_pix
         weights = (1 - np.abs(dist_x)) * (1 - np.abs(dist_y))
 
-        return (rows, cols), weights
+        # Make sure the weights are properly normalized
+        norm = np.expand_dims(np.sum(weights, axis=0, where=mask), 0)
+        weights = weights / norm
+
+        return (rows[mask], cols[mask]), weights[mask]
 
     def _compute_mapping_nearest(self, kwargs_lens, kwargs_special):
         """

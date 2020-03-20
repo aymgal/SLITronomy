@@ -31,12 +31,12 @@ class TestModelOperators(object):
 
         delta_pix = 0.24
         _, _, ra_at_xy_0, dec_at_xy_0, _, _, Mpix2coord, _ \
-            = l_util.make_grid_with_coordtransform(numPix=self.num_pix, deltapix=delta_pix, subgrid_res=1, 
+            = l_util.make_grid_with_coordtransform(numPix=self.num_pix, deltapix=delta_pix, subgrid_res=1,
                                                          inverse=False, left_lower=False)
-        
+
         self.image_data = np.random.rand(self.num_pix, self.num_pix)
         kwargs_data = {
-            'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
+            'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0,
             'transform_pix2angle': Mpix2coord,
             'image_data': self.image_data,
         }
@@ -107,7 +107,7 @@ class TestModelOperators(object):
 
     def test_spectral_norm_source(self):
         self.model_op.set_source_wavelet_scales(self.n_scales_source)
-        npt.assert_almost_equal(self.model_op.spectral_norm_source, 0.979, decimal=3)
+        npt.assert_almost_equal(self.model_op.spectral_norm_source, 0.999, decimal=3)
 
     def test_spectral_norm_lens(self):
         self.model_op.set_lens_wavelet_scales(self.n_scales_lens)
@@ -153,14 +153,14 @@ class TestRaise(unittest.TestCase):
             = l_util.make_grid_with_coordtransform(numPix=self.num_pix, deltapix=0.5, subgrid_res=1,
                                                    inverse=False, left_lower=False)
         kwargs_data_nonsquare = {
-            'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
+            'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0,
             'transform_pix2angle': Mpix2coord,
-            'image_data': np.zeros((self.num_pix, self.num_pix+10)),  # non-square image 
+            'image_data': np.zeros((self.num_pix, self.num_pix+10)),  # non-square image
         }
         kwargs_data = {
-            'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
+            'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0,
             'transform_pix2angle': Mpix2coord,
-            'image_data': np.zeros((self.num_pix, self.num_pix)),  # non-square image 
+            'image_data': np.zeros((self.num_pix, self.num_pix)),  # non-square image
         }
         self.data_nonsquare = ImageData(**kwargs_data_nonsquare)
         self.data = ImageData(**kwargs_data)
@@ -172,7 +172,7 @@ class TestRaise(unittest.TestCase):
         self.model_op = ModelOperators(self.data, self.lensing_op, self.numerics)
         self.model_op.add_lens_light(self.lens_light_model_class)
         self.model_op_nolens = ModelOperators(self.data, self.lensing_op, self.numerics)
-        
+
     def test_raise(self):
         with self.assertRaises(ValueError):
             # no wavelet scales was set, so should raise errors
