@@ -155,7 +155,7 @@ class SparseSolverSource(SparseSolverBase):
         n_scales = self._n_scales_source
         level_const = self._k_max * np.ones(n_scales)
         level_const[0] = self._k_max_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
-        level_pixels = weights * self.noise_levels_source_plane
+        level_pixels = weights * self.noise.levels_source
 
         alpha_S = self.Phi_T_s(S)
 
@@ -182,7 +182,7 @@ class SparseSolverSource(SparseSolverBase):
         n_scales = self._n_scales_source
         level_const = self._k_max * np.ones(n_scales)
         level_const[0] = self._k_max_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
-        level_pixels = weights * self.noise_levels_source_plane
+        level_pixels = weights * self.noise.levels_source
 
         # apply proximal operator
         step = 1  # because threshold is already expressed in data units

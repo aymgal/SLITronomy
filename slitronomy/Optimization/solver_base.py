@@ -4,10 +4,10 @@ __author__ = 'aymgal'
 
 import copy
 import numpy as np
-from scipy import signal
 
 from slitronomy.Optimization.model_operators import ModelOperators
 from slitronomy.Lensing.lensing_operator import LensingOperator
+from slitronomy.Optimization.noise_levels import NoiseLevels
 from slitronomy.Util.solver_plotter import SolverPlotter
 from slitronomy.Util.solver_tracker import SolverTracker
 from slitronomy.Util import util
@@ -73,17 +73,13 @@ class SparseSolverBase(ModelOperators):
                                                  source_interpolation=source_interpolation)
 
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, numerics_class,
-                                               subgrid_res_source=subgrid_res_source,
-                                               likelihood_mask=likelihood_mask, thread_count=thread_count)
-
-        # background noise
-        self._background_rms = data_class.background_rms
-
-        # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
-        self._noise_map = np.sqrt(data_class.C_D)
+                                               subgrid_res_source=subgrid_res_source, likelihood_mask=likelihood_mask, thread_count=thread_count)
+        
+        # engine that computes noise levels in image / source plane, in wavelets space
+        self.noise = NoiseLevels(data_class, boost_where_zero=10)
 
         # fill masked pixels with background noise
-        self.fill_masked_data(self._background_rms)
+        self.fill_masked_data(self.noise.background_rms)
 
         # threshold level k_max (in units of the noise)
         self._k_max = max_threshold
@@ -195,12 +191,12 @@ class SparseSolverBase(ModelOperators):
     def generate_initial_source(self):
         num_pix = self.lensingOperator.sourcePlane.num_pix
         transform = self.Phi_T_s
-        return util.generate_initial_guess_simple(num_pix, transform, self._background_rms)
+        return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms)
 
     def generate_initial_lens_light(self):
         num_pix = self.lensingOperator.imagePlane.num_pix
         transform = self.Phi_T_l
-        return util.generate_initial_guess_simple(num_pix, transform, self._background_rms)
+        return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms)
 
     def apply_image_plane_mask(self, image_2d):
         return self.M(image_2d)
@@ -237,16 +233,19 @@ class SparseSolverBase(ModelOperators):
         return self.reg_source(S) + self.reg_lens(HG)
 
     def reg_source(self, S):
-        if S is None: return 0
-        lambda_WS = np.zeros_like(self.noise_levels_source_plane)
-        lambda_WS[0, :, :]  = self._k_max_high_freq * self.noise_levels_source_plane[0, :, :]
-        lambda_WS[1:, :, :] = self._k_max * self.noise_levels_source_plane[1:, :, :]
+        if S is None:
+            return 0
+        WS = self.noise.levels_source
+        lambda_WS = np.zeros_like(WS)
+        lambda_WS[0, :, :]  = self._k_max_high_freq * WS[0, :, :]
+        lambda_WS[1:, :, :] = self._k_max * WS[1:, :, :]
         lambda_WS_alpha_S = lambda_WS * self.Phi_T_s(S)
         return np.linalg.norm(lambda_WS_alpha_S.flatten(), ord=self._sparsity_prior_norm)
 
     def reg_lens(self, HG):
-        if HG is None: return 0
-        WHG = self.noise_levels_image_plane
+        if HG is None:
+            return 0
+        WHG = self.noise.levels_image
         lambda_WHG = np.zeros_like(WHG)
         lambda_WHG[0, :, :]  = self._k_max_high_freq * WHG[0, :, :]
         lambda_WHG[1:, :, :] = self._k_max * WHG[1:, :, :]
@@ -258,9 +257,9 @@ class SparseSolverBase(ModelOperators):
         model = self.model_analysis(S=S, HG=HG, P=P)
         error = self.Y_eff - model
         if hasattr(self, '_ps_error'):
-            sigma = self._noise_map + self._ps_error
+            sigma = self.noise.noise_map + self._ps_error
         else:
-            sigma = self._noise_map
+            sigma = self.noise.noise_map
         return self.M(error / sigma)
 
     def reduced_chi2(self, S=None, HG=None, P=None):
@@ -338,20 +337,12 @@ class SparseSolverBase(ModelOperators):
         elif self._formulation == 'synthesis':
             return 'FISTA'
 
-    @property
-    def noise_levels_source_plane(self):
-        if not hasattr(self, '_noise_levels_src'):
-            self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
-        return self._noise_levels_src
-
-    @property
-    def noise_levels_image_plane(self):
-        if not hasattr(self, '_noise_levels_img'):
-            self._noise_levels_img = self._compute_noise_levels_img()
-        return self._noise_levels_img
-
     def _prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
                         kwargs_special=None, init_ps_model=None):
+        """
+        Update state of the solver : operators, noise levels, ...
+        The order of the following updates matter!
+        """
         # update image <-> source plane mapping from lens model parameters
         try:
             _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
@@ -365,8 +356,16 @@ class SparseSolverBase(ModelOperators):
         if not self.no_lens_light:
             self.set_lens_wavelet_scales(kwargs_lens_light[0]['n_scales'])
 
-        # update noise levels
-        self.update_noise_levels()
+        # update spectral norm of operators
+        self._spectral_norm_source = self.compute_spectral_norm_source()
+        if not self.no_lens_light:
+            self._spectral_norm_lens = self.compute_spectral_norm_lens()
+
+        # update noise levels in source plane
+        self.noise.update_source_plane(self.num_pix_image, self.num_pix_source,
+                                       self.Phi_T_s, self.F_T, psf_kernel=self.psf_kernel)
+        if not self.no_lens_light:
+            self.noise.update_image_plane(self.num_pix_image, self.Phi_T_l)
         
         # point source initial model, if any
         if self.no_point_source:
@@ -377,66 +376,11 @@ class SparseSolverBase(ModelOperators):
             self._init_ps_model = init_ps_model
         return True
 
-    def update_noise_levels(self):
-        self._noise_levels_src = self._compute_noise_levels_src(boost_where_zero=10)
-        if not self.no_lens_light:
-            self._noise_levels_img = self._compute_noise_levels_img()
-
-    def _compute_noise_levels_src(self, boost_where_zero):
-        """boost_where_zero sets the multiplcative factor in fron tof the average noise levels
-        at locations where noise is 0"""
-        # get transposed blurring operator
-        if self.psf_kernel is None:
-            HT = util.dirac_impulse(self.lensingOperator.imagePlane.num_pix)
-        else:
-            HT = self.psf_kernel.T
-
-        # map noise map to source plane
-        HT_noise_diag = self._noise_map * np.sqrt(np.sum(HT**2))
-        FT_HT_noise = self.F_T(HT_noise_diag)
-
-        # introduce artitifically noise to pixels where there are not signal in source plane
-        # to ensure threshold of starlet coefficients at these locations
-        FT_HT_noise[FT_HT_noise == 0] = boost_where_zero * np.mean(FT_HT_noise[FT_HT_noise != 0])
-
-        # \Gamma^2 in  Equation (16) of Joseph+19)
-        FT_HT_noise2 = FT_HT_noise**2
-
-        # compute starlet transform of a dirac impulse in source plane
-        dirac = util.dirac_impulse(self.lensingOperator.sourcePlane.num_pix)
-        dirac_coeffs = self.Phi_T_s(dirac)
-
-        # \Delta_s^2 in  Equation (16) of Joseph+19)
-        dirac_coeffs2 = dirac_coeffs**2
-
-        n_scale, n_pix1, npix2 = dirac_coeffs2.shape
-        noise_levels = np.zeros((n_scale, n_pix1, npix2))
-        for scale_idx in range(n_scale):
-            # starlet transform of dirac impulse at a given scale
-            dirac_scale2 = dirac_coeffs2[scale_idx, :, :]
-            # Equation (16) of Joseph+19
-            levels = signal.fftconvolve(dirac_scale2, FT_HT_noise2, mode='same')
-            # save noise at each pixel for this scale
-            noise_levels[scale_idx, :, :] = np.sqrt(np.abs(levels))
-        return noise_levels
-
-    def _compute_noise_levels_img(self):
-        # starlet transform of a dirac impulse in image plane
-        dirac = util.dirac_impulse(self.lensingOperator.imagePlane.num_pix)
-        dirac_coeffs2 = self.Phi_T_l(dirac)**2
-
-        n_scale, n_pix1, npix2 = dirac_coeffs2.shape
-        noise_levels = np.zeros((n_scale, n_pix1, npix2))
-        for scale_idx in range(n_scale):
-            scale_power2 = np.sum(dirac_coeffs2[scale_idx, :, :])
-            noise_levels[scale_idx, :, :] = self._noise_map * np.sqrt(scale_power2)
-        return noise_levels
-
     def _update_weights(self, alpha_S, alpha_HG=None):
-        lambda_S = self.noise_levels_source_plane
+        lambda_S = self.noise.levels_source
         weights_S  = 1. / ( 1 + np.exp(-10 * (lambda_S - alpha_S)) )  # fixed Eq. (11) of Joseph et al. 2018
         if alpha_HG is not None:
-            lambda_HG = self.noise_levels_image_plane
+            lambda_HG = self.noise.levels_image
             weights_HG = 1. / ( 1 + np.exp(-10 * (lambda_HG - alpha_HG)) )  # fixed Eq. (11) of Joseph et al. 2018
         else:
             weights_HG = None
