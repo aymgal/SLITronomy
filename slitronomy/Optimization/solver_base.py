@@ -341,7 +341,7 @@ class SparseSolverBase(ModelOperators):
                         kwargs_special=None, init_ps_model=None):
         """
         Update state of the solver : operators, noise levels, ...
-        The order of the following updates matter!
+        The order of the following updates matters!
         """
         # update image <-> source plane mapping from lens model parameters
         try:

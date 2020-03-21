@@ -34,14 +34,8 @@ class NoiseLevels(object):
     @property
     def levels_image(self):
         if not hasattr(self, '_noise_levels_img'):
-            self._noise_levels_img = self
+            raise ValueError("Image plane noise levels have not been computed")
         return self._noise_levels_img
-
-    def update_all_levels(self, num_pix_image, num_pix_source, wavelet_transform_image, wavelet_transform_source, 
-                          image2source_transform, psf_kernel=None):
-        self.update_source_plane(num_pix_image, num_pix_source, wavelet_transform_source, 
-                                 image2source_transform, psf_kernel=psf_kernel)
-        self.update_image_plane(num_pix_image, wavelet_transform_image)
 
     def update_source_plane(self, num_pix_image, num_pix_source, wavelet_transform_source, 
                             image2source_transform, psf_kernel=None):
@@ -95,4 +89,3 @@ class NoiseLevels(object):
             scale_power2 = np.sum(dirac_coeffs2[scale_idx, :, :])
             noise_levels[scale_idx, :, :] = self._noise_map * np.sqrt(scale_power2)
         self._noise_levels_img = noise_levels
-
