@@ -1,4 +1,4 @@
-__author__ = 'aymgal'
+__author__ = 'aymgal', 'austinpeel'
 
 import numpy as np
 from scipy import sparse
@@ -206,19 +206,24 @@ class LensingOperator(object):
     def _find_source_pixels_bilinear(self, beta_x, beta_y, grid_offset_x, grid_offset_y):
         """Fast binning of ray-traced coordinates and weight calculation.
 
-        NOTE : We probably still need to verify what happens when ray-traced
-               coordinates fall outside of the source plane grid.
+        NOTE : Ray-traced coordinates from the image plane are simply removed
+               if they fall outside of the source plane grid. Although this
+               should only rarely occur in practice, e.g. for extreme
+               parameters of the lens model, a better approach would still be
+               to expand the source plane instead.
 
         """
         # Standardize inputs for vectorization
         beta_x = np.atleast_1d(beta_x)
         beta_y = np.atleast_1d(beta_y)
+        assert len(beta_x) == len(beta_y), "Input arrays must be the same size."
+        num_beta = len(beta_x)
 
         # Shift source grid if necessary
         source_theta_x = self.sourcePlane.theta_x + grid_offset_x
         source_theta_y = self.sourcePlane.theta_y + grid_offset_y
 
-        # Compute bin edges so that (theta_x, theta_y) lie at the centers
+        # Compute bin edges so that (theta_x, theta_y) lie at the grid centers
         num_pix = self.sourcePlane.num_pix
         delta_pix = self.sourcePlane.delta_pix
         half_pix = delta_pix / 2
@@ -231,43 +236,60 @@ class LensingOperator(object):
         ybins = np.linspace(theta_y[0] - half_pix, theta_y[-1] + half_pix,
                             num_pix + 1)
 
+        # Keep only betas falling within the source plane grid
+        selection = ((beta_x > xbins[0]) & (beta_x < xbins[-1]) &
+                     (beta_y > ybins[0]) & (beta_y < ybins[-1]))
+        if np.any(1 - selection.astype(int)):
+            beta_x = beta_x[selection]
+            beta_y = beta_y[selection]
+            num_beta = len(beta_x)
+
         # Find the (1D) source plane pixel that (beta_x, beta_y) falls in
         index_x = np.digitize(beta_x, xbins) - 1
         index_y = np.digitize(beta_y, ybins) - 1
         index_1 = index_x + index_y * num_pix
 
-        # Handle ray-tracings outside the source grid
-        # if np.any(index_1 < 0 or index_1 >= self.sourcePlane.grid_size):
-            # print(np.where(index_1 < 0)[0])
-            # print(np.where(index_1 >= len(index_1)))
-
         # Compute distances between ray-traced betas and source grid points
         dx = beta_x - source_theta_x[index_1]
         dy = beta_y - source_theta_y[index_1]
 
-        # Prepare to remove duplicate (and triplicate) indices with a mask
-        # This is important for the csr_matrix to be generated correctly
-        zero_dx = list(np.where(dx == 0)[0])
-        zero_dy = list(np.where(dy == 0)[0])
-        unique, counts = np.unique(zero_dx + zero_dy, return_counts=True)
-        masked_indices = [ii * 4 + jj for (ii, count) in zip(unique, counts)
-                          for jj in range(0, 3, 3 - count)]
-        mask = np.ones(4 * self.imagePlane.grid_size, dtype=bool)
-        mask[masked_indices] = False
-
-        # Find the three other nearest pixels
+        # Find the three other nearest pixels (may end up out of bounds)
         index_2 = index_1 + np.sign(dx).astype(int)
         index_3 = index_1 + np.sign(dy).astype(int) * num_pix
         index_4 = index_2 + np.sign(dy).astype(int) * num_pix
 
-        # Gather 2D indices (sorted for eventual correct SparseTensor ordering)
-        rows = np.repeat(np.arange(self.imagePlane.grid_size), 4)
-        cols = np.sort([index_1, index_2, index_3, index_4], axis=0).T.flat
+        # Treat these index arrays as four copies stacked vertically
+        # Prepare to mask out out-of-bounds pixels as well as repeats
+        # This is important for the csr_matrix to be generated correctly
+        max_index = self.imagePlane.grid_size - 1  # Upper index bound
+        mask = np.ones((4, num_beta), dtype=bool)  # Mask for the betas
+
+        # Mask out any neighboring pixels that are out of bounds
+        mask[1, np.where((index_2 < 0) | (index_2 > max_index))[0]] = False
+        mask[2, np.where((index_3 < 0) | (index_3 > max_index))[0]] = False
+        mask[3, np.where((index_4 < 0) | (index_4 > max_index))[0]] = False
+
+        # Mask any repeated pixels (2 or 3x) arising from unlucky grid alignment
+        zero_dx = list(np.where(dx == 0)[0])
+        zero_dy = list(np.where(dy == 0)[0])
+        unique, counts = np.unique(zero_dx + zero_dy, return_counts=True)
+        repeat_row = [ii + 1 for c in counts for ii in range(0, 3, 3 - c)]
+        repeat_col = [u for (u, c) in zip(unique, counts) for _ in range(c + 1)]
+        mask[(repeat_row, repeat_col)] = False
+
+        # Generate 2D indices of non-zero elements for the sparse matrix
+        rows = np.tile(np.nonzero(selection)[0], (4, 1))
+        cols = np.array([index_1, index_2, index_3, index_4])
 
         # Compute bilinear weights like in Treu & Koopmans (2004)
-        dist_x = (np.repeat(beta_x, 4) - source_theta_x[cols]) / delta_pix
-        dist_y = (np.repeat(beta_y, 4) - source_theta_y[cols]) / delta_pix
+        cols[~mask] = 0  # Avoid accessing source_thetas out of bounds
+        dist_x = (np.tile(beta_x, (4, 1)) - source_theta_x[cols]) / delta_pix
+        dist_y = (np.tile(beta_y, (4, 1)) - source_theta_y[cols]) / delta_pix
         weights = (1 - np.abs(dist_x)) * (1 - np.abs(dist_y))
+
+        # Make sure the weights are properly normalized
+        norm = np.expand_dims(np.sum(weights, axis=0, where=mask), 0)
+        weights = weights / norm
 
         return (rows[mask], cols[mask]), weights[mask]
 
@@ -347,4 +369,3 @@ class LensingOperator(object):
         if absolute:
             return np.abs(dist_x), np.abs(dist_y)
         return dist_x, dist_y
-    
