@@ -70,10 +70,11 @@ class SparseSolverBase(ModelOperators):
                                                  likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
                                                  fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source,
                                                  use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
-                                                 source_interpolation=source_interpolation)
+                                                 source_interpolation=source_interpolation, matrix_prod=True)
 
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, numerics_class,
-                                               subgrid_res_source=subgrid_res_source, likelihood_mask=likelihood_mask, thread_count=thread_count)
+                                               subgrid_res_source=subgrid_res_source, likelihood_mask=likelihood_mask, 
+                                               thread_count=thread_count)
         
         # engine that computes noise levels in image / source plane, in wavelets space
         self.noise = NoiseLevels(data_class, boost_where_zero=10)
@@ -113,8 +114,6 @@ class SparseSolverBase(ModelOperators):
         # update lensing operator and noise levels
         prepare_bool = self._prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
                                             kwargs_special=kwargs_special, init_ps_model=init_ps_model)
-        if prepare_bool is False:
-            return None, None  #TODO
 
         # call solver
         image_model, coeffs_source, coeffs_lens_light, amps_ps = self._solve(kwargs_lens=kwargs_lens, 
@@ -189,12 +188,12 @@ class SparseSolverBase(ModelOperators):
                                       P=self.point_source_model)
 
     def generate_initial_source(self):
-        num_pix = self.lensingOperator.sourcePlane.num_pix
+        num_pix = self.num_pix_source
         transform = self.Phi_T_s
         return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms)
 
     def generate_initial_lens_light(self):
-        num_pix = self.lensingOperator.imagePlane.num_pix
+        num_pix = self.num_pix_image
         transform = self.Phi_T_l
         return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms)
 
@@ -344,12 +343,7 @@ class SparseSolverBase(ModelOperators):
         The order of the following updates matters!
         """
         # update image <-> source plane mapping from lens model parameters
-        try:
-            _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
-        except Exception as e:
-            if isinstance(e, IndexError) or isinstance(e, ValueError):
-                return False #TODO
-            raise e
+        _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         # update number of decomposition scales
         self.set_source_wavelet_scales(kwargs_source[0]['n_scales'])
@@ -361,11 +355,11 @@ class SparseSolverBase(ModelOperators):
         if not self.no_lens_light:
             self._spectral_norm_lens = self.compute_spectral_norm_lens()
 
-        # update noise levels in source plane
-        self.noise.update_source_plane(self.num_pix_image, self.num_pix_source,
-                                       self.Phi_T_s, self.F_T, psf_kernel=self.psf_kernel)
+        # update wavelets noise levels in source plane
+        self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
+                                        self.Phi_T_s, self.F_T, psf_kernel=self.psf_kernel)
         if not self.no_lens_light:
-            self.noise.update_image_plane(self.num_pix_image, self.Phi_T_l)
+            self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
         
         # point source initial model, if any
         if self.no_point_source:

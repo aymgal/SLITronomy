@@ -10,6 +10,10 @@ class NoiseLevels(object):
     """Computes noise levels in wavelets space, taking into account lensing and optionally blurring"""
 
     def __init__(self, data_class, boost_where_zero=10):
+        """
+        :param boost_where_zero: sets the multiplcative factor in fron tof the average noise levels
+        at locations where noise is 0
+        """
         # background noise
         self._background_rms = data_class.background_rms
         # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
@@ -37,12 +41,8 @@ class NoiseLevels(object):
             raise ValueError("Image plane noise levels have not been computed")
         return self._noise_levels_img
 
-    def update_source_plane(self, num_pix_image, num_pix_source, wavelet_transform_source, 
-                            image2source_transform, psf_kernel=None):
-        """
-        boost_where_zero sets the multiplcative factor in fron tof the average noise levels
-        at locations where noise is 0
-        """
+    def update_source_levels(self, num_pix_image, num_pix_source, wavelet_transform_source, 
+                             image2source_transform, psf_kernel=None):
         # get transposed blurring operator
         if psf_kernel is None:
             HT = util.dirac_impulse(num_pix_image)
@@ -76,9 +76,10 @@ class NoiseLevels(object):
             levels = signal.fftconvolve(dirac_scale2, FT_HT_noise2, mode='same')
             # save noise at each pixel for this scale
             noise_levels[scale_idx, :, :] = np.sqrt(np.abs(levels))
+
         self._noise_levels_src = noise_levels
 
-    def update_image_plane(self, num_pix_image, wavelet_transform_image):
+    def update_image_levels(self, num_pix_image, wavelet_transform_image):
         # starlet transform of a dirac impulse in image plane
         dirac = util.dirac_impulse(num_pix_image)
         dirac_coeffs2 = wavelet_transform_image(dirac)**2
