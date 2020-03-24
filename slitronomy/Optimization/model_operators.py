@@ -12,11 +12,12 @@ class ModelOperators(ModelManager):
     """Utility class for access to operator as defined in formal optimization equations"""
 
     def __init__(self, data_class, lensing_operator_class, numerics_class,
-                 subgrid_res_source=1, likelihood_mask=None, thread_count=1):
+                 fixed_spectral_norm_source=None, subgrid_res_source=1, likelihood_mask=None, thread_count=1):
         super(ModelOperators, self).__init__(data_class, lensing_operator_class, numerics_class,
                                              subgrid_res_source=subgrid_res_source, 
                                              likelihood_mask=likelihood_mask, 
                                              thread_count=thread_count)
+        self._spectral_norm_HFPhiTs = fixed_spectral_norm_source
 
     @property
     def Y(self):
@@ -98,12 +99,31 @@ class ModelOperators(ModelManager):
         return self._conv.pixel_kernel()
 
     @property
+    def spectral_norm_source_is_fixed(self):
+        return self._spectral_norm_HFPhiTs is not None
+
+    @property
     def spectral_norm_source(self):
         if not hasattr(self, '_spectral_norm_source'):
-            self._spectral_norm_source = self.update_spectral_norm_source()
+            self.update_spectral_norm_source()
         return self._spectral_norm_source
 
+    @property
+    def spectral_norm_lens(self):
+        if not hasattr(self, '_spectral_norm_lens'):
+            self.update_spectral_norm_lens()
+        return self._spectral_norm_lens
+
     def update_spectral_norm_source(self):
+        if self.spectral_norm_source_is_fixed:
+            self._spectral_norm_source = self._spectral_norm_HFPhiTs
+        else:
+            self._spectral_norm_source = self.compute_spectral_norm_source()
+
+    def update_spectral_norm_lens(self):
+        self._spectral_norm_lens = self.compute_spectral_norm_lens()
+
+    def compute_spectral_norm_source(self):
         def _operator(x):
             x = self.H_T(x)
             x = self.F_T(x)
@@ -114,19 +134,13 @@ class ModelOperators(ModelManager):
             x = self.F(x)
             x = self.H(x)
             return x
-        self._spectral_norm_source = util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)
+        return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)
 
-    @property
-    def spectral_norm_lens(self):
-        if not hasattr(self, '_spectral_norm_lens'):
-            self._spectral_norm_lens = self.update_spectral_norm_lens()
-        return self._spectral_norm_lens
-
-    def update_spectral_norm_lens(self):
+    def compute_spectral_norm_lens(self):
         def _operator(x):
             x = self.Phi_T_l(x)
             return x
         def _inverse_operator(x):
             x = self.Phi_l(x)
             return x
-        self._spectral_norm_lens = util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)
+        return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)

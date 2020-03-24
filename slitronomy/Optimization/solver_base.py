@@ -28,7 +28,7 @@ class SparseSolverBase(ModelOperators):
                  likelihood_mask=None, source_interpolation='bilinear',
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True,
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
-                 max_threshold=3, max_threshold_high_freq=None,
+                 max_threshold=3, max_threshold_high_freq=None, fixed_spectral_norm_source=0.95,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False, thread_count=1):
         """
@@ -53,6 +53,8 @@ class SparseSolverBase(ModelOperators):
         Typically between 3 (more conservative thresholding) and 5 (more aggressive thresholding). Defaults to 3.
         :param max_threshold_high_freq: same than max_threshold, but for highest frequencies on wavelets space.
         If None, equals to max_threshold + 1. Defaults to None.
+        :param fixed_spectral_norm_source: if None, update the spectral norm for the source operator, for optimal gradient descent step size.
+        Defaults to 0.97, which is a conservative value typical of most lens models.
         :param sparsity_prior_norm: prior l-norm (0 or 1). If 1, l1-norm and soft-thresholding are applied.
         If 0, it is l0-norm and hard-thresholding. Defaults to 1.
         :param force_positivity: if True, apply positivity constraint to the source flux.
@@ -73,6 +75,7 @@ class SparseSolverBase(ModelOperators):
                                                  source_interpolation=source_interpolation, matrix_prod=True)
 
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, numerics_class,
+                                               fixed_spectral_norm_source=fixed_spectral_norm_source,
                                                subgrid_res_source=subgrid_res_source, likelihood_mask=likelihood_mask, 
                                                thread_count=thread_count)
         
@@ -369,8 +372,7 @@ class SparseSolverBase(ModelOperators):
         # update spectral norm of operators
         self.update_spectral_norm_source()
         # update wavelets noise levels in source plane
-        self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
-                                        self.Phi_T_s, self.F_T, psf_kernel=self.psf_kernel)
+        self.update_source_noise_levels()
 
     def _prepare_lens_light(self, kwargs_lens_light):
         """
@@ -389,7 +391,14 @@ class SparseSolverBase(ModelOperators):
             # update spectral norm of operators
             self.update_spectral_norm_lens()
             # update wavelets noise levels in image plane
-            self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
+            self.update_image_noise_levels()
+
+    def update_source_noise_levels(self):
+        self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
+                                        self.Phi_T_s, self.F_T, psf_kernel=self.psf_kernel)
+
+    def update_image_noise_levels(self):
+        self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
 
     def _update_weights(self, alpha_S, alpha_HG=None):
         lambda_S = self.noise.levels_source
