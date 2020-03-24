@@ -112,8 +112,8 @@ class SparseSolverBase(ModelOperators):
         if not self._ready(): return
 
         # update lensing operator and noise levels
-        prepare_bool = self._prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
-                                            kwargs_special=kwargs_special, init_ps_model=init_ps_model)
+        prepare_bool = self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
+                                           kwargs_special=kwargs_special, init_ps_model=init_ps_model)
 
         # call solver
         image_model, coeffs_source, coeffs_lens_light, amps_ps = self._solve(kwargs_lens=kwargs_lens, 
@@ -336,7 +336,7 @@ class SparseSolverBase(ModelOperators):
         elif self._formulation == 'synthesis':
             return 'FISTA'
 
-    def _prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
+    def prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
                         kwargs_special=None, init_ps_model=None):
         """
         Update state of the solver : operators, noise levels, ...
@@ -345,21 +345,9 @@ class SparseSolverBase(ModelOperators):
         # update image <-> source plane mapping from lens model parameters
         _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
-        # update number of decomposition scales
-        self.set_source_wavelet_scales(kwargs_source[0]['n_scales'])
+        self._prepare_source(kwargs_source)
         if not self.no_lens_light:
-            self.set_lens_wavelet_scales(kwargs_lens_light[0]['n_scales'])
-
-        # update spectral norm of operators
-        self._spectral_norm_source = self.compute_spectral_norm_source()
-        if not self.no_lens_light:
-            self._spectral_norm_lens = self.compute_spectral_norm_lens()
-
-        # update wavelets noise levels in source plane
-        self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
-                                        self.Phi_T_s, self.F_T, psf_kernel=self.psf_kernel)
-        if not self.no_lens_light:
-            self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
+            self._prepare_lens_light(kwargs_source)
         
         # point source initial model, if any
         if self.no_point_source:
@@ -369,6 +357,39 @@ class SparseSolverBase(ModelOperators):
                 raise ValueError("A rough point source model is meeded as input to optimize point source amplitudes")
             self._init_ps_model = init_ps_model
         return True
+
+    def _prepare_source(self, kwargs_source):
+        """
+        updates source number of decomposition scales, spectral norm and noise levels
+        related to the operator H(F(Phi_T_s( . )))
+        """
+        # update number of decomposition scales
+        n_scales_new = kwargs_source[0]['n_scales']
+        self.set_source_wavelet_scales(n_scales_new)
+        # update spectral norm of operators
+        self.update_spectral_norm_source()
+        # update wavelets noise levels in source plane
+        self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
+                                        self.Phi_T_s, self.F_T, psf_kernel=self.psf_kernel)
+
+    def _prepare_lens_light(self, kwargs_lens_light):
+        """
+        updates lens light number of decomposition scales, spectral norm and noise levels
+        related to the operator Phi_T_l( . )
+
+        Spectral norm and noise levels related to the Phi_T_l operator
+        are not updated if the number of decomposition scales has not changed
+        """
+        # get n_scales for lens light before update
+        n_scales_old = self.n_scales_lens_light
+        n_scales_new = kwargs_lens_light[0]['n_scales']
+        # update number of decomposition scales
+        self.set_lens_wavelet_scales(n_scales_new)
+        if n_scales_old is None or n_scales_new != n_scales_old:
+            # update spectral norm of operators
+            self.update_spectral_norm_lens()
+            # update wavelets noise levels in image plane
+            self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
 
     def _update_weights(self, alpha_S, alpha_HG=None):
         lambda_S = self.noise.levels_source

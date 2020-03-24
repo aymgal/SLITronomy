@@ -52,6 +52,18 @@ class ModelManager(object):
     def set_lens_wavelet_scales(self, n_scales_lens):
         self._n_scales_lens_light = n_scales_lens
 
+    @property
+    def n_scales_source(self):
+        if not hasattr(self, '_n_scales_source'):
+            return None
+        return self._n_scales_source
+
+    @property
+    def n_scales_lens_light(self):
+        if not hasattr(self, '_n_scales_lens_light'):
+            return None
+        return self._n_scales_lens_light
+
     def subtract_from_data(self, array_2d):
         """Update "effective" data by subtracting the input array"""
         self._image_data_eff = self._image_data - array_2d

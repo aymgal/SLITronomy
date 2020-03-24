@@ -76,7 +76,6 @@ class NoiseLevels(object):
             levels = signal.fftconvolve(dirac_scale2, FT_HT_noise2, mode='same')
             # save noise at each pixel for this scale
             noise_levels[scale_idx, :, :] = np.sqrt(np.abs(levels))
-
         self._noise_levels_src = noise_levels
 
     def update_image_levels(self, num_pix_image, wavelet_transform_image):
