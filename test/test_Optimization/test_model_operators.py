@@ -107,7 +107,7 @@ class TestModelOperators(object):
 
     def test_spectral_norm_source(self):
         self.model_op.set_source_wavelet_scales(self.n_scales_source)
-        npt.assert_almost_equal(self.model_op.spectral_norm_source, 0.999, decimal=3)
+        npt.assert_almost_equal(self.model_op.spectral_norm_source, 0.979, decimal=3)
 
     def test_spectral_norm_lens(self):
         self.model_op.set_lens_wavelet_scales(self.n_scales_lens)
