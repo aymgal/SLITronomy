@@ -80,7 +80,7 @@ class SparseSolverBase(ModelOperators):
                                                thread_count=thread_count)
         
         # engine that computes noise levels in image / source plane, in wavelets space
-        self.noise = NoiseLevels(data_class, boost_where_zero=10)
+        self.noise = NoiseLevels(data_class, boost_where_zero=100)
 
         # fill masked pixels with background noise
         self.fill_masked_data(self.noise.background_rms)
@@ -117,6 +117,8 @@ class SparseSolverBase(ModelOperators):
         # update lensing operator and noise levels
         prepare_bool = self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
                                            kwargs_special=kwargs_special, init_ps_model=init_ps_model)
+        if prepare_bool is False:
+            return None, None
 
         # call solver
         image_model, coeffs_source, coeffs_lens_light, amps_ps = self._solve(kwargs_lens=kwargs_lens, 
@@ -346,11 +348,20 @@ class SparseSolverBase(ModelOperators):
         The order of the following updates matters!
         """
         # update image <-> source plane mapping from lens model parameters
-        _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
+        try:
+            _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
+        except IndexError as e:
+            if self._verbose:
+                print("Error during lensing operator construction: {}".format(e))
+                print("The above error happened with the following parameters:")
+                print("kwargs_lens:", kwargs_lens)
+                print("kwargs_special:", kwargs_special)
+                print("R")
+            return False
 
         self._prepare_source(kwargs_source)
         if not self.no_lens_light:
-            self._prepare_lens_light(kwargs_source)
+            self._prepare_lens_light(kwargs_lens_light)
         
         # point source initial model, if any
         if self.no_point_source:
