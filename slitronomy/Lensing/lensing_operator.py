@@ -173,13 +173,13 @@ class LensingOperator(object):
             self._compute_mapping_bilinear(kwargs_lens, kwargs_special=kwargs_special)
 
     def _compute_mapping_bilinear(self, kwargs_lens, kwargs_special):
-        """Compute mapping between image and source plane pixels.
+        """Compute the mapping between image and source plane pixels.
 
         This method uses lenstronomy to ray-trace the image plane pixel
         coordinates back to the source plane and regularize the resultig
-        positions to a grid. In contrast to LensingOperator, the mapping
-        incorporates a bilinear weighting scheme to interpolate flux on the
-        source plane following Treu & Koopmans (2004).
+        positions to a grid. In contrast to the 'nearest' interpolation scheme,
+        this mapping incorporates a bilinear weighting to interpolate flux on
+        the source plane following Treu & Koopmans (2004).
 
         """
         # Remove previous mapping
@@ -203,14 +203,34 @@ class LensingOperator(object):
         self._lens_mapping = sparse.csr_matrix((weights, indices),
                                                shape=dense_shape)
 
-    def _find_source_pixels_bilinear(self, beta_x, beta_y, grid_offset_x, grid_offset_y):
+    def _find_source_pixels_bilinear(self, beta_x, beta_y, grid_offset_x,
+                                     grid_offset_y, warning=False):
         """Fast binning of ray-traced coordinates and weight calculation.
 
-        NOTE : Ray-traced coordinates from the image plane are simply removed
-               if they fall outside of the source plane grid. Although this
-               should only rarely occur in practice, e.g. for extreme
-               parameters of the lens model, a better approach would still be
-               to expand the source plane instead.
+        Parameters
+        ----------
+        beta_x, beta_y : array-like
+            Coordinates in the source plane of ray-traced points from the
+            image plane (obtained from lenstronomy).
+        grid_offset_x, grid_offset_y : float
+            Amount by which to shift the source plane grid in each direction.
+        warning : bool
+            Print a warning if any returned weights are negative.
+
+        Returns
+        -------
+        (row, col), weight
+            Weights are the source grid interpolation values, which belong
+            at position (row, col) in the sparse lensing matrix. There are at
+            most 4 weights corresponding to each row.
+
+        Notes
+        -----
+        Ray-traced coordinates from the image plane are simply removed if they
+        fall outside of the source plane grid, as is done in Treu & Koopmans
+        (2004). Although this should only rarely occur in practice, e.g. for
+        extreme parameters of the lens model, a better approach might still be
+        to expand the source plane instead.
 
         """
         # Standardize inputs for vectorization
@@ -219,7 +239,7 @@ class LensingOperator(object):
         assert len(beta_x) == len(beta_y), "Input arrays must be the same size."
         num_beta = len(beta_x)
 
-        # Shift source grid if necessary
+        # Shift source plane grid if necessary
         source_theta_x = self.sourcePlane.theta_x + grid_offset_x
         source_theta_y = self.sourcePlane.theta_y + grid_offset_y
 
@@ -236,7 +256,7 @@ class LensingOperator(object):
         ybins = np.linspace(theta_y[0] - half_pix, theta_y[-1] + half_pix,
                             num_pix + 1)
 
-        # Keep only betas falling within the source plane grid
+        # Keep only betas that fall within the source plane grid
         selection = ((beta_x > xbins[0]) & (beta_x < xbins[-1]) &
                      (beta_y > ybins[0]) & (beta_y < ybins[-1]))
         if np.any(1 - selection.astype(int)):
@@ -258,13 +278,13 @@ class LensingOperator(object):
         index_3 = index_1 + np.sign(dy).astype(int) * num_pix
         index_4 = index_2 + np.sign(dy).astype(int) * num_pix
 
-        # Treat these index arrays as four copies stacked vertically
+        # Treat these index arrays as four sets stacked vertically
         # Prepare to mask out out-of-bounds pixels as well as repeats
-        # This is important for the csr_matrix to be generated correctly
-        max_index = self.imagePlane.grid_size - 1  # Upper index bound
+        # The former is important for the csr_matrix to be generated correctly
+        max_index = self.sourcePlane.grid_size - 1  # Upper index bound
         mask = np.ones((4, num_beta), dtype=bool)  # Mask for the betas
 
-        # Mask out any neighboring pixels that are out of bounds
+        # Mask out any neighboring pixels that end up out of bounds
         mask[1, np.where((index_2 < 0) | (index_2 > max_index))[0]] = False
         mask[2, np.where((index_3 < 0) | (index_3 > max_index))[0]] = False
         mask[3, np.where((index_4 < 0) | (index_4 > max_index))[0]] = False
@@ -278,20 +298,26 @@ class LensingOperator(object):
         mask[(repeat_row, repeat_col)] = False
 
         # Generate 2D indices of non-zero elements for the sparse matrix
-        rows = np.tile(np.nonzero(selection)[0], (4, 1))
-        cols = np.array([index_1, index_2, index_3, index_4])
+        row = np.tile(np.nonzero(selection)[0], (4, 1))
+        col = np.array([index_1, index_2, index_3, index_4])
 
         # Compute bilinear weights like in Treu & Koopmans (2004)
-        cols[~mask] = 0  # Avoid accessing source_thetas out of bounds
-        dist_x = (np.tile(beta_x, (4, 1)) - source_theta_x[cols]) / delta_pix
-        dist_y = (np.tile(beta_y, (4, 1)) - source_theta_y[cols]) / delta_pix
-        weights = (1 - np.abs(dist_x)) * (1 - np.abs(dist_y))
+        col[~mask] = 0  # Avoid accessing source_thetas out of bounds
+        dist_x = (np.tile(beta_x, (4, 1)) - source_theta_x[col]) / delta_pix
+        dist_y = (np.tile(beta_y, (4, 1)) - source_theta_y[col]) / delta_pix
+        weight = (1 - np.abs(dist_x)) * (1 - np.abs(dist_y))
 
         # Make sure the weights are properly normalized
-        norm = np.expand_dims(np.sum(weights, axis=0, where=mask), 0)
-        weights = weights / norm
+        # This step is only necessary where the mask has excluded source pixels
+        norm = np.expand_dims(np.sum(weight, axis=0, where=mask), 0)
+        weight = weight / norm
 
-        return (rows[mask], cols[mask]), weights[mask]
+        if warning:
+            if np.any(weight[mask] < 0):
+                num_neg = np.sum((weight[mask] < 0).astype(int))
+                print("Warning : {} weights are negative.".format(num_neg))
+
+        return (row[mask], col[mask]), weight[mask]
 
     def _compute_mapping_nearest(self, kwargs_lens, kwargs_special):
         """
