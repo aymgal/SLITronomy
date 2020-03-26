@@ -189,8 +189,9 @@ class SparseSolverSource(SparseSolverBase):
         alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, level_const=level_const, level_pixels=level_pixels,
                                                           l_norm=self._sparsity_prior_norm)
 
-        if self._force_positivity:
-            alpha_S_proxed = proximals.prox_positivity(alpha_S_proxed)
+        #TODO: positivity applied in starlets space ?
+        # if self._force_positivity:
+        #     alpha_S_proxed = proximals.prox_positivity(alpha_S_proxed)
 
         # finally, set to 0 every pixel that is outside the 'support' in source plane
         for ns in range(n_scales):
