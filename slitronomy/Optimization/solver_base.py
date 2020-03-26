@@ -105,7 +105,7 @@ class SparseSolverBase(ModelOperators):
         self._plotter = SolverPlotter(self, show_now=True)
 
     def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None,
-              init_ps_model=None):
+              init_lens_light_model=None, init_ps_model=None):
         """
         main method to call from outside the class, calling self._solve()
 
@@ -116,7 +116,7 @@ class SparseSolverBase(ModelOperators):
 
         # update lensing operator and noise levels
         prepare_bool = self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
-                                           kwargs_special=kwargs_special, init_ps_model=init_ps_model)
+                                           kwargs_special=kwargs_special, init_lens_light_model=init_lens_light_model, init_ps_model=init_ps_model)
         if prepare_bool is False:
             return None, None
 
@@ -342,7 +342,7 @@ class SparseSolverBase(ModelOperators):
             return 'FISTA'
 
     def prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
-                        kwargs_special=None, init_ps_model=None):
+                        kwargs_special=None, init_lens_light_model=None, init_ps_model=None):
         """
         Update state of the solver : operators, noise levels, ...
         The order of the following updates matters!
@@ -362,15 +362,16 @@ class SparseSolverBase(ModelOperators):
         self._prepare_source(kwargs_source)
         if not self.no_lens_light:
             self._prepare_lens_light(kwargs_lens_light)
+
+        # lens light initial model, if any
+        self._init_lens_light_model = init_lens_light_model
         
         # point source initial model, if any
-        if self.no_point_source:
-            self._init_ps_model = None
-        else:
-            if init_ps_model is None:
-                raise ValueError("A rough point source model is meeded as input to optimize point source amplitudes")
-            self._init_ps_model = init_ps_model
-        return True
+        if not self.no_point_source and init_ps_model is None:
+            raise ValueError("A rough point source model is required to optimize point source amplitudes")
+        self._init_ps_model = init_ps_model
+        
+        return True  # roger that
 
     def _prepare_source(self, kwargs_source):
         """

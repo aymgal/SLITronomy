@@ -48,7 +48,12 @@ class SparseSolverSourceLens(SparseSolverSource):
 
         # initial guess as background random noise
         S, alpha_S = self.generate_initial_source()
-        HG, alpha_HG = self.generate_initial_lens_light()
+        if self._init_lens_light_model is not None:
+            # a guess for lens light has been provided
+            HG = self._init_lens_light_model
+            alpha_HG = self.Phi_T_l(HG)
+        else:
+            HG, alpha_HG = self.generate_initial_lens_light()
         if self._show_steps:
             self._plotter.plot_init(S)
             self._plotter.plot_init(HG)
@@ -231,8 +236,9 @@ class SparseSolverSourceLens(SparseSolverSource):
         alpha_HG_proxed = proximals.prox_sparsity_wavelets(alpha_HG, step=step, level_const=level_const, level_pixels=level_pixels,
                                                           l_norm=self._sparsity_prior_norm)
 
-        if self._force_positivity:
-            alpha_HG_proxed = proximals.prox_positivity(alpha_HG_proxed)
+        #TODO: positivity applied in starlets space ?
+        # if self._force_positivity:
+        #     alpha_HG_proxed = proximals.prox_positivity(alpha_HG_proxed)
 
         # finally, set to 0 every pixel that is outside the 'support' in source plane
         for ns in range(n_scales):
