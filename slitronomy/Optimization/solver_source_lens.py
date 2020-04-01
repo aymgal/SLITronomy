@@ -68,19 +68,33 @@ class SparseSolverSourceLens(SparseSolverSource):
         ######### Loop to update weights ########
         for j in range(self._n_iter_weights):
 
+            # estimate initial threshold
+            model = self.Y_eff if j == 0 else self.model_analysis(S=S)
+            thresh_init = self._estimate_threshold_MOM(self.Y)  # first estimation from data itself
+
+            # initial hidden variables
             if j == 0 and self.algorithm == 'FISTA':
                 fista_xi_l = np.copy(alpha_HG)
                 fista_t_l  = 1.
                 fista_xi_s = np.copy(alpha_S)
                 fista_t_s  = 1.
 
-            # get the proximal operator with current weights
-            prox_g_l = lambda x, y: self.proximal_sparsity_lens(x, weights_lens)
-            prox_g_s = lambda x, y: self.proximal_sparsity_source(x, weights_source)
 
             ######### Loop over lens light at fixed weights ########
 
             for i_l in range(self._n_iter_lens):
+
+                # get adaptive threshold
+                DS = self.Y - self.H(self.F(S))
+                DG = self.Y - HG
+                thresh_MOM  = self._estimate_threshold_MOM(DS, DG)
+                thresh_iter = self._threshold_at_iter(i_l, thresh_init, self._n_iter_source)
+                thresh = min(thresh_iter, thresh_MOM)
+
+                # get the proximal operator with current weights
+                prox_g_s = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights_source)
+                prox_g_l = lambda x, y: self.proximal_sparsity_lens(x, threshold=thresh, weights=weights_lens)
+
 
                 ######### Loop over source light at fixed weights ########
 
@@ -192,7 +206,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         grad  = - self.Phi_T_l(error)
         return grad
 
-    def _proximal_sparsity_analysis_lens(self, HG, weights):
+    def _proximal_sparsity_analysis_lens(self, HG, threshold, weights):
         """
         returns the proximal operator of the regularisation term
             g = lambda * |Phi^T HG|_0
@@ -200,8 +214,8 @@ class SparseSolverSourceLens(SparseSolverSource):
             g = lambda * |Phi^T HG|_1
         """
         n_scales = self._n_scales_lens_light
-        level_const = self._k_max * np.ones(n_scales)
-        level_const[0] = self._k_max_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
+        level_const = threshold * np.ones(n_scales)
+        level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
         level_pixels = weights * self.noise.levels_image
 
         alpha_HG = self.Phi_T_l(HG)
@@ -219,7 +233,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         HG_proxed = self.apply_image_plane_mask(HG_proxed)
         return HG_proxed
 
-    def _proximal_sparsity_synthesis_lens(self, alpha_HG, weights):
+    def _proximal_sparsity_synthesis_lens(self, alpha_HG, threshold, weights):
         """
         returns the proximal operator of the regularisation term
             g = lambda * |alpha_HG|_0
@@ -227,8 +241,8 @@ class SparseSolverSourceLens(SparseSolverSource):
             g = lambda * |alpha_HG|_1
         """
         n_scales = self._n_scales_lens_light
-        level_const = self._k_max * np.ones(n_scales)
-        level_const[0] = self._k_max_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
+        level_const = threshold * np.ones(n_scales)
+        level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
         level_pixels = weights * self.noise.levels_image
 
         # apply proximal operator
