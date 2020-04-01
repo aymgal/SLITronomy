@@ -429,7 +429,7 @@ class SparseSolverBase(ModelOperators):
             weights_HG = None
         return weights_S, weights_HG
 
-    def _estimate_threshold_source(self, model_S, fraction=0.9):
+    def _estimate_threshold_source(self, data, fraction=0.9):
         """
         estimate maximum threshold, in units of noise, used for thresholding wavelets
         coefficients during optimization
@@ -438,7 +438,7 @@ class SparseSolverBase(ModelOperators):
             return self._k_min
         noise_no_coarse = self.noise.levels_source[:-1, :, :]
         # compute threshold wrt to the source component
-        coeffs = self.Phi_T_s(self.F_T(self.H_T(model_S)))
+        coeffs = self.Phi_T_s(self.F_T(self.H_T(data)))
         coeffs_no_coarse = coeffs[:-1, :, :]
         coeffs_norm = self.M_s(coeffs_no_coarse / noise_no_coarse)
         coeffs_norm[noise_no_coarse == 0] = 0
