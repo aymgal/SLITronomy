@@ -38,7 +38,7 @@ class SolverPlotter(object):
     def plot_results(self, model_log_scale=False, res_vmin=-6, res_vmax=6, cmap_1=None, cmap_2=None):
         n_comp = self._solver.track['loss'].shape[0]
         names = self._solver.component_names
-        fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
         ax = axes[0, 0]
         ax.set_title("source model")
         src_model = self._solver.source_model
@@ -95,7 +95,7 @@ class SolverPlotter(object):
                     label='loss({})'.format(names[i]))
         ax.set_xlabel("iterations")
         # ax.set_ylabel("loss")
-        ax.legend(loc=(0.7, 0.9))
+        ax.legend(loc='lower left', bbox_to_anchor=(0, 1.01))
         ax2 = ax.twinx()
         for i in range(n_comp):
             data = self._solver.track['reg'][i, :]
@@ -103,7 +103,7 @@ class SolverPlotter(object):
             ax2.plot(data, linestyle='none', marker='.', color=self._color_cycle[i+n_comp], 
                      label='reg({})'.format(names[i]))
         # ax2.set_ylabel("regularization")
-        ax2.legend(loc=(0.7, 0.7))
+        ax2.legend(loc='lower right', bbox_to_anchor=(1, 1.01))
         ax = axes[1, 1]
         ax.set_title("reduced chi2")
         for i in range(n_comp):
