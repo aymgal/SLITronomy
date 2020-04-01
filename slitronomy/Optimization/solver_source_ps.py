@@ -79,14 +79,20 @@ class SparseSolverSourcePS(SparseSolverSource):
                 # subtract point sources from data
                 self.subtract_point_source_from_data(P)
 
-                for i_s in range(self._n_iter_source):
+                # estimate initial threshold after subtraction of point sources
+                thresh_init = self._estimate_threshold_source(self.Y_eff)
 
-                    if j == 0 and self.algorithm == 'FISTA':
-                        fista_xi = np.copy(alpha_S)
-                        fista_t  = 1.
+                # initial hidden variables
+                if j == 0 and self.algorithm == 'FISTA':
+                    fista_xi = np.copy(alpha_S)
+                    fista_t  = 1.
+
+                for i_s in range(self._n_iter_source):
+                    # get adaptive threshold
+                    thresh = self._threshold_at_iter(i_s, thresh_init, self._n_iter_source)
 
                     # get the proximal operator with current weights, convention is that it takes 2 arguments
-                    prox_g = lambda x, y: self.proximal_sparsity_source(x, weights=weights)
+                    prox_g = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights)
 
                     if self.algorithm == 'FISTA':
                         alpha_S_next, fista_xi_next, fista_t_next \
