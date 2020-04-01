@@ -28,7 +28,8 @@ class SparseSolverBase(ModelOperators):
                  likelihood_mask=None, source_interpolation='bilinear',
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True,
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
-                 max_threshold=3, max_threshold_high_freq=None, fixed_spectral_norm_source=0.95,
+                 min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='none',
+                 fixed_spectral_norm_source=0.95,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False, thread_count=1):
         """
@@ -49,10 +50,12 @@ class SparseSolverBase(ModelOperators):
          Defaults to True.
         :param min_num_pix_source: minimal number of pixels on a side of the square source grid.
         Only used when minimal_source_plane is True. Defaults to 20.
-        :param max_threshold: in unit of the noise (sigma), maximum threshold for wavelets denoising.
+        :param min_threshold: in unit of the noise (sigma), minimum threshold for wavelets denoising.
         Typically between 3 (more conservative thresholding) and 5 (more aggressive thresholding). Defaults to 3.
-        :param max_threshold_high_freq: same than max_threshold, but for highest frequencies on wavelets space.
-        If None, equals to max_threshold + 1. Defaults to None.
+        :param threshold_increment_high_freq: additive number to the threshold level for highest frequencies on wavelets space.
+        Defaults to 1.
+        :param threshold_decrease_type: strategy for decreasing the threshold level at each iteration. Can be 'none' (no decrease, directly sets to min_threshold), 'linear' or 'exponential'.
+        Defaults to 'exponential'.
         :param fixed_spectral_norm_source: if None, update the spectral norm for the source operator, for optimal gradient descent step size.
         Defaults to 0.97, which is a conservative value typical of most lens models.
         :param sparsity_prior_norm: prior l-norm (0 or 1). If 1, l1-norm and soft-thresholding are applied.
@@ -80,17 +83,20 @@ class SparseSolverBase(ModelOperators):
                                                thread_count=thread_count)
         
         # engine that computes noise levels in image / source plane, in wavelets space
-        self.noise = NoiseLevels(data_class, boost_where_zero=100)
+        self.noise = NoiseLevels(data_class, boost_where_zero=1)
 
         # fill masked pixels with background noise
         self.fill_masked_data(self.noise.background_rms)
 
-        # threshold level k_max (in units of the noise)
-        self._k_max = max_threshold
-        if max_threshold_high_freq is None:
-            self._k_max_high_freq = self._k_max + 1
+        # threshold level k_min (in units of the noise)
+        self._k_min = min_threshold
+        if threshold_increment_high_freq < 0:
+            raise ValueError("threshold_increment_high_freq cannot be negative")
         else:
-            self._k_max_high_freq = max_threshold_high_freq
+            self._increm_high_freq = threshold_increment_high_freq
+
+        # strategy to decrease threshold up to the max threshold above
+        self._threshold_decrease_type = threshold_decrease_type
 
         if sparsity_prior_norm not in [0, 1]:
             raise ValueError("Sparsity prior norm can only be 0 or 1 (l0-norm or l1-norm)")
@@ -241,8 +247,8 @@ class SparseSolverBase(ModelOperators):
             return 0
         WS = self.noise.levels_source
         lambda_WS = np.zeros_like(WS)
-        lambda_WS[0, :, :]  = self._k_max_high_freq * WS[0, :, :]
-        lambda_WS[1:, :, :] = self._k_max * WS[1:, :, :]
+        lambda_WS[0, :, :]  = (self._k_min + self._increm_high_freq) * WS[0, :, :]
+        lambda_WS[1:, :, :] = self._k_min * WS[1:, :, :]
         lambda_WS_alpha_S = lambda_WS * self.Phi_T_s(S)
         return np.linalg.norm(lambda_WS_alpha_S.flatten(), ord=self._sparsity_prior_norm)
 
@@ -251,8 +257,8 @@ class SparseSolverBase(ModelOperators):
             return 0
         WHG = self.noise.levels_image
         lambda_WHG = np.zeros_like(WHG)
-        lambda_WHG[0, :, :]  = self._k_max_high_freq * WHG[0, :, :]
-        lambda_WHG[1:, :, :] = self._k_max * WHG[1:, :, :]
+        lambda_WHG[0, :, :]  = (self._k_min + self._increm_high_freq) * WHG[0, :, :]
+        lambda_WHG[1:, :, :] = self._k_min * WHG[1:, :, :]
         lambda_WHG_alpha_HG = lambda_WHG * self.Phi_T_l(HG)
         return np.linalg.norm(lambda_WHG_alpha_HG.flatten(), ord=self._sparsity_prior_norm)
 
@@ -308,17 +314,17 @@ class SparseSolverBase(ModelOperators):
         elif self._formulation == 'synthesis':
             return self._gradient_loss_synthesis_lens(alpha_HG=array_HG)
 
-    def proximal_sparsity_source(self, array, weights):
+    def proximal_sparsity_source(self, array, threshold, weights):
         if self._formulation == 'analysis':
-            return self._proximal_sparsity_analysis_source(array, weights)
+            return self._proximal_sparsity_analysis_source(array, threshold, weights)
         elif self._formulation == 'synthesis':
-            return self._proximal_sparsity_synthesis_source(array, weights)
+            return self._proximal_sparsity_synthesis_source(array, threshold, weights)
 
-    def proximal_sparsity_lens(self, array, weights):
+    def proximal_sparsity_lens(self, array, threshold, weights):
         if self._formulation == 'analysis':
-            return self._proximal_sparsity_analysis_lens(array, weights)
+            return self._proximal_sparsity_analysis_lens(array, threshold, weights)
         elif self._formulation == 'synthesis':
-            return self._proximal_sparsity_synthesis_lens(array, weights)
+            return self._proximal_sparsity_synthesis_lens(array, threshold, weights)
 
     def subtract_source_from_data(self, S):
         """Update "effective" data by subtracting the input source light estimation"""
@@ -352,11 +358,10 @@ class SparseSolverBase(ModelOperators):
             _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
         except IndexError as e:
             if self._verbose:
-                print("Error during lensing operator construction: {}".format(e))
+                print("LENSING OPERATOR: error during lensing operator construction: {}".format(e))
                 print("The above error happened with the following parameters:")
                 print("kwargs_lens:", kwargs_lens)
                 print("kwargs_special:", kwargs_special)
-                print("R")
             return False
 
         self._prepare_source(kwargs_source)
@@ -412,12 +417,67 @@ class SparseSolverBase(ModelOperators):
     def update_image_noise_levels(self):
         self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
 
-    def _update_weights(self, alpha_S, alpha_HG=None):
+    def _update_weights(self, alpha_S, alpha_HG=None, threshold=None):
+        if threshold is None:
+            threshold = self._k_min
         lambda_S = self.noise.levels_source
-        weights_S  = 1. / ( 1 + np.exp(-10 * (lambda_S - alpha_S)) )  # fixed Eq. (11) of Joseph et al. 2018
+        weights_S  = 1. / ( 1 + np.exp(-10 * (threshold * lambda_S - alpha_S)) )  # fixed Eq. (11) of Joseph et al. 2018
         if alpha_HG is not None:
             lambda_HG = self.noise.levels_image
-            weights_HG = 1. / ( 1 + np.exp(-10 * (lambda_HG - alpha_HG)) )  # fixed Eq. (11) of Joseph et al. 2018
+            weights_HG = 1. / ( 1 + np.exp(-10 * (threshold * lambda_HG - alpha_HG)) )  # fixed Eq. (11) of Joseph et al. 2018
         else:
             weights_HG = None
         return weights_S, weights_HG
+
+    def _estimate_threshold_source(self, model_S, fraction=0.9):
+        """
+        estimate maximum threshold, in units of noise, used for thresholding wavelets
+        coefficients during optimization
+        """
+        if self._threshold_decrease_type == 'none':
+            return self._k_min
+        noise_no_coarse = self.noise.levels_source[:-1, :, :]
+        # compute threshold wrt to the source component
+        coeffs = self.Phi_T_s(self.F_T(self.H_T(model_S)))
+        coeffs_no_coarse = coeffs[:-1, :, :]
+        coeffs_norm = self.M_s(coeffs_no_coarse / noise_no_coarse)
+        coeffs_norm[noise_no_coarse == 0] = 0
+        return fraction * np.max(coeffs_norm)  # returns a fraction of max value, so only the highest coeffs is able to enter the solution
+
+    def _estimate_threshold_MOM(self, data_minus_HFS, data_minus_HG=None):
+        """
+        follows a mean-of-maximum strategy (MOM) to estimate thresholds for blind source separation with two components,
+        typically in a problem solved through moprhological component analysis (see Bobin et al. 2007)
+        Note that we compute the MOM in image plane, even for the source component.
+        """
+        if self._threshold_decrease_type == 'none':
+            return self._k_min
+
+        noise_no_coarse = self.noise.levels_image[:-1, :, :]
+
+        coeffs1_no_coarse = self.Phi_T_l(data_minus_HFS)[:-1, :, :]
+        coeffs1_norm = self.M(coeffs1_no_coarse / noise_no_coarse)
+        coeffs1_norm[noise_no_coarse == 0] = 0
+        max_HFS = np.max(np.abs(coeffs1_norm))
+
+        if data_minus_HG is not None:
+            coeffs2_no_coarse = self.Phi_T_l(data_minus_HG)[:-1, :, :]
+            coeffs2_norm = self.M(coeffs2_no_coarse / noise_no_coarse)
+            coeffs2_norm[noise_no_coarse == 0] = 0
+            max_HG = np.max(np.abs(coeffs2_norm))
+        else:
+            max_HG = max_HFS
+
+        maxs = np.array([max_HFS, max_HG])
+        return maxs.min() + 0.001 * np.abs(max_HFS - max_HG)      # SLIT_MCA version
+        # return maxs.min() - 0.01 * ( maxs.max() - maxs.min() )  # MuSCADeT version
+        # return np.mean(maxs)                                    # original mean-of-max from Bobin et al. 2007
+
+    def _threshold_at_iter(self, i, k_init, n_iter):
+        n_iter_fix = 3  # number of iterations with threshold at its minimum value
+        if self._threshold_decrease_type == 'none':
+            return self._k_min
+        elif self._threshold_decrease_type in ['lin', 'linear']:
+            return util.threshold_linear_decrease(i, k_init, self._k_min, n_iter, n_iter_fix)
+        elif self._threshold_decrease_type in ['exp', 'exponential']:
+            return util.threshold_exponential_decrease(i, k_init, self._k_min, n_iter, n_iter_fix)

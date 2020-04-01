@@ -193,7 +193,26 @@ def generate_initial_guess(num_pix, n_scales, transform, inverse_transform,
         raise ValueError("Initial guess type '{}' not supported".format(guess_type))
     return X, alpha_X
 
+
 def generate_initial_guess_simple(num_pix, transform, background_rms):
     X = background_rms * np.random.randn(num_pix, num_pix)
     alpha_X = transform(X)
     return X, alpha_X
+
+
+def threshold_linear_decrease(iter_count, threshold_init, threshold_min, num_iter, num_iter_at_min_value):
+    n_iter_eff = num_iter - num_iter_at_min_value
+    if n_iter_eff < 1:
+        raise ValueError("Too low number of iterations ({}) to decrease threshold".format(num_iter))
+    delta_k = (threshold_min - threshold_init) / n_iter_eff
+    k_new = threshold_init + iter_count * delta_k
+    return max(k_new, threshold_min)
+
+
+def threshold_exponential_decrease(iter_count, threshold_init, threshold_min, num_iter, num_iter_at_min_value):
+    n_iter_eff = num_iter - num_iter_at_min_value
+    if n_iter_eff < 1:
+        raise ValueError("Too low number of iterations ({}) to decrease threshold".format(num_iter))
+    k_log = np.log(threshold_min / threshold_init) / n_iter_eff
+    k_new = threshold_init * np.exp(iter_count * k_log)
+    return max(k_new, threshold_min)
