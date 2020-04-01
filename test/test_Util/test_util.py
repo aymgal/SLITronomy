@@ -182,6 +182,37 @@ def test_generate_initial_guess_simple():
     assert guess_transf_space.shape == (n_scales, num_pix, num_pix)
 
 
+def test_threshold_linear_decrease():
+    n_iter_min_value = 10
+    n_iter = 30
+    iterations = np.arange(0, n_iter)
+    thresh_init = 1000
+    thresh_min = 5
+    k_i = None
+    thresholds = []
+    for i in iterations:
+        k_i = util.threshold_linear_decrease(i, thresh_init, thresh_min, n_iter, n_iter_min_value)
+        thresholds.append(k_i)
+    thresholds = np.array(thresholds)
+    np.testing.assert_almost_equal(thresholds[-n_iter_min_value:], thresh_min*np.ones((n_iter_min_value,)), decimal=10)
+
+
+def test_threshold_exponential_decrease():
+    n_iter_min_value = 10
+    n_iter = 30
+    iterations = np.arange(0, n_iter)
+    thresh_init = 1000
+    thresh_min = 5
+    k_i = None
+    thresholds = []
+    for i in iterations:
+        k_i = util.threshold_exponential_decrease(i, thresh_init, thresh_min, n_iter, n_iter_min_value)
+        thresholds.append(k_i)
+    thresholds = np.array(thresholds)
+    np.testing.assert_almost_equal(thresholds[-n_iter_min_value:], thresh_min*np.ones((n_iter_min_value,)), decimal=10)
+
+
+
 class TestRaise(unittest.TestCase):
     def test_raise(self):
         with self.assertRaises(ValueError):

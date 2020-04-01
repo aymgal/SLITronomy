@@ -100,7 +100,7 @@ class TestSparseSolverSource(object):
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False,
-                 max_threshold=5, max_threshold_high_freq=None, 
+                 min_threshold=5, threshold_increment_high_freq=1, threshold_decrease_type='exponential', 
                  num_iter_source=self.num_iter_source, num_iter_weights=self.num_iter_weights)
         self.solver_lens_syn = SparseSolverSourceLens(data, lens_model, numerics, self.source_lightModel, self.lens_lightModel,
                  likelihood_mask=self.likelihood_mask, source_interpolation='bilinear',
@@ -108,7 +108,7 @@ class TestSparseSolverSource(object):
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  sparsity_prior_norm=1, force_positivity=True, formulation='synthesis',
                  verbose=False, show_steps=False,
-                 max_threshold=5, max_threshold_high_freq=None, 
+                 min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='linear', 
                  num_iter_source=self.num_iter_source, num_iter_lens=self.num_iter_lens, 
                  num_iter_weights=self.num_iter_weights)
 
