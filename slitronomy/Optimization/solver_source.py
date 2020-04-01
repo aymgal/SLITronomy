@@ -67,15 +67,21 @@ class SparseSolverSource(SparseSolverBase):
         step_diff_list = []
         for j in range(self._n_iter_weights):
 
+            # estimate initial threshold
+            thresh_init = self._estimate_threshold_source(self.Y)
+
+            # initial hidden variables
             if j == 0 and self.algorithm == 'FISTA':
                 fista_xi = np.copy(alpha_S)
                 fista_t  = 1.
 
-            # get the proximal operator with current weights, convention is that it takes 2 arguments
-            prox_g = lambda x, y: self.proximal_sparsity_source(x, weights=weights)
-
             ######### Loop over iterations at fixed weights ########
             for i in range(self._n_iter_source):
+                # get adaptive threshold
+                thresh = self._threshold_at_iter(i, thresh_init, self._n_iter_source)
+
+                # get the proximal operator with current weights, convention is that it takes 2 arguments
+                prox_g = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights)
 
                 if self.algorithm == 'FISTA':
                     alpha_S_next, fista_xi_next, fista_t_next \
@@ -101,7 +107,7 @@ class SparseSolverSource(SparseSolverBase):
 
             # update weights if necessary
             if self._n_iter_weights > 1:
-                weights, _ = self._update_weights(alpha_S)
+                weights, _ = self._update_weights(alpha_S, threshold=self._k_min)
 
             # if j > 0:
             #     import matplotlib.pyplot as plt
@@ -145,7 +151,7 @@ class SparseSolverSource(SparseSolverBase):
         grad  = - self.Phi_T_s(self.F_T(self.H_T(error)))
         return grad
 
-    def _proximal_sparsity_analysis_source(self, S, weights):
+    def _proximal_sparsity_analysis_source(self, S, threshold, weights):
         """
         returns the proximal operator of the regularisation term
             g = lambda * |Phi^T S|_0
@@ -153,8 +159,8 @@ class SparseSolverSource(SparseSolverBase):
             g = lambda * |Phi^T S|_1
         """
         n_scales = self._n_scales_source
-        level_const = self._k_max * np.ones(n_scales)
-        level_const[0] = self._k_max_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
+        level_const = threshold * np.ones(n_scales)
+        level_const[0] += + self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
         level_pixels = weights * self.noise.levels_source
 
         alpha_S = self.Phi_T_s(S)
@@ -172,7 +178,7 @@ class SparseSolverSource(SparseSolverBase):
         S_proxed = self.apply_source_plane_mask(S_proxed)
         return S_proxed
 
-    def _proximal_sparsity_synthesis_source(self, alpha_S, weights):
+    def _proximal_sparsity_synthesis_source(self, alpha_S, threshold, weights):
         """
         returns the proximal operator of the regularisation term
             g = lambda * |alpha_S|_0
@@ -180,8 +186,8 @@ class SparseSolverSource(SparseSolverBase):
             g = lambda * |alpha_S|_1
         """
         n_scales = self._n_scales_source
-        level_const = self._k_max * np.ones(n_scales)
-        level_const[0] = self._k_max_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
+        level_const = threshold * np.ones(n_scales)
+        level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
         level_pixels = weights * self.noise.levels_source
 
         # apply proximal operator
