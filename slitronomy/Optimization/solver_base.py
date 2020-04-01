@@ -474,7 +474,7 @@ class SparseSolverBase(ModelOperators):
         # return np.mean(maxs)                                    # original mean-of-max from Bobin et al. 2007
 
     def _threshold_at_iter(self, i, k_init, n_iter):
-        n_iter_fix = 3  # number of iterations with threshold at its minimum value
+        n_iter_fix = 5  # number of iterations with threshold at its minimum value
         if self._threshold_decrease_type == 'none':
             return self._k_min
         elif self._threshold_decrease_type in ['lin', 'linear']:
