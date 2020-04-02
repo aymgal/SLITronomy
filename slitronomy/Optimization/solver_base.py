@@ -29,7 +29,7 @@ class SparseSolverBase(ModelOperators):
                  subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True,
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='none',
-                 fixed_spectral_norm_source=0.95,
+                 fixed_spectral_norm_source=0.95, include_regridding_error=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False, thread_count=1):
         """
@@ -83,7 +83,8 @@ class SparseSolverBase(ModelOperators):
                                                thread_count=thread_count)
         
         # engine that computes noise levels in image / source plane, in wavelets space
-        self.noise = NoiseLevels(data_class, boost_where_zero=1)
+        self.noise = NoiseLevels(data_class, subgrid_res_source=subgrid_res_source, boost_where_zero=1,
+                                 include_regridding_error=include_regridding_error)
 
         # fill masked pixels with background noise
         self.fill_masked_data(self.noise.background_rms)
@@ -348,7 +349,7 @@ class SparseSolverBase(ModelOperators):
             return 'FISTA'
 
     def prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
-                        kwargs_special=None, init_lens_light_model=None, init_ps_model=None):
+                       kwargs_special=None, init_lens_light_model=None, init_ps_model=None):
         """
         Update state of the solver : operators, noise levels, ...
         The order of the following updates matters!
@@ -363,6 +364,10 @@ class SparseSolverBase(ModelOperators):
                 print("kwargs_lens:", kwargs_lens)
                 print("kwargs_special:", kwargs_special)
             return False
+
+        if self.noise.include_regridding_error is True:
+            magnification_map = self.lensingOperator.magnification_map(kwargs_lens)
+            self.noise.update_regridding_error(magnification_map)
 
         self._prepare_source(kwargs_source)
         if not self.no_lens_light:

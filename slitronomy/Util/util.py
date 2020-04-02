@@ -216,3 +216,47 @@ def threshold_exponential_decrease(iter_count, threshold_init, threshold_min, nu
     k_log = np.log(threshold_min / threshold_init) / n_iter_eff
     k_new = threshold_init * np.exp(iter_count * k_log)
     return max(k_new, threshold_min)
+
+
+def regridding_error_map_squared(mag_map=None, data_image=None, image_pixel_scale=None, source_pixel_scale=None,
+                                 noise_map2_prefactor=None):
+    """
+    Computes the regridding error map as defined in Suyu et al. 2009 (https://ui.adsabs.harvard.edu/abs/2009ApJ...691..277S/abstract)
+    The output is an image corresponding to sigma^2 per pixel.
+    Returns two arrays : the full regridding error map, and the part of the map that is independent of the magnification, for backup.
+    """
+    if noise_map2_prefactor is None:
+        d = data_image
+        noise_map2_prefactor = 1/12. * (source_pixel_scale / image_pixel_scale)**2 * np.ones_like(d)
+        for i in range(d.shape[0]):
+            for j in range(d.shape[1]):
+                sum_adj, n_adj = 0, 0
+                try:
+                    sum_adj += (d[i, j] - d[i-1, j])**2
+                    n_adj += 1
+                except IndexError:
+                    pass
+                try:
+                    sum_adj += (d[i, j] - d[i+1, j])**2
+                    n_adj += 1
+                except IndexError:
+                    pass
+                try:
+                    sum_adj += (d[i, j] - d[i, j-1])**2
+                    n_adj += 1
+                except IndexError:
+                    pass
+                try:
+                    sum_adj += (d[i, j] - d[i, j+1])**2
+                    n_adj += 1
+                except IndexError:
+                    pass
+                noise_map2_prefactor[i, j] *= sum_adj / n_adj
+    if mag_map is None:
+        noise_map2 = None
+    else:
+        mu = np.abs(mag_map)
+        noise_map2 = noise_map2_prefactor * mu
+    return noise_map2, noise_map2_prefactor
+
+

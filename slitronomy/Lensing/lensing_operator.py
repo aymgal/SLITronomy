@@ -116,6 +116,10 @@ class LensingOperator(object):
         """source pixel area divide by image pixel area"""
         return self._subgrid_res_source**2
 
+    def magnification_map(self, kwargs_lens):
+        mag_map_1d = self.lensModel.magnification(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
+        return util.array2image(mag_map_1d)
+
     def update_mapping(self, kwargs_lens, kwargs_special=None):
         # reset source plane grid if it was altered by previous mass model
         if not self._fix_minimal_source_plane:

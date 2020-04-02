@@ -7,17 +7,27 @@ from slitronomy.Util import util
 
 class NoiseLevels(object):
 
-    """Computes noise levels in wavelets space, taking into account lensing and optionally blurring"""
+    """
+    Handle noise properties and compute noise levels in wavelets space, 
+    taking into account lensing and optionally blurring and regridding error for pixelated reconstructions.
+    """
 
-    def __init__(self, data_class, boost_where_zero=10):
+    def __init__(self, data_class, subgrid_res_source=1, boost_where_zero=10, include_regridding_error=False):
         """
+        :param subgrid_res_source: resolution factor between image plane and source plane
         :param boost_where_zero: sets the multiplcative factor in fron tof the average noise levels
         at locations where noise is 0
+        :param include_regridding_error: if True, includes the regridding error controbution in noise covariance.
+        See Suyu et al. 2009 (https://ui.adsabs.harvard.edu/abs/2009ApJ...691..277S/abstract) for details.
         """
         # background noise
         self._background_rms = data_class.background_rms
         # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
-        self._noise_map = np.sqrt(data_class.C_D)
+        self._noise_map_data = np.sqrt(data_class.C_D)
+        self.include_regridding_error = include_regridding_error
+        if self.include_regridding_error:
+            self._initialise_regridding_error(data_class.data, data_class.pixel_width, 
+                                              data_class.pixel_width/subgrid_res_source)
         # boost noise in pixels that are not mapped to any image plane pixels
         self._boost_where_zero = boost_where_zero
 
@@ -27,7 +37,11 @@ class NoiseLevels(object):
 
     @property
     def noise_map(self):
-        return self._noise_map
+        if not self.include_regridding_error:
+            return self._noise_map_data
+        if not hasattr(self, '_noise_map_with_regrid'):
+            raise ValueError("Regridding error map has not be updated with magnification map")
+        return self._noise_map_with_regrid
 
     @property
     def levels_source(self):
@@ -50,7 +64,7 @@ class NoiseLevels(object):
             HT = psf_kernel.T
 
         # map noise map to source plane
-        HT_noise_diag = self._noise_map * np.sqrt(np.sum(HT**2))
+        HT_noise_diag = self.noise_map * np.sqrt(np.sum(HT**2))
         FT_HT_noise = image2source_transform(HT_noise_diag)
 
         # introduce artitifically noise to pixels where there are not signal in source plane
@@ -87,5 +101,15 @@ class NoiseLevels(object):
         noise_levels = np.zeros((n_scale, n_pix1, npix2))
         for scale_idx in range(n_scale):
             scale_power2 = np.sum(dirac_coeffs2[scale_idx, :, :])
-            noise_levels[scale_idx, :, :] = self._noise_map * np.sqrt(scale_power2)
+            noise_levels[scale_idx, :, :] = self.noise_map * np.sqrt(scale_power2)
         self._noise_levels_img = noise_levels
+
+    def _initialise_regridding_error(self, data_image, image_pixel_scale, source_pixel_scale):
+        _, self._regrid_error_prefac = util.regridding_error_map_squared(mag_map=None, data_image=data_image,
+                                                                         image_pixel_scale=image_pixel_scale, source_pixel_scale=source_pixel_scale)
+
+    def update_regridding_error(self, magnification_map):
+        if not self.include_regridding_error:
+            return  # do nothing
+        regrid_error_map2, _ = util.regridding_error_map_squared(mag_map=magnification_map, noise_map2_prefactor=self._regrid_error_prefac)
+        self._noise_map_with_regrid = np.sqrt(self._noise_map_data**2 + regrid_error_map2)
