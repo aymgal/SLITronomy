@@ -89,7 +89,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
 
     # TODO : use lenstronomy's util.make_subgrid(), it will automatically align the center of source plane
 
-    def __init__(self, data_class, subgrid_res=1):
+    def __init__(self, data_class, subgrid_res=1, verbose=False):
         super(SourcePlaneGrid, self).__init__(data_class)
         self._subgrid_res = subgrid_res
 
@@ -104,6 +104,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         # TODO : make sure that center is consistent > use RegularGrid class in lenstronomy, like in Numerics ??
 
         self._first_print = True  # for printing messages only once
+        self._verbose = verbose
 
     @property
     def effective_mask(self):
@@ -143,7 +144,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
             return
         reduc_mask, reduced_num_pix = self.shrink_plane_iterative(self.effective_mask, min_num_pix=min_num_pix)
         self._update_grid_after_shrink(reduc_mask, reduced_num_pix)
-        if self._first_print:
+        if self._first_print and self._verbose:
             print("INFO : source grid has been reduced from {} to {} side pixels".format(self._num_pix_large, self._num_pix))
             self._first_print = False
 

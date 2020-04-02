@@ -15,14 +15,14 @@ class LensingOperator(object):
     def __init__(self, data_class, lens_model_class, subgrid_res_source=1,
                  likelihood_mask=None, minimal_source_plane=False, min_num_pix_source=10,
                  fix_minimal_source_plane=True, use_mask_for_minimal_source_plane=True,
-                 source_interpolation='bilinear', matrix_prod=True):
+                 source_interpolation='bilinear', matrix_prod=True, verbose=False):
         """
 
         :param min_num_pix_source: minimal number of pixels in the
         """
         self.lensModel = lens_model_class
         self.imagePlane  = ImagePlaneGrid(data_class)
-        self.sourcePlane = SourcePlaneGrid(data_class, subgrid_res=subgrid_res_source)
+        self.sourcePlane = SourcePlaneGrid(data_class, subgrid_res=subgrid_res_source, verbose=verbose)
         self._subgrid_res_source = subgrid_res_source
         self._likelihood_mask = likelihood_mask
         self._minimal_source_plane = minimal_source_plane
