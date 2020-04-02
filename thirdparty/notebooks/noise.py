@@ -3,7 +3,7 @@ import numpy as np
 
 def regridding_error_map_squared(data_image, magnification_map, image_pixel_scale, source_pixel_scale):
     """
-    Computes the regridding error map as defined Suyu+09.
+    Computes the regridding error map as defined in Suyu et al. 2009 (https://ui.adsabs.harvard.edu/abs/2009ApJ...691..277S/abstract)
     The output is an image with pixel sigma^2
     """
     d = data_image
@@ -32,5 +32,5 @@ def regridding_error_map_squared(data_image, magnification_map, image_pixel_scal
                 n_adj += 1
             except IndexError:
                 pass
-            noise_map2[i, j] = mu[i, j] * sum_adj / n_adj
+            noise_map2[i, j] *= mu[i, j] * sum_adj / n_adj
     return noise_map2
