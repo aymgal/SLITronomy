@@ -438,6 +438,18 @@ class SparseSolverBase(ModelOperators):
         """
         estimate maximum threshold, in units of noise, used for thresholding wavelets
         coefficients during optimization
+        
+        Parameters
+        ----------
+        data : array_like
+            Imaging data.
+        fraction : float, optional
+            From 0 to 1, fraction of the maximum value of the image in transformed space, normalized by noise, that is returned as a threshold.
+        
+        Returns
+        -------
+        float
+            Threshold level.
         """
         if self._threshold_decrease_type == 'none':
             return self._k_min
@@ -451,9 +463,21 @@ class SparseSolverBase(ModelOperators):
 
     def _estimate_threshold_MOM(self, data_minus_HFS, data_minus_HG=None):
         """
-        follows a mean-of-maximum strategy (MOM) to estimate thresholds for blind source separation with two components,
-        typically in a problem solved through moprhological component analysis (see Bobin et al. 2007)
+        Follows a mean-of-maximum strategy (MOM) to estimate thresholds for blind source separation with two components,
+        typically in a problem solved through moprhological component analysis (see Bobin et al. 2007).
         Note that we compute the MOM in image plane, even for the source component.
+        
+        Parameters
+        ----------
+        data_minus_HFS : array_like
+            2D array of the imaging data with lensed convolved source subtracted.
+        data_minus_HG : array_like, optional
+            2D array of the imaging data with convolved lens light subtracted.
+        
+        Returns
+        -------
+        float
+            Estimated threshold in the sense of the MOM.
         """
         if self._threshold_decrease_type == 'none':
             return self._k_min
@@ -478,11 +502,29 @@ class SparseSolverBase(ModelOperators):
         # return maxs.min() - 0.01 * ( maxs.max() - maxs.min() )  # MuSCADeT version
         # return np.mean(maxs)                                    # original mean-of-max from Bobin et al. 2007
 
-    def _threshold_at_iter(self, i, k_init, n_iter):
-        n_iter_fix = 5  # number of iterations with threshold at its minimum value
+    def _threshold_at_iter(self, i, k_init, n_iter, n_iter_fix=5):
+        """Computes a exponentially decreasing value, for a given loop index, starting at a specified value.
+    
+        Parameters
+        ----------
+        i : int
+            Iteration count, from 0 to n_iter - 1.
+        k_init : float
+            Threshold value at iteration 0.
+        n_iter : int
+            Total number of iterations.
+        n_iter_fix : int, optional.
+            Number of iteration for which the threshold equals its minimum set vaélue `self._k_min`.
+            Defaults to 5.
+        
+        Returns
+        -------
+        float
+            Decreases threshold at iteration `i`.
+        """
         if self._threshold_decrease_type == 'none':
             return self._k_min
         elif self._threshold_decrease_type in ['lin', 'linear']:
-            return util.threshold_linear_decrease(i, k_init, self._k_min, n_iter, n_iter_fix)
+            return util.linear_decrease_at_iter(i, k_init, self._k_min, n_iter, n_iter_fix)
         elif self._threshold_decrease_type in ['exp', 'exponential']:
-            return util.threshold_exponential_decrease(i, k_init, self._k_min, n_iter, n_iter_fix)
+            return util.exponential_decrease_at_iter(i, k_init, self._k_min, n_iter, n_iter_fix)

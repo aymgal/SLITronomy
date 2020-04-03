@@ -266,7 +266,7 @@ def linear_decrease_at_iter(iter_count, init_value, min_value, num_iter, num_ite
     num_iter : int
         Total number of iterations.
     num_iter_at_min_value : int
-        Number of iteration for which the returned value equals must equal to min_value.
+        Number of iteration for which the returned value equals `min_value`.
     
     Returns
     -------
@@ -300,7 +300,7 @@ def exponential_decrease_at_iter(iter_count, init_value, min_value, num_iter, nu
     num_iter : int
         Total number of iterations.
     num_iter_at_min_value : int
-        Number of iteration for which the returned value equals must equal to min_value.
+        Number of iteration for which the returned value equals `min_value`.
     
     Returns
     -------
