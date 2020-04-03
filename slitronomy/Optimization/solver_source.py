@@ -160,7 +160,7 @@ class SparseSolverSource(SparseSolverBase):
         """
         n_scales = self._n_scales_source
         level_const = threshold * np.ones(n_scales)
-        level_const[0] += + self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
+        level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
         level_pixels = weights * self.noise.levels_source
 
         alpha_S = self.Phi_T_s(S)
