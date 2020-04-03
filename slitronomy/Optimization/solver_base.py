@@ -250,7 +250,7 @@ class SparseSolverBase(ModelOperators):
         lambda_WS = np.zeros_like(WS)
         lambda_WS[0, :, :]  = (self._k_min + self._increm_high_freq) * WS[0, :, :]
         lambda_WS[1:, :, :] = self._k_min * WS[1:, :, :]
-        lambda_WS_alpha_S = lambda_WS * self.Phi_T_s(S)
+        lambda_WS_alpha_S = self.M_s(lambda_WS * self.Phi_T_s(S))
         return np.linalg.norm(lambda_WS_alpha_S.flatten(), ord=self._sparsity_prior_norm)
 
     def reg_lens(self, HG):
@@ -260,7 +260,7 @@ class SparseSolverBase(ModelOperators):
         lambda_WHG = np.zeros_like(WHG)
         lambda_WHG[0, :, :]  = (self._k_min + self._increm_high_freq) * WHG[0, :, :]
         lambda_WHG[1:, :, :] = self._k_min * WHG[1:, :, :]
-        lambda_WHG_alpha_HG = lambda_WHG * self.Phi_T_l(HG)
+        lambda_WHG_alpha_HG = self.M(lambda_WHG * self.Phi_T_l(HG))
         return np.linalg.norm(lambda_WHG_alpha_HG.flatten(), ord=self._sparsity_prior_norm)
 
     def reduced_residuals(self, S=None, HG=None, P=None):
