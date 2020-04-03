@@ -88,8 +88,12 @@ class SparseSolverSourceLens(SparseSolverSource):
                 DS = self.Y - self.H(self.F(S))
                 DG = self.Y - HG
                 thresh_MOM  = self._estimate_threshold_MOM(DS, DG)
-                thresh_iter = self._threshold_at_iter(i_l, thresh_init, self._n_iter_source)
-                thresh = min(thresh_iter, thresh_MOM)
+                thresh_iter = self._threshold_at_iter(i_l, thresh_init, self._n_iter_lens)
+                if thresh_MOM < thresh_iter:
+                    thresh = thresh_MOM
+                    #TODO: update the linear decrease as well!
+                else:
+                    thresh = thresh_iter
 
                 # get the proximal operator with current weights
                 prox_g_s = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights_source)
