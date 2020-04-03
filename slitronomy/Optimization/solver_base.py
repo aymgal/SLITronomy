@@ -268,13 +268,14 @@ class SparseSolverBase(ModelOperators):
         model = self.model_analysis(S=S, HG=HG, P=P)
         error = self.Y_eff - model
         if hasattr(self, '_ps_error'):
-            sigma = self.noise.noise_map + self._ps_error
+            sigma = self.noise.effective_noise_map + self._ps_error
         else:
-            sigma = self.noise.noise_map
+            sigma = self.noise.effective_noise_map
         return self.M(error / sigma)
 
     def reduced_chi2(self, S=None, HG=None, P=None):
-        chi2 = np.sum(self.reduced_residuals(S=S, HG=HG, P=P)**2)
+        red_res = self.reduced_residuals(S=S, HG=HG, P=P)
+        chi2 = np.sum(red_res**2)
         return chi2 / self.num_data_points
 
     @staticmethod

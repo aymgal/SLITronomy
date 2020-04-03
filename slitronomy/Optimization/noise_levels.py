@@ -37,8 +37,12 @@ class NoiseLevels(object):
 
     @property
     def noise_map(self):
+        return self._noise_map_data
+
+    @property
+    def effective_noise_map(self):
         if not self.include_regridding_error:
-            return self._noise_map_data
+            return self.noise_map
         if not hasattr(self, '_noise_map_with_regrid'):
             raise ValueError("Regridding error map has not be updated with magnification map")
         return self._noise_map_with_regrid
