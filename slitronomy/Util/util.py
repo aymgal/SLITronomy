@@ -278,10 +278,11 @@ def linear_decrease_at_iter(iter_count, init_value, min_value, num_iter, num_ite
     ValueError
         If num_iter - num_iter_at_min_value < 1, cannot compute the value.
     """
-    n_iter_eff = num_iter - num_iter_at_min_value
-    if n_iter_eff < 1:
+    num_iter_eff = num_iter - num_iter_at_min_value
+    print(num_iter, num_iter_at_min_value)
+    if num_iter_eff < 1:
         raise ValueError("Too low number of iterations ({}) to decrease threshold".format(num_iter))
-    delta_k = (min_value - init_value) / n_iter_eff
+    delta_k = (min_value - init_value) / num_iter_eff
     new_value = init_value + iter_count * delta_k
     return max(new_value, min_value)
 
@@ -312,10 +313,10 @@ def exponential_decrease_at_iter(iter_count, init_value, min_value, num_iter, nu
     ValueError
         If num_iter - num_iter_at_min_value < 1, cannot compute the value.
     """
-    n_iter_eff = num_iter - num_iter_at_min_value
-    if n_iter_eff < 1:
+    num_iter_eff = num_iter - num_iter_at_min_value
+    if num_iter_eff < 1:
         raise ValueError("Too low number of iterations ({}) to decrease threshold".format(num_iter))
-    k_log = np.log(min_value / init_value) / n_iter_eff
+    k_log = np.log(min_value / init_value) / num_iter_eff
     new_value = init_value * np.exp(iter_count * k_log)
     return max(new_value, min_value)
 

@@ -89,8 +89,8 @@ class TestSparseSolverSource(object):
         psf = PSF(**kwargs_psf)
         numerics = NumericsSubFrame(pixel_grid=data, psf=psf)
 
-        self.num_iter_source = 30
-        self.num_iter_lens = 5
+        self.num_iter_source = 20
+        self.num_iter_lens = 10
         self.num_iter_weights = 2
 
         # init the solver
