@@ -251,14 +251,13 @@ def generate_initial_guess_simple(num_pix, transform, background_rms):
     alpha_X = transform(X)
     return X, alpha_X
 
-
-def linear_decrease_at_iter(iter_count, init_value, min_value, num_iter, num_iter_at_min_value):
+def linear_decrease(curr_value, init_value, min_value, num_iter, num_iter_at_min_value):
     """Computes a linearly decreasing value, for a given loop index, starting at a specified value.
     
     Parameters
     ----------
-    iter_count : int
-        Iteration count, from 0 to num_iter - 1.
+    curr_value : float
+        Current value to be updated
     init_value : float
         Value at iteration 0.
     min_value : float
@@ -279,21 +278,20 @@ def linear_decrease_at_iter(iter_count, init_value, min_value, num_iter, num_ite
         If num_iter - num_iter_at_min_value < 1, cannot compute the value.
     """
     num_iter_eff = num_iter - num_iter_at_min_value
-    print(num_iter, num_iter_at_min_value)
     if num_iter_eff < 1:
         raise ValueError("Too low number of iterations ({}) to decrease threshold".format(num_iter))
     delta_k = (min_value - init_value) / num_iter_eff
-    new_value = init_value + iter_count * delta_k
+    new_value = curr_value + delta_k
     return max(new_value, min_value)
 
 
-def exponential_decrease_at_iter(iter_count, init_value, min_value, num_iter, num_iter_at_min_value):
+def exponential_decrease(curr_value, init_value, min_value, num_iter, num_iter_at_min_value):
     """Computes a exponentially decreasing value, for a given loop index, starting at a specified value.
     
     Parameters
     ----------
-    iter_count : int
-        Iteration count, from 0 to num_iter - 1.
+    curr_value : float
+        Current value to be updated
     init_value : float
         Value at iteration 0.
     min_value : float
@@ -316,8 +314,8 @@ def exponential_decrease_at_iter(iter_count, init_value, min_value, num_iter, nu
     num_iter_eff = num_iter - num_iter_at_min_value
     if num_iter_eff < 1:
         raise ValueError("Too low number of iterations ({}) to decrease threshold".format(num_iter))
-    k_log = np.log(min_value / init_value) / num_iter_eff
-    new_value = init_value * np.exp(iter_count * k_log)
+    exp_factor = np.exp(np.log(min_value/init_value) / num_iter_eff)
+    new_value = curr_value * exp_factor
     return max(new_value, min_value)
 
 

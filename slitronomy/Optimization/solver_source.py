@@ -27,7 +27,10 @@ class SparseSolverSource(SparseSolverBase):
         :param num_iter_lens: number of iterations for sparse optimization of the lens light. 
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
         :param base_kwargs: keyword arguments for SparseSolverBase.
+        If not set, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
         """
+        if base_kwargs.get('threshold_decrease_type', None) is None:
+            threshold_decrease_type = 'exponential'
         super(SparseSolverSource, self).__init__(data_class, lens_model_class, numerics_class, 
                                                  likelihood_mask=likelihood_mask, **base_kwargs)
         self.add_source_light(source_model_class)
@@ -69,6 +72,7 @@ class SparseSolverSource(SparseSolverBase):
 
             # estimate initial threshold
             thresh_init = self._estimate_threshold_source(self.Y)
+            thresh = thresh_init
 
             # initial hidden variables
             if j == 0 and self.algorithm == 'FISTA':
@@ -77,8 +81,6 @@ class SparseSolverSource(SparseSolverBase):
 
             ######### Loop over iterations at fixed weights ########
             for i in range(self._n_iter_source):
-                # get adaptive threshold
-                thresh = self._threshold_at_iter(i, thresh_init, self._n_iter_source)
 
                 # get the proximal operator with current weights, convention is that it takes 2 arguments
                 prox_g = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights)
@@ -104,6 +106,9 @@ class SparseSolverSource(SparseSolverBase):
                 alpha_S = alpha_S_next
                 if self.algorithm == 'FISTA':
                     fista_xi, fista_t = fista_xi_next, fista_t_next
+
+                # update adaptive threshold
+                thresh = self._update_threshold(thresh, thresh_init, self._n_iter_source)
 
             # update weights if necessary
             if self._n_iter_weights > 1:

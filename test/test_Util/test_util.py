@@ -188,27 +188,27 @@ def test_linear_decrease_at_iter():
     iterations = np.arange(0, n_iter)
     thresh_init = 1000
     thresh_min = 5
-    k_i = None
+    thresh_i = thresh_init
     thresholds = []
     for i in iterations:
-        k_i = util.linear_decrease_at_iter(i, thresh_init, thresh_min, n_iter, n_iter_min_value)
-        thresholds.append(k_i)
+        thresholds.append(thresh_i)
+        thresh_i = util.linear_decrease(thresh_i, thresh_init, thresh_min, n_iter, n_iter_min_value)
     thresholds = np.array(thresholds)
     assert thresholds[0] == thresh_init
     np.testing.assert_almost_equal(thresholds[-n_iter_min_value:], thresh_min*np.ones((n_iter_min_value,)), decimal=10)
 
 
-def test_exponential_decrease_at_iter():
+def test_exponential_decrease():
     n_iter_min_value = 10
     n_iter = 30
     iterations = np.arange(0, n_iter)
     thresh_init = 1000
     thresh_min = 5
-    k_i = None
+    thresh_i = thresh_init
     thresholds = []
     for i in iterations:
-        k_i = util.exponential_decrease_at_iter(i, thresh_init, thresh_min, n_iter, n_iter_min_value)
-        thresholds.append(k_i)
+        thresholds.append(thresh_i)
+        thresh_i = util.exponential_decrease(thresh_i, thresh_init, thresh_min, n_iter, n_iter_min_value)
     thresholds = np.array(thresholds)
     assert thresholds[0] == thresh_init
     np.testing.assert_almost_equal(thresholds[-n_iter_min_value:], thresh_min*np.ones((n_iter_min_value,)), decimal=10)

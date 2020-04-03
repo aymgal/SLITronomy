@@ -29,7 +29,10 @@ class SparseSolverSourcePS(SparseSolverSource):
         :param num_iter_ps: number of iterations for the point source linear inversion.
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
         :param base_kwargs: keyword arguments for SparseSolverBase.
+        If not set, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
         """
+        if base_kwargs.get('threshold_decrease_type', None) is None:
+            threshold_decrease_type = 'exponential'
         super(SparseSolverSourcePS, self).__init__(data_class, lens_model_class, numerics_class, source_model_class,
                                                    likelihood_mask=likelihood_mask, num_iter_source=num_iter_source, 
                                                    num_iter_weights=num_iter_weights, **base_kwargs)
@@ -81,6 +84,7 @@ class SparseSolverSourcePS(SparseSolverSource):
 
                 # estimate initial threshold after subtraction of point sources
                 thresh_init = self._estimate_threshold_source(self.Y_eff)
+                thresh = thresh_init
 
                 # initial hidden variables
                 if j == 0 and self.algorithm == 'FISTA':
@@ -88,8 +92,8 @@ class SparseSolverSourcePS(SparseSolverSource):
                     fista_t  = 1.
 
                 for i_s in range(self._n_iter_source):
-                    # get adaptive threshold
-                    thresh = self._threshold_at_iter(i_s, thresh_init, self._n_iter_source)
+                    # update adaptive threshold
+                    thresh = self._update_threshold(thresh, thresh_init, self._n_iter_source)
 
                     # get the proximal operator with current weights, convention is that it takes 2 arguments
                     prox_g = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights)

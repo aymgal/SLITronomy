@@ -503,13 +503,13 @@ class SparseSolverBase(ModelOperators):
         # return maxs.min() - 0.01 * ( maxs.max() - maxs.min() )  # MuSCADeT version
         # return np.mean(maxs)                                    # original mean-of-max from Bobin et al. 2007
 
-    def _threshold_at_iter(self, i, k_init, n_iter, n_iter_fix=5):
+    def _update_threshold(self, k, k_init, n_iter, n_iter_fix=5):
         """Computes a exponentially decreasing value, for a given loop index, starting at a specified value.
     
         Parameters
         ----------
-        i : int
-            Iteration count, from 0 to n_iter - 1.
+        k : float
+            Current threshold.
         k_init : float
             Threshold value at iteration 0.
         n_iter : int
@@ -521,11 +521,11 @@ class SparseSolverBase(ModelOperators):
         Returns
         -------
         float
-            Decreases threshold at iteration `i`.
+            Decreased threshold, corresponding to the type of decrease.
         """
         if self._threshold_decrease_type == 'none':
             return self._k_min
         elif self._threshold_decrease_type in ['lin', 'linear']:
-            return util.linear_decrease_at_iter(i, k_init, self._k_min, n_iter, n_iter_fix)
+            return util.linear_decrease(k, k_init, self._k_min, n_iter, n_iter_fix)
         elif self._threshold_decrease_type in ['exp', 'exponential']:
-            return util.exponential_decrease_at_iter(i, k_init, self._k_min, n_iter, n_iter_fix)
+            return util.exponential_decrease(k, k_init, self._k_min, n_iter, n_iter_fix)
