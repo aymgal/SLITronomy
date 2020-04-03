@@ -28,7 +28,10 @@ class SparseSolverSourceLens(SparseSolverSource):
         :param num_iter_lens: number of iterations for sparse optimization of the lens light. 
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
         :param base_kwargs: keyword arguments for SparseSolverBase.
+        If not set, 'threshold_decrease_type' in base_kwargs defaults to 'linear'.
         """
+        if base_kwargs.get('threshold_decrease_type', None) is None:
+            threshold_decrease_type = 'linear'
         super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, numerics_class, source_model_class,
                                                      likelihood_mask=likelihood_mask, num_iter_source=num_iter_source, 
                                                      num_iter_weights=num_iter_weights, **base_kwargs)
@@ -71,34 +74,22 @@ class SparseSolverSourceLens(SparseSolverSource):
             # estimate initial threshold
             model = self.Y_eff if j == 0 else self.model_analysis(S=S)
             thresh_init = self._estimate_threshold_MOM(self.Y)  # first estimation from data itself
+            thresh = thresh_init
+            # some hidden variables carried along the loop for threshold update
+            thresh_init_adapt, n_iter_adapt = thresh_init, self._n_iter_lens
 
             # initial hidden variables
             if j == 0 and self.algorithm == 'FISTA':
-                fista_xi_l = np.copy(alpha_HG)
-                fista_t_l  = 1.
-                fista_xi_s = np.copy(alpha_S)
-                fista_t_s  = 1.
-
+                fista_xi_l, fista_t_l = np.copy(alpha_HG), 1.
+                fista_xi_s, fista_t_s = np.copy(alpha_S), 1.
 
             ######### Loop over lens light at fixed weights ########
 
             for i_l in range(self._n_iter_lens):
 
-                # get adaptive threshold
-                DS = self.Y - self.H(self.F(S))
-                DG = self.Y - HG
-                thresh_MOM  = self._estimate_threshold_MOM(DS, DG)
-                thresh_iter = self._threshold_at_iter(i_l, thresh_init, self._n_iter_lens)
-                if thresh_MOM < thresh_iter:
-                    thresh = thresh_MOM
-                    #TODO: update the linear decrease as well!
-                else:
-                    thresh = thresh_iter
-
                 # get the proximal operator with current weights
                 prox_g_s = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights_source)
                 prox_g_l = lambda x, y: self.proximal_sparsity_lens(x, threshold=thresh, weights=weights_lens)
-
 
                 ######### Loop over source light at fixed weights ########
 
@@ -161,6 +152,19 @@ class SparseSolverSourceLens(SparseSolverSource):
                 alpha_HG = alpha_HG_next
                 if self.algorithm == 'FISTA':
                     fista_xi_l, fista_t_l = fista_xi_l_next, fista_t_l_next
+
+                # update adaptive threshold
+                DS = self.Y - self.H(self.F(S))  # image with lensed convolved source subtracted
+                DG = self.Y - HG                 # image with convolved lens subtracted
+                thresh_MOM = self._estimate_threshold_MOM(DS, DG)
+                thresh_dec = self._update_threshold(thresh, thresh_init_adapt, n_iter_adapt)
+                # choose the minimum between the MOM estimation and the 'classic' decreasing one
+                if thresh_MOM < thresh_dec:
+                    thresh = thresh_MOM
+                    # update hidden variables for next loop
+                    thresh_init_adapt, n_iter_adapt = thresh_MOM, self._n_iter_lens - i_l
+                else:
+                    thresh = thresh_dec
 
             ######### ######## end lens light ######## ########
 
