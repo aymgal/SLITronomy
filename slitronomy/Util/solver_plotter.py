@@ -38,8 +38,20 @@ class SolverPlotter(object):
     def plot_results(self, model_log_scale=False, res_vmin=-6, res_vmax=6, cmap_1=None, cmap_2=None):
         n_comp = self._solver.track['loss'].shape[0]
         names = self._solver.component_names
-        fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+        fig, axes = plt.subplots(2, 4, figsize=(22, 9))
         ax = axes[0, 0]
+        ax.set_title("imaging data")
+        data = self._solver.M(self._solver.Y)
+        if model_log_scale:
+            vmin = max(data.min(), 1e-3)
+            vmax = min(data.max(), 1e10)
+            data[data <= 0.] = 1e-10
+            im = ax.imshow(data, origin='lower', cmap=self._cmap_1, 
+                           norm=LogNorm(vmin=vmin, vmax=vmax))
+        else:
+            im = ax.imshow(data, origin='lower', cmap=self._cmap_1)
+        plot_util.nice_colorbar(im)
+        ax = axes[0, 1]
         ax.set_title("source model")
         src_model = self._solver.source_model
         print("Negative source pixels ? {} (min = {:.2e})".format(np.any(src_model < 0), src_model.min()))
@@ -55,7 +67,7 @@ class SolverPlotter(object):
             im = ax.imshow(src_model, origin='lower', cmap=cmap_1)
         # ax.imshow(self.lensingOperator.sourcePlane.reduction_mask, origin='lower', cmap='gray', alpha=0.1)
         plot_util.nice_colorbar(im)
-        ax = axes[0, 1]
+        ax = axes[0, 2]
         if not self._solver.no_lens_light:
             ax.set_title("lens light model")
             img_model = self._solver.lens_light_model
@@ -77,7 +89,7 @@ class SolverPlotter(object):
                 cmap_2 = self._cmap_2
             im = ax.imshow(img_model, origin='lower', cmap=cmap_2)
         plot_util.nice_colorbar(im)
-        ax = axes[0, 2]
+        ax = axes[0, 3]
         ax.set_title(r"(data - model)$/\sigma$")
         im = ax.imshow(self._solver.reduced_residuals_model, 
                        origin='lower', cmap=self._cmap_3, vmin=res_vmin, vmax=res_vmax)
@@ -95,16 +107,16 @@ class SolverPlotter(object):
                     label='loss({})'.format(names[i]))
         ax.set_xlabel("iterations")
         # ax.set_ylabel("loss")
-        ax.legend(loc=(0.7, 0.9))
-        ax2 = ax.twinx()
+        ax.legend(loc='upper right')
+        ax = axes[1, 1]
         for i in range(n_comp):
             data = self._solver.track['reg'][i, :]
             if np.all(np.isnan(data)): continue
-            ax2.plot(data, linestyle='none', marker='.', color=self._color_cycle[i+n_comp], 
+            ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i+n_comp], 
                      label='reg({})'.format(names[i]))
-        # ax2.set_ylabel("regularization")
-        ax2.legend(loc=(0.7, 0.7))
-        ax = axes[1, 1]
+        # ax.set_ylabel("regularization")
+        ax.legend(loc='upper right')
+        ax = axes[1, 2]
         ax.set_title("reduced chi2")
         for i in range(n_comp):
             data = self._solver.track['red_chi2'][i, :]
@@ -112,7 +124,7 @@ class SolverPlotter(object):
             ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i])
         ax.set_xlabel("iterations")
         ax.set_ylabel(r"$\chi^2_{\nu}$")
-        ax = axes[1, 2]
+        ax = axes[1, 3]
         ax.set_title("step-to-step difference")
         for i in range(n_comp):
             data = self._solver.track['step_diff'][i, :]

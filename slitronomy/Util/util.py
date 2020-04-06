@@ -173,6 +173,44 @@ def dirac_impulse(num_pix):
 def generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
                            formulation='analysis', guess_type='background_rms',
                            background_rms=None, noise_map=None, noise_map_synthesis=None):
+    """Generates a random image and its transform for sparse optimization initialisation.
+    This supports both analysis and synthesis types of initial guess.
+    
+    
+    Parameters
+    ----------
+    num_pix : int
+        Number of side pixels.
+    n_scales : int
+        Number of decomposition scales, consistent with the `transform` operator.
+    transform : callable
+        Operator (e.g. wavelet transform) for transformed random guess.
+    inverse_transform : callable
+        Inverse operator (e.g. wavelet inverse transform) for direct space random guess.
+    formulation : str, 'analysis'
+        'analysis' generates the random image in direct space, then transforms it.
+        'synthesis' generates the random coefficients in transformed space, then inverse transforms it for direct space image.
+    guess_type : str, 'background_rms'
+        'background_rms' uses the background noise RMS value for random image generate.
+        'noise_map' uses the whole noise (diagonal) covariance for random image generate.
+    background_rms : float, None
+        Background noise RMS value. Required if `guess_type` is 'background_rms'
+    noise_map : array_like, None
+        Noise map, diagonal noise covariance per pixel. Required if `guess_type` is 'noise_map' and `formulation` is 'analysis'.
+    noise_map_synthesis : array_like, None
+        Diagonal noise covariance per pixel, in transformed space. Required if `guess_type` is 'noise_map' and `formulation` is 'synthesis'.
+    
+    Returns
+    -------
+    array_like
+        Random image.
+    array_like
+        Transform of the above array, after call to the `transform` callable.
+    """
+    if formulation not in ['analysis', 'synthesis']:
+        raise ValueError("Formulation type '{}' not supported".format(formulation))
+    if guess_type not in ['null', 'background_rms', 'noise_map']:
+        raise ValueError("Initial guess type '{}' not supported".format(guess_type))
     if guess_type == 'null':
         X = np.zeros((num_pix, num_pix))
         alpha_X = np.zeros((n_scales, num_pix, num_pix))
@@ -189,11 +227,159 @@ def generate_initial_guess(num_pix, n_scales, transform, inverse_transform,
         elif formulation == 'synthesis':
             alpha_X = np.copy(noise_map_synthesis)
             X = inverse_transform(alpha_X)
-    else:
-        raise ValueError("Initial guess type '{}' not supported".format(guess_type))
     return X, alpha_X
 
+
 def generate_initial_guess_simple(num_pix, transform, background_rms):
+    """Generates a random image and its transform for sparse optimization initialisation.
+    
+    Parameters
+    ----------
+    num_pix : int
+        Number of side pixels.
+    transform : callable
+        Operator (e.g. wavelet transform) for transformed random image.
+    background_rms : float
+        Background noise RMS value.
+    
+    Returns
+    -------
+    array_like
+        Random image, normal distribution with std dev `background_rms`.
+    array_like
+        Transform of the above array, after call to the `transform` callable.
+    """
     X = background_rms * np.random.randn(num_pix, num_pix)
     alpha_X = transform(X)
     return X, alpha_X
+
+def linear_decrease(curr_value, init_value, min_value, num_iter, num_iter_at_min_value):
+    """Computes a linearly decreasing value, for a given loop index, starting at a specified value.
+    
+    Parameters
+    ----------
+    curr_value : float
+        Current value to be updated
+    init_value : float
+        Value at iteration 0.
+    min_value : float
+        Minimum value, reached at iteration num_iter - num_iter_at_min_value - 1.
+    num_iter : int
+        Total number of iterations.
+    num_iter_at_min_value : int
+        Number of iteration for which the returned value equals `min_value`.
+    
+    Returns
+    -------
+    float
+        Linearly decreased value.
+    
+    Raises
+    ------
+    ValueError
+        If num_iter - num_iter_at_min_value < 1, cannot compute the value.
+    """
+    num_iter_eff = num_iter - num_iter_at_min_value
+    if num_iter_eff < 1:
+        raise ValueError("Too low number of iterations ({}) to decrease threshold".format(num_iter))
+    delta_k = (min_value - init_value) / num_iter_eff
+    new_value = curr_value + delta_k
+    return max(new_value, min_value)
+
+
+def exponential_decrease(curr_value, init_value, min_value, num_iter, num_iter_at_min_value):
+    """Computes a exponentially decreasing value, for a given loop index, starting at a specified value.
+    
+    Parameters
+    ----------
+    curr_value : float
+        Current value to be updated
+    init_value : float
+        Value at iteration 0.
+    min_value : float
+        Minimum value, reached at iteration num_iter - num_iter_at_min_value - 1.
+    num_iter : int
+        Total number of iterations.
+    num_iter_at_min_value : int
+        Number of iteration for which the returned value equals `min_value`.
+    
+    Returns
+    -------
+    float
+        Exponentially decreased value.
+    
+    Raises
+    ------
+    ValueError
+        If num_iter - num_iter_at_min_value < 1, cannot compute the value.
+    """
+    num_iter_eff = num_iter - num_iter_at_min_value
+    if num_iter_eff < 1:
+        raise ValueError("Too low number of iterations ({}) to decrease threshold".format(num_iter))
+    exp_factor = np.exp(np.log(min_value/init_value) / num_iter_eff)
+    new_value = curr_value * exp_factor
+    return max(new_value, min_value)
+
+
+def regridding_error_map_squared(mag_map=None, data_image=None, image_pixel_scale=None, source_pixel_scale=None,
+                                 noise_map2_prefactor=None):
+    """Computes the regridding error map as defined in Suyu et al. 2009 (https://ui.adsabs.harvard.edu/abs/2009ApJ...691..277S/abstract)
+    The error is a 2D array corresponding to the noise variance sigma^2 per pixel.
+    
+    Parameters
+    ----------
+    mag_map : array_like, optional
+        Magnification map, as a 2D array.
+    data_image : array_like, optional
+        Imaging data, as a 2D array.
+    image_pixel_scale : float, optional
+        Pixel scale of image plane grid.
+    source_pixel_scale : None, optional
+        Pixel scale of source plane grid.
+    noise_map2_prefactor : None, optional
+        Prefactor pre-computed. If provided, this won't be computed again.
+        This is the second returned array of this function.
+    
+    Returns
+    -------
+    array_like
+        Full regridding error map.
+    array_like
+        Part of the map that is independent of the magnification, for speedup next call to the function.
+    """
+
+    if noise_map2_prefactor is None:
+        d = data_image
+        noise_map2_prefactor = 1/12. * (source_pixel_scale / image_pixel_scale)**2 * np.ones_like(d)
+        for i in range(d.shape[0]):
+            for j in range(d.shape[1]):
+                sum_adj, n_adj = 0, 0
+                try:
+                    sum_adj += (d[i, j] - d[i-1, j])**2
+                    n_adj += 1
+                except IndexError:
+                    pass
+                try:
+                    sum_adj += (d[i, j] - d[i+1, j])**2
+                    n_adj += 1
+                except IndexError:
+                    pass
+                try:
+                    sum_adj += (d[i, j] - d[i, j-1])**2
+                    n_adj += 1
+                except IndexError:
+                    pass
+                try:
+                    sum_adj += (d[i, j] - d[i, j+1])**2
+                    n_adj += 1
+                except IndexError:
+                    pass
+                noise_map2_prefactor[i, j] *= sum_adj / n_adj
+    if mag_map is None:
+        noise_map2 = None
+    else:
+        mu = np.abs(mag_map)
+        noise_map2 = noise_map2_prefactor * mu
+    return noise_map2, noise_map2_prefactor
+
+

@@ -49,7 +49,7 @@ setup(
     author_email='aymeric.galan@gmail.com',
     url='https://github.com/aymgal/SLITronomy',
     download_url='https://github.com/aymgal/slitronomy/archive/0.1.1.tar.gz.zip',
-    packages=find_packages(PACKAGE_PATH, "test"),
+    packages=find_packages(PACKAGE_PATH, exclude=['thirdparty', 'test']),
     package_dir={'slitronomy': 'slitronomy'},
     include_package_data=True,
     install_requires=requires,

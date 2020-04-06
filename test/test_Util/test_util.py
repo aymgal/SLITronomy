@@ -3,6 +3,7 @@ __author__ = 'aymgal'
 from slitronomy.Util import util
 
 from lenstronomy.LightModel.Profiles.starlets import Starlets
+from lenstronomy.LensModel.lens_model import LensModel
 
 import numpy as np
 import numpy.testing as npt
@@ -182,6 +183,76 @@ def test_generate_initial_guess_simple():
     assert guess_transf_space.shape == (n_scales, num_pix, num_pix)
 
 
+def test_linear_decrease_at_iter():
+    n_iter_min_value = 10
+    n_iter = 30
+    iterations = np.arange(0, n_iter)
+    thresh_init = 1000
+    thresh_min = 5
+    thresh_i = thresh_init
+    thresholds = []
+    for i in iterations:
+        thresholds.append(thresh_i)
+        thresh_i = util.linear_decrease(thresh_i, thresh_init, thresh_min, n_iter, n_iter_min_value)
+    thresholds = np.array(thresholds)
+    assert thresholds[0] == thresh_init
+    np.testing.assert_almost_equal(thresholds[-n_iter_min_value:], thresh_min*np.ones((n_iter_min_value,)), decimal=10)
+
+
+def test_exponential_decrease():
+    n_iter_min_value = 10
+    n_iter = 30
+    iterations = np.arange(0, n_iter)
+    thresh_init = 1000
+    thresh_min = 5
+    thresh_i = thresh_init
+    thresholds = []
+    for i in iterations:
+        thresholds.append(thresh_i)
+        thresh_i = util.exponential_decrease(thresh_i, thresh_init, thresh_min, n_iter, n_iter_min_value)
+    thresholds = np.array(thresholds)
+    assert thresholds[0] == thresh_init
+    np.testing.assert_almost_equal(thresholds[-n_iter_min_value:], thresh_min*np.ones((n_iter_min_value,)), decimal=10)
+
+
+def test_regridding_error_map_squared():
+    num_pix, delta_pix = 99, 0.08  # cutout pixel size
+    subgrid_res_source = 1
+    delta_pix_source = delta_pix / subgrid_res_source
+
+    delta_pix = 0.24
+    ra_grid, dec_grid = util.make_grid(numPix=num_pix, deltapix=delta_pix)
+
+    lens_model = LensModel(['SPEP'])
+    kwargs_lens = [{'theta_E': 2, 'gamma': 2, 'center_x': 0, 'center_y': 0.1, 'e1': -0.05, 'e2': 0.05}]
+    magnification_map = lens_model.magnification(ra_grid, dec_grid, kwargs_lens)
+    magnification_map = util.array2image(magnification_map)
+    
+    data_image = np.random.rand(num_pix, num_pix)
+
+    # when no prefactor nor mag map is passed
+    noise_map2_1, noise_map2_prefactor_1 \
+        = util.regridding_error_map_squared(data_image=data_image, 
+                                            image_pixel_scale=delta_pix, source_pixel_scale=delta_pix_source)
+    assert noise_map2_1 is None
+
+    # when only mag map is passed
+    noise_map2_2, noise_map2_prefactor_2 \
+        = util.regridding_error_map_squared(mag_map=magnification_map, data_image=data_image, 
+                                            image_pixel_scale=delta_pix, source_pixel_scale=delta_pix_source,
+                                            noise_map2_prefactor=None)
+    assert noise_map2_2 is not None
+    npt.assert_equal(noise_map2_prefactor_1, noise_map2_prefactor_2)
+
+    # when only prefactor map is passed
+    noise_map2_3, noise_map2_prefactor_3 \
+        = util.regridding_error_map_squared(mag_map=magnification_map, noise_map2_prefactor=noise_map2_prefactor_2)
+    assert noise_map2_3 is not None
+    assert noise_map2_3.shape == (num_pix, num_pix)
+    npt.assert_equal(noise_map2_prefactor_2, noise_map2_prefactor_3)
+    npt.assert_equal(noise_map2_3, np.abs(magnification_map) * noise_map2_prefactor_2)
+
+
 class TestRaise(unittest.TestCase):
     def test_raise(self):
         with self.assertRaises(ValueError):
@@ -196,6 +267,23 @@ class TestRaise(unittest.TestCase):
         with self.assertRaises(ValueError):
             array = np.ones((2, 2))
             util.array2cube(array, 2, 2)
+        with self.assertRaises(ValueError):
+            util.linear_decrease(100, 200, 5, 4, 5)
+        with self.assertRaises(ValueError):
+            util.exponential_decrease(100, 200, 5, 4, 5)
+        with self.assertRaises(ValueError):
+            transform = lambda: x
+            inverse_transform = lambda: x
+            util.generate_initial_guess(99, 4, transform, inverse_transform, 
+                           formulation='synthesis', guess_type='background_rms', background_rms=0.05)
+        with self.assertRaises(ValueError):
+            transform = lambda: x
+            inverse_transform = lambda: x
+            util.generate_initial_guess(99, 4, transform, inverse_transform, guess_type='something')
+        with self.assertRaises(ValueError):
+            transform = lambda: x
+            inverse_transform = lambda: x
+            util.generate_initial_guess(99, 4, transform, inverse_transform, formulation='something')
 
 
 if __name__ == '__main__':

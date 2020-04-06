@@ -126,12 +126,6 @@ class TestSparseSolverBase(object):
         self.solver.reset_data()
         npt.assert_equal(self.solver.Y, self.solver.Y_eff)
 
-    # def test_noise_levels(self):
-    #     self.solver.lensingOperator.update_mapping(self.kwargs_lens)
-    #     self.solver.set_wavelet_scales(self.n_scales_source, self.n_scales_lens)
-    #     assert self.solver.noise_levels_image_plane.shape == (self.n_scales_lens, self.num_pix, self.num_pix)
-    #     assert self.solver.noise_levels_source_plane.shape == (self.n_scales_source, self.min_num_pix_source, self.min_num_pix_source)
-
 
 class TestRaise(unittest.TestCase):
 
