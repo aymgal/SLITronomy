@@ -241,27 +241,23 @@ class SparseSolverBase(ModelOperators):
 
     def regularization(self, S=None, HG=None, P=None):
         """ returns p = lambda * || W_S ø alpha_S ||_0,1 + lambda * || W_HG ø alpha_HG ||_0,1 """
-        return self.reg_source(S) + self.reg_lens(HG)
+        if S is not None:
+            reg_S = self._regularization(S, self.Phi_T_s, self.M_s, self.noise.levels_source)
+        else:
+            reg_S = 0
+        if HG is not None:
+            reg_HG = self._regularization(HG, self.Phi_T_l, self.M, self.noise.levels_image)
+        else:
+            reg_HG = 0
+        return reg_S + reg_HG
 
-    def reg_source(self, S):
-        if S is None:
-            return 0
-        WS = self.noise.levels_source
-        lambda_WS = np.zeros_like(WS)
-        lambda_WS[0, :, :]  = (self._k_min + self._increm_high_freq) * WS[0, :, :]
-        lambda_WS[1:, :, :] = self._k_min * WS[1:, :, :]
-        lambda_WS_alpha_S = self.M_s(lambda_WS * self.Phi_T_s(S))
-        return np.linalg.norm(lambda_WS_alpha_S.flatten(), ord=self._sparsity_prior_norm)
-
-    def reg_lens(self, HG):
-        if HG is None:
-            return 0
-        WHG = self.noise.levels_image
-        lambda_WHG = np.zeros_like(WHG)
-        lambda_WHG[0, :, :]  = (self._k_min + self._increm_high_freq) * WHG[0, :, :]
-        lambda_WHG[1:, :, :] = self._k_min * WHG[1:, :, :]
-        lambda_WHG_alpha_HG = self.M(lambda_WHG * self.Phi_T_l(HG))
-        return np.linalg.norm(lambda_WHG_alpha_HG.flatten(), ord=self._sparsity_prior_norm)
+    def _regularization(self, image, transform, mask_func, noise_levels):
+        lambda_ = np.copy(noise_levels)
+        lambda_[0, :, :]  *= (self._k_min + self._increm_high_freq)
+        lambda_[1:, :, :] *= self._k_min
+        alpha_image = mask_func(transform(image))
+        norm_alpha = np.linalg.norm(alpha_image.flatten(), ord=self._sparsity_prior_norm)
+        return lambda_ * norm_alpha
 
     def reduced_residuals(self, S=None, HG=None, P=None):
         """ returns ( Y - HFS - HG - P ) / sigma """
