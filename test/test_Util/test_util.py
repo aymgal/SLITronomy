@@ -267,6 +267,23 @@ class TestRaise(unittest.TestCase):
         with self.assertRaises(ValueError):
             array = np.ones((2, 2))
             util.array2cube(array, 2, 2)
+        with self.assertRaises(ValueError):
+            util.linear_decrease(100, 200, 5, 4, 5)
+        with self.assertRaises(ValueError):
+            util.exponential_decrease(100, 200, 5, 4, 5)
+        with self.assertRaises(ValueError):
+            transform = lambda: x
+            inverse_transform = lambda: x
+            util.generate_initial_guess(99, 4, transform, inverse_transform, 
+                           formulation='synthesis', guess_type='background_rms', background_rms=0.05)
+        with self.assertRaises(ValueError):
+            transform = lambda: x
+            inverse_transform = lambda: x
+            util.generate_initial_guess(99, 4, transform, inverse_transform, guess_type='something')
+        with self.assertRaises(ValueError):
+            transform = lambda: x
+            inverse_transform = lambda: x
+            util.generate_initial_guess(99, 4, transform, inverse_transform, formulation='something')
 
 
 if __name__ == '__main__':

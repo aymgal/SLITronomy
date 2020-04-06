@@ -40,12 +40,17 @@ class NoiseLevels(object):
         return self._noise_map_data
 
     @property
-    def effective_noise_map(self):
+    def regridding_error_map(self):
         if not self.include_regridding_error:
-            return self.noise_map
-        if not hasattr(self, '_noise_map_with_regrid'):
+            return np.zeros_like(self.noise_map)
+        if not hasattr(self, '_regridding_error_map'):
             raise ValueError("Regridding error map has not be updated with magnification map")
-        return self._noise_map_with_regrid
+        return self._regridding_error_map
+
+    @property
+    def effective_noise_map(self):
+        """Add quadratically the regridding error map, if any"""
+        return np.sqrt(self.noise_map**2 + self.regridding_error_map**2)
 
     @property
     def levels_source(self):
@@ -116,4 +121,4 @@ class NoiseLevels(object):
         if not self.include_regridding_error:
             return  # do nothing
         regrid_error_map2, _ = util.regridding_error_map_squared(mag_map=magnification_map, noise_map2_prefactor=self._regrid_error_prefac)
-        self._noise_map_with_regrid = np.sqrt(self._noise_map_data**2 + regrid_error_map2)
+        self._regridding_error_map = np.sqrt(regrid_error_map2)

@@ -207,6 +207,10 @@ def generate_initial_guess(num_pix, n_scales, transform, inverse_transform,
     array_like
         Transform of the above array, after call to the `transform` callable.
     """
+    if formulation not in ['analysis', 'synthesis']:
+        raise ValueError("Formulation type '{}' not supported".format(formulation))
+    if guess_type not in ['null', 'background_rms', 'noise_map']:
+        raise ValueError("Initial guess type '{}' not supported".format(guess_type))
     if guess_type == 'null':
         X = np.zeros((num_pix, num_pix))
         alpha_X = np.zeros((n_scales, num_pix, num_pix))
@@ -223,8 +227,6 @@ def generate_initial_guess(num_pix, n_scales, transform, inverse_transform,
         elif formulation == 'synthesis':
             alpha_X = np.copy(noise_map_synthesis)
             X = inverse_transform(alpha_X)
-    else:
-        raise ValueError("Initial guess type '{}' not supported".format(guess_type))
     return X, alpha_X
 
 
