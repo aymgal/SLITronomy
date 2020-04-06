@@ -3,6 +3,7 @@ __author__ = 'aymgal'
 from slitronomy.Util import util
 
 from lenstronomy.LightModel.Profiles.starlets import Starlets
+from lenstronomy.LensModel.lens_model import LensModel
 
 import numpy as np
 import numpy.testing as npt
@@ -213,6 +214,43 @@ def test_exponential_decrease():
     assert thresholds[0] == thresh_init
     np.testing.assert_almost_equal(thresholds[-n_iter_min_value:], thresh_min*np.ones((n_iter_min_value,)), decimal=10)
 
+
+def test_regridding_error_map_squared():
+    num_pix, delta_pix = 99, 0.08  # cutout pixel size
+    subgrid_res_source = 1
+    delta_pix_source = delta_pix / subgrid_res_source
+
+    delta_pix = 0.24
+    ra_grid, dec_grid = util.make_grid(numPix=num_pix, deltapix=delta_pix)
+
+    lens_model = LensModel(['SPEP'])
+    kwargs_lens = [{'theta_E': 2, 'gamma': 2, 'center_x': 0, 'center_y': 0.1, 'e1': -0.05, 'e2': 0.05}]
+    magnification_map = lens_model.magnification(ra_grid, dec_grid, kwargs_lens)
+    magnification_map = util.array2image(magnification_map)
+    
+    data_image = np.random.rand(num_pix, num_pix)
+
+    # when no prefactor nor mag map is passed
+    noise_map2_1, noise_map2_prefactor_1 \
+        = util.regridding_error_map_squared(data_image=data_image, 
+                                            image_pixel_scale=delta_pix, source_pixel_scale=delta_pix_source)
+    assert noise_map2_1 is None
+
+    # when only mag map is passed
+    noise_map2_2, noise_map2_prefactor_2 \
+        = util.regridding_error_map_squared(mag_map=magnification_map, data_image=data_image, 
+                                            image_pixel_scale=delta_pix, source_pixel_scale=delta_pix_source,
+                                            noise_map2_prefactor=None)
+    assert noise_map2_2 is not None
+    npt.assert_equal(noise_map2_prefactor_1, noise_map2_prefactor_2)
+
+    # when only prefactor map is passed
+    noise_map2_3, noise_map2_prefactor_3 \
+        = util.regridding_error_map_squared(mag_map=magnification_map, noise_map2_prefactor=noise_map2_prefactor_2)
+    assert noise_map2_3 is not None
+    assert noise_map2_3.shape == (num_pix, num_pix)
+    npt.assert_equal(noise_map2_prefactor_2, noise_map2_prefactor_3)
+    npt.assert_equal(noise_map2_3, np.abs(magnification_map) * noise_map2_prefactor_2)
 
 
 class TestRaise(unittest.TestCase):
