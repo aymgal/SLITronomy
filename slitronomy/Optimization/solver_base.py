@@ -256,8 +256,8 @@ class SparseSolverBase(ModelOperators):
         lambda_[0, :, :]  *= (self._k_min + self._increm_high_freq)
         lambda_[1:, :, :] *= self._k_min
         alpha_image = mask_func(transform(image))
-        norm_alpha = np.linalg.norm(alpha_image.flatten(), ord=self._sparsity_prior_norm)
-        return lambda_ * norm_alpha
+        norm_alpha = np.linalg.norm((lambda_ * alpha_image).flatten(), ord=self._sparsity_prior_norm)
+        return norm_alpha
 
     def reduced_residuals(self, S=None, HG=None, P=None):
         """ returns ( Y - HFS - HG - P ) / sigma """
