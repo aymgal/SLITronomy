@@ -31,11 +31,11 @@ class PlaneGrid(object):
 
     @property
     def grid_size(self):
-        return self._num_pix**2
+        return self.num_pix**2
 
     @property
     def grid_shape(self):
-        return (self._num_pix, self._num_pix)
+        return (self.num_pix, self.num_pix)
 
     @property
     def delta_pix(self):
@@ -89,13 +89,34 @@ class SizeablePlaneGrid(PlaneGrid):
         super(SizeablePlaneGrid, self).__init__(num_pix, grid_class)
         self._num_pix *= subgrid_res  # update number of side pixels
         self._subgrid_res = subgrid_res
-        self._first_print = True  # for printing messages only once
         self._verbose = verbose
-        self._shrinked = False
+        self._resized = False
+
+    def switch_resize(self, switch_bool):
+        self._resized = switch_bool
 
     @property
-    def shrinked(self):
-        return self._shrinked
+    def state(self):
+        return 'resized' if self._resized else 'original'
+
+    @property
+    def num_pix(self):
+        if self.state == 'resized':
+            return self._num_pix_resized
+        return super().num_pix
+
+    @property
+    def theta_x(self):
+        if self.state == 'resized' and hasattr(self, '_x_grid_1d_resized'):
+            return self._x_grid_1d_resized
+        return super().theta_x
+
+    @property
+    def theta_y(self):
+        if self.state == 'resized' and hasattr(self, '_y_grid_1d_resized'):
+            return self._y_grid_1d_resized
+        else:
+            return super().theta_y
 
     @property
     def effective_mask(self):
@@ -104,16 +125,11 @@ class SizeablePlaneGrid(PlaneGrid):
         that has corresponding pixels in image plane
         """
         if not hasattr(self, '_effective_mask'):
-            print("Warning : lensed unit image in source plane has not been set, effective mask filled with 1s")
-            self._effective_mask = np.ones(self.grid_shape)
-        return self._effective_mask.astype(float)
-
-    @property
-    def reduction_mask(self):
-        if not hasattr(self, '_reduc_mask_1d'):
-            print("Warning : no reduction mask has been computed for grid shrinking")
-            self._reduc_mask_1d = np.ones(self.grid_size, dtype=bool)
-        return util.array2image(self._reduc_mask_1d.astype(float))
+            return np.ones(self.grid_shape)
+        elif self.state == 'resized' and hasattr(self, '_effective_mask_resized'):
+            return self._effective_mask_resized.astype(float)
+        else:
+            return self._effective_mask.astype(float)
 
     def add_delensed_masks(self, mapped_image, mapped_mask=None):
         """input mapped_image and mask must be non-boolean 2d arrays"""
@@ -126,47 +142,25 @@ class SizeablePlaneGrid(PlaneGrid):
         else:
             self._effective_mask = image_refined
 
-    def shrink_grid_to_mask(self, min_num_pix=None):
-        if min_num_pix is None:
-            # kind of arbitrary as a default
-            min_num_pix = int(self.num_pix / 10)
-        if (self.effective_mask is None) or (self.num_pix <= min_num_pix):
-            # if no mask to shrink to, or already shrunk, or already smaller than minimal allowed size
-            return
-        reduc_mask, reduced_num_pix = self.shrink_plane_iterative(self.effective_mask, min_num_pix=min_num_pix)
-        self._update_grid_after_shrink(reduc_mask, reduced_num_pix)
-        if self._first_print and self._verbose:
-            print("INFO : source grid has been reduced from {} to {} side pixels".format(self._num_pix_large, self._num_pix))
-            self._first_print = False
+    def compute_resized_grid(self, min_num_pix):
+        if hasattr(self, '_num_pix_resized') or (self.num_pix <= min_num_pix):
+            # if resizing already computed or already smaller than minimal allowed size
+            return  # do nothing
+        reduc_indices, reduced_num_pix = self.shrink_plane_iterative(self._effective_mask, min_num_pix=min_num_pix)
+        self._update_resized_properties(reduc_indices, reduced_num_pix)
 
     def project_on_original_grid(self, image):
-        if hasattr(self, '_num_pix_large'):
+        if hasattr(self, '_reduc_indices_1d'):
             input_is_1d = (len(image.shape) == 1)
-            array_large = np.zeros(self._num_pix_large**2)
+            array_large = np.zeros(self._num_pix**2)
             if input_is_1d:
-                array_large[self._reduc_mask_1d] = image[:]
+                array_large[self._reduc_indices_1d] = image[:]
                 return array_large
             else:
-                array_large[self._reduc_mask_1d] = util.image2array(image)[:]
+                array_large[self._reduc_indices_1d] = util.image2array(image)[:]
                 return util.array2image(array_large)
         else:
             return image
-
-    def reset_grid(self):
-        if self.shrinked:
-            self._num_pix = self._num_pix_large
-            self._x_grid_1d = self._x_grid_1d_large
-            self._y_grid_1d = self._y_grid_1d_large
-            self._effective_mask = self._effective_mask_large
-            delattr(self, '_num_pix_large')
-            delattr(self, '_x_grid_1d_large')
-            delattr(self, '_y_grid_1d_large')
-            delattr(self, '_effective_mask_large')
-            self._shrinked = False
-
-    @property
-    def subgrid_resolution(self):
-        return self._subgrid_res
 
     def _fill_mapping_holes(self, image):
         """
@@ -175,7 +169,7 @@ class SizeablePlaneGrid(PlaneGrid):
         The higher the subgrid resolution of the source, the highest the number of holes.
         Hence the 'strength' of the erosion is set to the subgrid resolution (or round up integer) of the source plane
         """
-        strength = int(np.ceil(self.subgrid_resolution))
+        strength = int(np.ceil(self._subgrid_res))
         # invert 0s and 1s
         image = 1 - image
         # apply morphological erosion operation
@@ -186,21 +180,22 @@ class SizeablePlaneGrid(PlaneGrid):
         image = morphology.binary_erosion(image, iterations=strength).astype(int)
         return image
 
-    def _update_grid_after_shrink(self, reduc_mask, reduced_num_pix):
-        self._reduc_mask_1d = util.image2array(reduc_mask).astype(bool)
+    def _update_resized_properties(self, reduc_indices, reduced_num_pix):
+        self._reduc_indices_1d = util.image2array(reduc_indices).astype(bool)
         # backup the original 'large' grid
-        self._num_pix_large = self._num_pix
-        self._x_grid_1d_large = np.copy(self._x_grid_1d)
-        self._y_grid_1d_large = np.copy(self._y_grid_1d)
-        self._effective_mask_large = np.copy(self.effective_mask)
+        # self._num_pix_large = self._num_pix
+        # self._x_grid_1d_large = np.copy(self._x_grid_1d)
+        # self._y_grid_1d_large = np.copy(self._y_grid_1d)
+        # self._effective_mask_large = np.copy(self.effective_mask)
         # update coordinates array
-        self._num_pix = reduced_num_pix
-        self._x_grid_1d = self._x_grid_1d[self._reduc_mask_1d]
-        self._y_grid_1d = self._y_grid_1d[self._reduc_mask_1d]
-        # don't know why, but can apply reduc_mask_1d only on 1D arrays
-        effective_mask_1d = util.image2array(self._effective_mask)
-        self._effective_mask = util.array2image(effective_mask_1d[self._reduc_mask_1d])
-        self._shrinked = True
+        self._num_pix_resized = reduced_num_pix
+        self._x_grid_1d_resized = np.copy(self._x_grid_1d[self._reduc_indices_1d])
+        self._y_grid_1d_resized = np.copy(self._y_grid_1d[self._reduc_indices_1d])
+        # can only apply reduc_indices_1d on 1D arrays, hence reshaping operations below
+        effective_mask_1d = np.copy(util.image2array(self._effective_mask))
+        self._effective_mask_resized = util.array2image(effective_mask_1d[self._reduc_indices_1d])
+        if self._verbose:
+            print("INFO : source grid has been reduced from {} to {} side pixels".format(self._num_pix, self._num_pix_resized))
 
     @staticmethod
     def shrink_plane_iterative(effective_mask, min_num_pix=10):
@@ -210,8 +205,8 @@ class SizeablePlaneGrid(PlaneGrid):
         num_pix_origin = len(effective_mask)
         num_pix = num_pix_origin  # start at original size
         n_rm = 1
-        test_mask = np.ones((num_pix, num_pix))
-        reduc_mask = test_mask
+        test_indices = np.ones((num_pix, num_pix))
+        reduc_indices = test_indices
         while num_pix > min_num_pix:
             # array full of zeros
             test_mask_next = np.zeros_like(effective_mask)
@@ -219,18 +214,18 @@ class SizeablePlaneGrid(PlaneGrid):
             test_mask_next[n_rm:-n_rm, n_rm:-n_rm] = 1
             # update number side length of the non-zero
             num_pix_next = num_pix_origin - 2 * n_rm
-            # test if all ones in test_mask are also ones in target mask
+            # test if all ones in test_indices are also ones in target mask
             intersection_mask = np.zeros_like(test_mask_next)
             intersection_mask[(test_mask_next == 1) & (effective_mask == 1)] = 1
             is_too_large_mask = np.all(intersection_mask == effective_mask)
             if is_too_large_mask:
                 # if the intersection is equal to the original array mask, this means that we can try a smaller mask
                 num_pix = num_pix_next
-                test_mask = test_mask_next
+                test_indices = test_mask_next
                 n_rm += 1
             else:
                 # if not, then the mask at previous iteration was the correct one
                 break
-        reduc_mask = test_mask
+        reduc_indices = test_indices
         red_num_pix = num_pix
-        return reduc_mask.astype(bool), red_num_pix
+        return reduc_indices.astype(bool), red_num_pix
