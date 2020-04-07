@@ -6,22 +6,24 @@ from scipy.ndimage import morphology
 from slitronomy.Util import util
 
 
-class AbstractPlaneGrid(object):
+class PlaneGrid(object):
 
     """
-    Base class for image and source plane grids
-
-    TODO : use the lenstronomy's PixelGrid class instead
+    Base class for image and source plane grids, designed for pixelated lensing operator.
     """
 
-    def __init__(self, data_class):
-        self.data = data_class
-        num_pix_x, num_pix_y = data_class.num_pixel_axes
-        if num_pix_x != num_pix_y:
-            raise ValueError("Only square images are supported")
-        self._num_pix = num_pix_x
-        self._delta_pix = data_class.pixel_width
-        self._shrinked = False
+    def __init__(self, num_pix, grid_class):
+        """Initialise the grid.
+        
+        Parameters
+        ----------
+        image_grid_class : [lenstronomy.ImSim.Numerics.grid].RegularGrid or .AdaptiveGrid
+            RegularGrid or .AdaptiveGrid instance
+        """
+        self._num_pix = num_pix
+        self._grid = grid_class
+        self._x_grid_1d, self._y_grid_1d = self._grid.coordinates_evaluate
+        self._delta_pix = self._grid.pixel_width
 
     @property
     def num_pix(self):
@@ -41,14 +43,10 @@ class AbstractPlaneGrid(object):
 
     @property
     def theta_x(self):
-        if not hasattr(self, '_x_grid_1d'):
-            raise ValueError("theta coordinates are not defined")
         return self._x_grid_1d
 
     @property
     def theta_y(self):
-        if not hasattr(self, '_y_grid_1d'):
-            raise ValueError("theta coordinates are not defined")
         return self._y_grid_1d
 
     @property
@@ -57,54 +55,47 @@ class AbstractPlaneGrid(object):
 
     def grid(self, two_dim=False):
         if two_dim:
-            return util.array2image(self._x_grid_1d), util.array2image(self._y_grid_1d)
-        return self._x_grid_1d, self._y_grid_1d
+            return util.array2image(self.theta_x), util.array2image(self.theta_y)
+        return self.theta_x, self.theta_y
 
     def grid_pixels(self, two_dim=False):
-        theta_x_pix, theta_y_pix = self.data.map_coord2pix(self.theta_x, self.theta_y)
+        theta_x_pix, theta_y_pix = self._grid.map_coord2pix(self.theta_x, self.theta_y)
         if two_dim:
             return util.array2image(theta_x_pix), util.array2image(theta_y_pix)
         return theta_x_pix, theta_y_pix
 
+
+class SizeablePlaneGrid(PlaneGrid):
+
+    """
+    Class that defines the typical grid on which source galaxy is projected,
+    whose size can be adapted with respect to image masks projected by a LensingOperator.
+    """
+
+    def __init__(self, num_pix, grid_class, subgrid_res=1, verbose=False):
+        """Initialise SizeablePlaneGrid instance. 
+        
+        Parameters
+        ----------
+        grid_class : [lenstronomy.ImSim.Numerics.grid].RegularGrid or .AdaptiveGrid
+            RegularGrid or .AdaptiveGrid instance
+        subgrid_res : int, optional
+            Source pixel size to image pixel size ratio
+        verbose : bool, optional
+            If False, print statements are shut down (e.g. when reducing iteratively grid size)
+        """
+        if not isinstance(subgrid_res, int):
+            raise TypeError("'subgrid_res' must be an integer")
+        super(SizeablePlaneGrid, self).__init__(num_pix, grid_class)
+        self._num_pix *= subgrid_res  # update number of side pixels
+        self._subgrid_res = subgrid_res
+        self._first_print = True  # for printing messages only once
+        self._verbose = verbose
+        self._shrinked = False
+
     @property
     def shrinked(self):
         return self._shrinked
-
-
-class ImagePlaneGrid(AbstractPlaneGrid):
-
-    """Class that defines the grid on which lens galaxy is projected"""
-
-    def __init__(self, data_class):
-        super(ImagePlaneGrid, self).__init__(data_class)
-        # get the coordinates arrays of image plane
-        x_grid, y_grid = data_class.pixel_coordinates
-        self._x_grid_1d = util.image2array(x_grid)
-        self._y_grid_1d = util.image2array(y_grid)
-
-
-class SourcePlaneGrid(AbstractPlaneGrid):
-
-    """Class that defines the grid on which source galaxy is projected"""
-
-    # TODO : use lenstronomy's util.make_subgrid(), it will automatically align the center of source plane
-
-    def __init__(self, data_class, subgrid_res=1, verbose=False):
-        super(SourcePlaneGrid, self).__init__(data_class)
-        self._subgrid_res = subgrid_res
-
-        # adapt grid size and resolution
-        self._num_pix *= int(subgrid_res)
-        self._delta_pix /= float(subgrid_res)
-
-        # get the coordinates arrays of source plane, with aligned origin
-        self._x_grid_1d, self._y_grid_1d = util.make_grid(numPix=self._num_pix, deltapix=self._delta_pix)
-
-        # WARNING : we assume that center of coordinates is at the center of the image !!
-        # TODO : make sure that center is consistent > use RegularGrid class in lenstronomy, like in Numerics ??
-
-        self._first_print = True  # for printing messages only once
-        self._verbose = verbose
 
     @property
     def effective_mask(self):
@@ -177,18 +168,6 @@ class SourcePlaneGrid(AbstractPlaneGrid):
     def subgrid_resolution(self):
         return self._subgrid_res
 
-    @subgrid_resolution.setter
-    def subgrid_resolution(self, new_subgrid_res):
-        """Update all required fields when setting a new subgrid resolution"""
-        self.reset_grid()
-        if hasattr(self, '_effective_mask'):
-            print("Warning : reset effective_mask to only 1s")
-            self._effective_mask = np.ones(self.grid_shape)
-        self._subgrid_res = new_subgrid_res
-        self._num_pix = self.data.num_pixel_axes[0] * self._subgrid_res
-        self._delta_pix = self.data.pixel_width / self._subgrid_res
-        self._x_grid_1d, self._y_grid_1d = util.make_grid(numPix=self._num_pix, deltapix=self._delta_pix)
-
     def _fill_mapping_holes(self, image):
         """
         erosion operation for filling holes that may be introduced by pixelated lensing operations
@@ -196,7 +175,7 @@ class SourcePlaneGrid(AbstractPlaneGrid):
         The higher the subgrid resolution of the source, the highest the number of holes.
         Hence the 'strength' of the erosion is set to the subgrid resolution (or round up integer) of the source plane
         """
-        strength = np.ceil(self._subgrid_res).astype(int)
+        strength = int(np.ceil(self.subgrid_resolution))
         # invert 0s and 1s
         image = 1 - image
         # apply morphological erosion operation

@@ -3,7 +3,7 @@ __author__ = 'aymgal', 'austinpeel'
 import numpy as np
 from scipy import sparse
 
-from slitronomy.Lensing.lensing_planes import ImagePlaneGrid, SourcePlaneGrid
+from slitronomy.Lensing.lensing_planes import PlaneGrid, SizeablePlaneGrid
 from slitronomy.Util import util
 
 
@@ -12,18 +12,54 @@ class LensingOperator(object):
 
     """Defines the mapping of pixelated light profiles between image and source planes"""
 
-    def __init__(self, data_class, lens_model_class, subgrid_res_source=1,
+    def __init__(self, lens_model_class, image_grid_class, source_grid_class, num_pix, subgrid_res_source,
                  likelihood_mask=None, minimal_source_plane=False, min_num_pix_source=10,
                  fix_minimal_source_plane=True, use_mask_for_minimal_source_plane=True,
                  source_interpolation='bilinear', matrix_prod=True, verbose=False):
-        """
-
-        :param min_num_pix_source: minimal number of pixels in the
+        """Summary
+        
+        Parameters
+        ----------
+        lens_model_class : TYPE
+            Description
+        image_grid_class : TYPE
+            Description
+        source_grid_class : TYPE
+            Description
+        subgrid_res_source : TYPE
+            Description
+        likelihood_mask : None, optional
+            Description
+        minimal_source_plane : bool, optional
+            Description
+        min_num_pix_source : int, optional
+            Description
+        fix_minimal_source_plane : bool, optional
+            Description
+        use_mask_for_minimal_source_plane : bool, optional
+            Description
+        source_interpolation : str, optional
+            Description
+        matrix_prod : bool, optional
+            Description
+        verbose : bool, optional
+            Description
+        
+        Raises
+        ------
+        ValueError
+            Description
+        
+        Deleted Parameters
+        ------------------
+        image_numerics_class : TYPE
+            Description
+        source_numerics_class : TYPE
+            Description
         """
         self.lensModel = lens_model_class
-        self.imagePlane  = ImagePlaneGrid(data_class)
-        self.sourcePlane = SourcePlaneGrid(data_class, subgrid_res=subgrid_res_source, verbose=verbose)
-        self._subgrid_res_source = subgrid_res_source
+        self.imagePlane  = PlaneGrid(num_pix, image_grid_class)
+        self.sourcePlane = SizeablePlaneGrid(num_pix, source_grid_class, subgrid_res=subgrid_res_source, verbose=verbose)
         self._likelihood_mask = likelihood_mask
         self._minimal_source_plane = minimal_source_plane
         self._fix_minimal_source_plane = fix_minimal_source_plane
@@ -114,7 +150,7 @@ class LensingOperator(object):
     @property
     def pixel_area_ratio(self):
         """source pixel area divide by image pixel area"""
-        return self._subgrid_res_source**2
+        return (self.sourcePlane.delta_pix / self.imagePlane.delta_pix)**2
 
     def magnification_map(self, kwargs_lens):
         mag_map_1d = self.lensModel.magnification(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
