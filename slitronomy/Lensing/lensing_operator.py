@@ -399,7 +399,7 @@ class LensingOperator(object):
         # compute the distance between ray-traced coordinate and source plane grid
         # (square of the distance, not required to apply sqrt operation)
         dist_squared = diff_x**2 + diff_y**2
-        dist_squared
+        return dist_squared
 
     def _difference_on_source_grid_axis(self, i, beta_x_image, beta_y_image, grid_offset_x=0, grid_offset_y=0):
         # coordinate grid of source plane
