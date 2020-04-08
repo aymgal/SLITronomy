@@ -57,7 +57,7 @@ class LensingOperator(object):
         """
         self.lensModel = lens_model_class
         self.imagePlane  = PlaneGrid(num_pix, image_grid_class)
-        self.sourcePlane = SizeablePlaneGrid(num_pix, source_grid_class, subgrid_res=subgrid_res_source, verbose=verbose)
+        self.sourcePlane = SizeablePlaneGrid(num_pix, source_grid_class, subgrid_res_source, verbose=verbose)
         self._likelihood_mask = likelihood_mask
         self._minimal_source_plane = minimal_source_plane
         self._use_mask_for_minimal_source_plane = use_mask_for_minimal_source_plane
@@ -388,40 +388,24 @@ class LensingOperator(object):
         return lens_mapping, norm_image2source
 
     def _find_source_pixel_nearest(self, i, beta_x, beta_y, grid_offset_x=0, grid_offset_y=0):
-        dist2_map = self._distance_to_source_grid(i, beta_x, beta_y, grid_offset_x=grid_offset_x, grid_offset_y=grid_offset_y, squared=True)
+        dist2_map = self._distance_squared_to_source_grid(i, beta_x, beta_y, grid_offset_x=grid_offset_x, grid_offset_y=grid_offset_y)
         # find the index that corresponds to the minimal distance (closest pixel)
         j = np.argmin(dist2_map)
         return j
 
-    def _distance_to_source_grid(self, i, beta_x, beta_y, grid_offset_x=0, grid_offset_y=0, squared=False, pixel_conversion=False):
+    def _distance_squared_to_source_grid(self, i, beta_x, beta_y, grid_offset_x=0, grid_offset_y=0):
         # coordinate grid of source plane
-        diff_x, diff_y = self._difference_on_source_grid_axis(i, beta_x, beta_y, grid_offset_x=grid_offset_x, grid_offset_y=grid_offset_y,
-                                                              pixel_conversion=pixel_conversion)
+        diff_x, diff_y = self._difference_on_source_grid_axis(i, beta_x, beta_y, grid_offset_x=grid_offset_x, grid_offset_y=grid_offset_y)
         # compute the distance between ray-traced coordinate and source plane grid
         # (square of the distance, not required to apply sqrt operation)
         dist_squared = diff_x**2 + diff_y**2
-        if squared:
-            return dist_squared
-        return np.sqrt(dist_squared)
+        dist_squared
 
-    def _difference_on_source_grid_axis(self, i, beta_x_image, beta_y_image, grid_offset_x=0, grid_offset_y=0,
-                                        absolute=False, pixel_conversion=False):
+    def _difference_on_source_grid_axis(self, i, beta_x_image, beta_y_image, grid_offset_x=0, grid_offset_y=0):
         # coordinate grid of source plane
         theta_x_source = self.sourcePlane.theta_x + grid_offset_x
         theta_y_source = self.sourcePlane.theta_y + grid_offset_y
-        if pixel_conversion:
-            num_pix = self.sourcePlane.num_pix
-            delta_pix = self.sourcePlane.delta_pix
-            theta_x_source = (theta_x_source + delta_pix*num_pix/2.) / delta_pix
-            theta_y_source = (theta_y_source + delta_pix*num_pix/2.) / delta_pix
-            beta_x_image_i = (beta_x_image[i] + delta_pix*num_pix/2.) / delta_pix
-            beta_y_image_i = (beta_y_image[i] + delta_pix*num_pix/2.) / delta_pix
-        else:
-            beta_x_image_i = beta_x_image[i]
-            beta_y_image_i = beta_y_image[i]
         # compute the difference between ray-traced coordinate and source plane grid
-        dist_x = beta_x_image_i - theta_x_source
-        dist_y = beta_y_image_i - theta_y_source
-        if absolute:
-            return np.abs(dist_x), np.abs(dist_y)
+        dist_x = beta_x_image[i] - theta_x_source
+        dist_y = beta_y_image[i] - theta_y_source
         return dist_x, dist_y
