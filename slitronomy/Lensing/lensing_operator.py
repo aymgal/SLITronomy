@@ -17,7 +17,7 @@ class LensingOperator(object):
                  use_mask_for_minimal_source_plane=True,
                  source_interpolation='bilinear', matrix_prod=True, verbose=False):
         """Summary
-        
+
         Parameters
         ----------
         lens_model_class : TYPE
@@ -42,12 +42,12 @@ class LensingOperator(object):
             Description
         verbose : bool, optional
             Description
-        
+
         Raises
         ------
         ValueError
             Description
-        
+
         Deleted Parameters
         ------------------
         image_numerics_class : TYPE
@@ -67,7 +67,7 @@ class LensingOperator(object):
         self._interpolation = source_interpolation
         self._matrix_prod = matrix_prod
 
-    def source2image(self, source_1d, kwargs_lens=None, kwargs_special=None, update_mapping=False, 
+    def source2image(self, source_1d, kwargs_lens=None, kwargs_special=None, update_mapping=False,
                      original_source_grid=False):
         if not hasattr(self, '_mapping') or update_mapping:
             if kwargs_lens is None:
@@ -104,7 +104,7 @@ class LensingOperator(object):
             if kwargs_lens is None:
                 raise ValueError("'kwargs_lens' is required to update lensing operator")
             self.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
-        
+
         lens_mapping, norm_image2source = self.get_lens_mapping(original_source_grid)
         if not self._matrix_prod and self._interpolation == 'nearest':
             source = self._image2source_list(image_1d, lens_mapping, no_flux_norm)
@@ -279,16 +279,22 @@ class LensingOperator(object):
         half_pix = delta_pix / 2
 
         theta_x = source_theta_x[:num_pix]
-        xbins = np.linspace(theta_x[0] - half_pix, theta_x[-1] + half_pix,
-                            num_pix + 1)
+        x_dir = -1 if theta_x[0] > theta_x[-1] else 1  # Handle x-axis inversion
+        x_lower = theta_x[0] - x_dir * half_pix
+        x_upper = theta_x[-1] + x_dir * half_pix
+        xbins = np.linspace(x_lower, x_upper, num_pix + 1)
 
         theta_y = source_theta_y[::num_pix]
-        ybins = np.linspace(theta_y[0] - half_pix, theta_y[-1] + half_pix,
-                            num_pix + 1)
+        y_dir = -1 if theta_y[0] > theta_y[-1] else 1  # Handle y-axis inversion
+        y_lower = theta_y[0] - y_dir * half_pix
+        y_upper = theta_y[-1] + y_dir * half_pix
+        ybins = np.linspace(y_lower, y_upper, num_pix + 1)
 
         # Keep only betas that fall within the source plane grid
-        selection = ((beta_x > xbins[0]) & (beta_x < xbins[-1]) &
-                     (beta_y > ybins[0]) & (beta_y < ybins[-1]))
+        x_min, x_max = [x_lower, x_upper][::x_dir]
+        y_min, y_max = [y_lower, y_upper][::y_dir]
+        selection = ((beta_x > x_min) & (beta_x < x_max) &
+                     (beta_y > y_min) & (beta_y < y_max))
         if np.any(1 - selection.astype(int)):
             beta_x = beta_x[selection]
             beta_y = beta_y[selection]
@@ -304,9 +310,9 @@ class LensingOperator(object):
         dy = beta_y - source_theta_y[index_1]
 
         # Find the three other nearest pixels (may end up out of bounds)
-        index_2 = index_1 + np.sign(dx).astype(int)
-        index_3 = index_1 + np.sign(dy).astype(int) * num_pix
-        index_4 = index_2 + np.sign(dy).astype(int) * num_pix
+        index_2 = index_1 + x_dir * np.sign(dx).astype(int)
+        index_3 = index_1 + y_dir * np.sign(dy).astype(int) * num_pix
+        index_4 = index_2 + y_dir * np.sign(dy).astype(int) * num_pix
 
         # Treat these index arrays as four sets stacked vertically
         # Prepare to mask out out-of-bounds pixels as well as repeats
