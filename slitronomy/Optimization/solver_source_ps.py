@@ -15,13 +15,14 @@ class SparseSolverSourcePS(SparseSolverSource):
 
     """Implements the original SLIT algorithm with point source support"""
 
-    def __init__(self, data_class, lens_model_class, numerics_class, source_model_class, point_source_linear_solver, 
+    def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class, point_source_linear_solver, 
                  likelihood_mask=None, num_iter_source=10, num_iter_ps=10, num_iter_weights=3, **base_kwargs):
 
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
         :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
-        :param numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance.
+        :param image_numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance for image plane.
+        :param source_numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance for source plane.
         :param source_model_class: lenstronomy.light_model.LightModel instance describing the source light.
         :param point_source_linear_solver: method that linearly solve the amplitude of point sources,
         given a source subtracted image. This might change in the future.
@@ -33,7 +34,7 @@ class SparseSolverSourcePS(SparseSolverSource):
         """
         if base_kwargs.get('threshold_decrease_type', None) is None:
             threshold_decrease_type = 'exponential'
-        super(SparseSolverSourcePS, self).__init__(data_class, lens_model_class, numerics_class, source_model_class,
+        super(SparseSolverSourcePS, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class,
                                                    likelihood_mask=likelihood_mask, num_iter_source=num_iter_source, 
                                                    num_iter_weights=num_iter_weights, **base_kwargs)
         self.add_point_source()
