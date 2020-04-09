@@ -86,8 +86,6 @@ class SizeablePlaneGrid(PlaneGrid):
         verbose : bool, optional
             If False, print statements are shut down (e.g. when reducing iteratively grid size).
         """
-        if not isinstance(subgrid_res, int):
-            raise TypeError("'subgrid_res' must be an integer")
         super(SizeablePlaneGrid, self).__init__(num_pix, grid_class)
         self._num_pix = int(self._num_pix * subgrid_res)  # update number of side pixels
         self._subgrid_res = subgrid_res
