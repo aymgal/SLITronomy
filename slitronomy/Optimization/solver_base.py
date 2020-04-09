@@ -24,10 +24,9 @@ class SparseSolverBase(ModelOperators):
     #TODO: create classes for lens and source models.
     # E.g. the method project_on_original_grid should be attached to a SourceModel class, not to the solver.
 
-    def __init__(self, data_class, lens_model_class, numerics_class,
-                 likelihood_mask=None, source_interpolation='bilinear',
-                 subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True,
-                 use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
+    def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class,
+                 subgrid_res_source=1, likelihood_mask=None, source_interpolation='bilinear',
+                 minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='none',
                  fixed_spectral_norm_source=0.95, include_regridding_error=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
@@ -35,17 +34,16 @@ class SparseSolverBase(ModelOperators):
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
         :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
-        :param numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance.
+        :param image_numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance for image plane.
+        :param source_numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance for source plane.
+        :param subgrid_res_source: source pixel size to image pixel ratio. Must be an integer.
+        Defaults to 1.
         :param likelihood_mask: boolean mask to exclude pixels from the optimization and chi2 computation.
         Defaults to None.
         :param source_interpolation: type of interpolation of source pixels on the source plane grid.
         It can be 'nearest' for nearest-neighbor or 'bilinear' for bilinear interpolation. Defaults to 'bilinear'.
-        :param subgrid_res_source: resolution factor of the source plane wrt to image plane.
-        subgrid_res_source = 2 leads to source pixels two times smaller than data pixels. Defaults to 1.
         :param minimal_source_plane: if True, reduce the source plane grid size to the minimum set by min_num_pix_source.
          Defaults to False.
-        :param fix_minimal_source_plane: if True, the reduced source grid size will not be updated for a new lens model.
-         Defaults to 1.
         :param use_mask_for_minimal_source_plane: if True, use the likelihood_mask to compute minimal source plane.
          Defaults to True.
         :param min_num_pix_source: minimal number of pixels on a side of the square source grid.
@@ -71,13 +69,17 @@ class SparseSolverBase(ModelOperators):
         :param thread_count: number of threads (multithreading) to speedup wavelets computations (only works if pySAP is properly installed).
         Defaults to 1.
         """
-        lensing_operator_class = LensingOperator(data_class, lens_model_class, subgrid_res_source=subgrid_res_source,
-                                                 likelihood_mask=likelihood_mask, minimal_source_plane=minimal_source_plane,
-                                                 fix_minimal_source_plane=fix_minimal_source_plane, min_num_pix_source=min_num_pix_source,
+        num_pix_x, num_pix_y = data_class.num_pixel_axes
+        if num_pix_x != num_pix_y:
+            raise ValueError("Only square images are supported")
+        image_grid_class = image_numerics_class.grid_class
+        source_grid_class = source_numerics_class.grid_class
+        lensing_operator_class = LensingOperator(lens_model_class, image_grid_class, source_grid_class, num_pix_x, subgrid_res_source, likelihood_mask=likelihood_mask, 
+                                                 minimal_source_plane=minimal_source_plane, min_num_pix_source=min_num_pix_source,
                                                  use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
                                                  source_interpolation=source_interpolation, matrix_prod=True, verbose=verbose)
 
-        super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, numerics_class,
+        super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, image_numerics_class,
                                                fixed_spectral_norm_source=fixed_spectral_norm_source,
                                                subgrid_res_source=subgrid_res_source, likelihood_mask=likelihood_mask, 
                                                thread_count=thread_count)
