@@ -160,7 +160,20 @@ class LensingOperator(object):
         else:
             return self._mapping_resized, self._norm_image2source_resized
 
+    def delete_cache(self):
+        if hasattr(self, '_mapping'):
+            del self._mapping
+        if hasattr(self, '_norm_image2source'):
+            del self._norm_image2source
+        if hasattr(self, '_mapping_resized'):
+            del self._mapping_resized
+        if hasattr(self, '_norm_image2source_resized'):
+            del self._norm_image2source_resized
+
     def update_mapping(self, kwargs_lens, kwargs_special=None):
+        # delete cached mapping matrices
+        self.delete_cache()
+
         # compute mapping between image and source plances due to lensing, on original source plane grid
         self.sourcePlane.switch_resize(False)
         self._mapping, self._norm_image2source = self._compute_mapping(kwargs_lens, kwargs_special=kwargs_special)
@@ -171,11 +184,11 @@ class LensingOperator(object):
         if self._minimal_source_plane:
             # for source plane to be reduced to minimal size
             # we compute effective source mask and shrink the grid to match it
-            self.sourcePlane.compute_resized_grid(self._min_num_pix_source)
-
-            # recompute the mapping on a resized source plane grid
-            self.sourcePlane.switch_resize(True)
-            self._mapping_resized, self._norm_image2source_resized = self._compute_mapping(kwargs_lens, kwargs_special=kwargs_special)
+            resized_bool = self.sourcePlane.compute_resized_grid(self._min_num_pix_source)
+            if resized_bool is True:
+                # recompute the mapping on a resized source plane grid
+                self.sourcePlane.switch_resize(True)
+                self._mapping_resized, self._norm_image2source_resized = self._compute_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         return (self.sourcePlane.grid_size, self.sourcePlane.delta_pix)
 
