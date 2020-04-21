@@ -28,7 +28,7 @@ class SparseSolverBase(ModelOperators):
                  subgrid_res_source=1, likelihood_mask=None, source_interpolation='bilinear',
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='none',
-                 fixed_spectral_norm_source=0.95, include_regridding_error=False,
+                 fixed_spectral_norm_source=0.98, include_regridding_error=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False, thread_count=1):
         """
@@ -130,13 +130,13 @@ class SparseSolverBase(ModelOperators):
             return None, None
 
         # call solver
-        image_model, coeffs_source, coeffs_lens_light, amps_ps = self._solve(kwargs_lens=kwargs_lens, 
+        image_model, coeffs_source, coeffs_lens_light, amps_ps, reg_penalty = self._solve(kwargs_lens=kwargs_lens, 
                                                                              kwargs_ps=kwargs_ps,
                                                                              kwargs_special=kwargs_special)
 
         # concatenate optimized parameters (wavelets coefficients, point source amplitudes)
         all_param = np.concatenate([coeffs_source, coeffs_lens_light, amps_ps])
-        return image_model, all_param
+        return image_model, all_param, reg_penalty
 
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
         raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
