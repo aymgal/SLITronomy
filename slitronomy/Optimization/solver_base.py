@@ -130,13 +130,13 @@ class SparseSolverBase(ModelOperators):
             return None, None
 
         # call solver
-        image_model, coeffs_source, coeffs_lens_light, amps_ps, reg_penalty = self._solve(kwargs_lens=kwargs_lens, 
+        image_model, coeffs_source, coeffs_lens_light, amps_ps = self._solve(kwargs_lens=kwargs_lens, 
                                                                              kwargs_ps=kwargs_ps,
                                                                              kwargs_special=kwargs_special)
 
         # concatenate optimized parameters (wavelets coefficients, point source amplitudes)
         all_param = np.concatenate([coeffs_source, coeffs_lens_light, amps_ps])
-        return image_model, all_param, reg_penalty
+        return image_model, all_param
 
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
         raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
