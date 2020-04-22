@@ -30,6 +30,7 @@ class SparseSolverBase(ModelOperators):
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='none',
                  fixed_spectral_norm_source=0.98, include_regridding_error=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
+                 external_likelihood_penalty=False,
                  verbose=False, show_steps=False, thread_count=1):
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
@@ -62,6 +63,8 @@ class SparseSolverBase(ModelOperators):
         Defaults to True.
         :param formulation: type of formalism for the minimization problem. 'analysis' solves the problem in direct space.
         'synthesis' solves the peoblem in wavelets space. Defaults to 'analysis'.
+        :param external_likelihood_penalty: if True, the solve() method returns a non-zero penalty, 
+        e.g. for penalize more a given lens model during lens model optimization. Defaults to False.
         :param verbose: if True, prints statements during optimization.
         Defaults to False.
         :param show_steps: if True, displays plot of the reconstructed light profiles during optimization.
@@ -107,6 +110,8 @@ class SparseSolverBase(ModelOperators):
         self._formulation = formulation
         self._force_positivity = force_positivity
 
+        self._external_likelihood_penalty = external_likelihood_penalty
+
         self._verbose = verbose
         self._show_steps = show_steps
 
@@ -130,11 +135,21 @@ class SparseSolverBase(ModelOperators):
             return None, None
 
         # call solver
-        image_model, coeffs_source, coeffs_lens_light, amps_ps, logL_penalty \
+        image_model, coeffs_source, coeffs_lens_light, amps_ps \
             = self._solve(kwargs_lens=kwargs_lens, kwargs_ps=kwargs_ps, kwargs_special=kwargs_special)
 
         # concatenate optimized parameters (wavelets coefficients, point source amplitudes)
         all_param = np.concatenate([coeffs_source, coeffs_lens_light, amps_ps])
+
+        #WIP
+        if self._external_likelihood_penalty:
+            if self.no_lens_light:
+                logL_penalty = self.regularization(S=self.source_model)
+            else:
+                logL_penalty = self.regularization(S=self.source_model, HG=self.lens_light_model)
+        else:
+            logL_penalty = 0
+
         return image_model, all_param, logL_penalty
 
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
@@ -236,7 +251,7 @@ class SparseSolverBase(ModelOperators):
     def loss(self, S=None, HG=None, P=None):
         """ returns f = || Y - HFS - HG - P ||^2_2 """
         model = self.model_analysis(S=S, HG=HG, P=P)
-        error = self.Y_eff - model
+        error = self.effective_image_data - model
         norm_error = np.linalg.norm(error.flatten(), ord=2)  # flatten to ensure L2-norm
         return 0.5 * norm_error**2
 
@@ -263,7 +278,7 @@ class SparseSolverBase(ModelOperators):
     def reduced_residuals(self, S=None, HG=None, P=None):
         """ returns ( Y - HFS - HG - P ) / sigma """
         model = self.model_analysis(S=S, HG=HG, P=P)
-        error = self.Y_eff - model
+        error = self.effective_image_data - model
         if hasattr(self, '_ps_error'):
             sigma = self.noise.effective_noise_map + self._ps_error
         else:

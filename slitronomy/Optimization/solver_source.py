@@ -122,14 +122,11 @@ class SparseSolverSource(SparseSolverBase):
         alpha_S_final = self.Phi_T_s(self.project_on_original_grid_source(S))
         coeffs_S_1d = util.cube2array(alpha_S_final)
 
-        # evaluate sparsity prior for lens model optimization penalty
-        reg_S = self.regularization(S=S)
-
         if self._show_steps:
             self._plotter.plot_final(self._source_model)
 
         model = self.image_model(unconvolved=False)
-        return model, coeffs_S_1d, [], [], reg_S
+        return model, coeffs_S_1d, [], []
 
     def _gradient_loss_analysis_source(self, S):
         """
