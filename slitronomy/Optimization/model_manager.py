@@ -83,6 +83,10 @@ class ModelManager(object):
         return self._image_data
 
     @property
+    def effective_image_data(self):
+        return self._image_data_eff
+
+    @property
     def lensingOperator(self):
         return self._lensing_op
 
