@@ -11,7 +11,7 @@ class SolverPlotter(object):
 
     _cmap_1 = 'cubehelix'
     _cmap_2 = 'gist_stern'
-    _cmap_3 = 'bwr'
+    _cmap_3 = 'RdBu_r'
     _color_cycle = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
 
     def __init__(self, solver_class, show_now=True):
@@ -97,7 +97,7 @@ class SolverPlotter(object):
         ax.text(0.2, 0.1, text, color='black', fontsize=15, 
                 horizontalalignment='center', verticalalignment='center',
                 transform=ax.transAxes, bbox={'color': 'white', 'alpha': 0.8})
-        plot_util.nice_colorbar(im)
+        plot_util.nice_colorbar(im, colorbar_kwargs={'extend': 'both'})
         ax = axes[1, 0]
         ax.set_title("loss | regularization")
         for i in range(n_comp):
