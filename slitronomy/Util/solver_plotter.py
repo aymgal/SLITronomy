@@ -91,13 +91,23 @@ class SolverPlotter(object):
         plot_util.nice_colorbar(im)
         ax = axes[0, 3]
         ax.set_title(r"(data - model)$/\sigma$")
-        im = ax.imshow(self._solver.reduced_residuals_model, 
+        residuals_map = self._solver.reduced_residuals_model
+        residuals_map_min, residuals_map_max = residuals_map.min(), residuals_map.max()
+        im = ax.imshow(residuals_map, 
                        origin='lower', cmap=self._cmap_3, vmin=res_vmin, vmax=res_vmax)
         text = r"$\chi^2={:.2f}$".format(self._solver.best_fit_reduced_chi2)
         ax.text(0.2, 0.1, text, color='black', fontsize=15, 
                 horizontalalignment='center', verticalalignment='center',
                 transform=ax.transAxes, bbox={'color': 'white', 'alpha': 0.8})
-        plot_util.nice_colorbar(im, colorbar_kwargs={'extend': 'both'})
+        if residuals_map_min < res_vmin and residuals_map_max > res_vmax:
+            cb_extend = 'both'
+        elif residuals_map_min < res_vmin:
+            cb_extend = 'min'
+        elif residuals_map_max > res_vmax:
+            cb_extend = 'max'
+        else:
+            cb_extend = 'neither'
+        plot_util.nice_colorbar(im, colorbar_kwargs={'extend': cb_extend})
         ax = axes[1, 0]
         ax.set_title("loss | regularization")
         for i in range(n_comp):
