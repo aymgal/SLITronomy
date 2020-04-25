@@ -12,11 +12,12 @@ class ModelOperators(ModelManager):
     """Utility class for access to operator as defined in formal optimization equations"""
 
     def __init__(self, data_class, lensing_operator_class, numerics_class,
-                 fixed_spectral_norm_source=None, subgrid_res_source=1, likelihood_mask=None, thread_count=1):
+                 fixed_spectral_norm_source=None, subgrid_res_source=1, likelihood_mask=None, 
+                 thread_count=1, random_seed=None):
         super(ModelOperators, self).__init__(data_class, lensing_operator_class, numerics_class,
                                              subgrid_res_source=subgrid_res_source, 
                                              likelihood_mask=likelihood_mask, 
-                                             thread_count=thread_count)
+                                             thread_count=thread_count, random_seed=random_seed)
         self._spectral_norm_HFPhiTs = fixed_spectral_norm_source
 
     @property

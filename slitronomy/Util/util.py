@@ -172,7 +172,8 @@ def dirac_impulse(num_pix):
 
 def generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
                            formulation='analysis', guess_type='background_rms',
-                           background_rms=None, noise_map=None, noise_map_synthesis=None):
+                           background_rms=None, noise_map=None, noise_map_synthesis=None,
+                           seed=None):
     """Generates a random image and its transform for sparse optimization initialisation.
     This supports both analysis and synthesis types of initial guess.
     
@@ -207,6 +208,8 @@ def generate_initial_guess(num_pix, n_scales, transform, inverse_transform,
     array_like
         Transform of the above array, after call to the `transform` callable.
     """
+    if seed is not None:
+        np.random.seed(seed)
     if formulation not in ['analysis', 'synthesis']:
         raise ValueError("Formulation type '{}' not supported".format(formulation))
     if guess_type not in ['null', 'background_rms', 'noise_map']:
@@ -230,7 +233,7 @@ def generate_initial_guess(num_pix, n_scales, transform, inverse_transform,
     return X, alpha_X
 
 
-def generate_initial_guess_simple(num_pix, transform, background_rms):
+def generate_initial_guess_simple(num_pix, transform, background_rms, seed=None):
     """Generates a random image and its transform for sparse optimization initialisation.
     
     Parameters
@@ -249,6 +252,8 @@ def generate_initial_guess_simple(num_pix, transform, background_rms):
     array_like
         Transform of the above array, after call to the `transform` callable.
     """
+    if seed is not None:
+        np.random.seed(seed)
     X = background_rms * np.random.randn(num_pix, num_pix)
     alpha_X = transform(X)
     return X, alpha_X

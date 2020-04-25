@@ -30,7 +30,7 @@ class SparseSolverBase(ModelOperators):
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='none',
                  fixed_spectral_norm_source=0.98, include_regridding_error=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
-                 external_likelihood_penalty=False,
+                 external_likelihood_penalty=False, random_seed=None,
                  verbose=False, show_steps=False, thread_count=1):
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
@@ -65,6 +65,8 @@ class SparseSolverBase(ModelOperators):
         'synthesis' solves the peoblem in wavelets space. Defaults to 'analysis'.
         :param external_likelihood_penalty: if True, the solve() method returns a non-zero penalty, 
         e.g. for penalize more a given lens model during lens model optimization. Defaults to False.
+        :param random_seed: seed for random number generator, used to initialise the algorithm. None for no seed.
+        Defaults to None.
         :param verbose: if True, prints statements during optimization.
         Defaults to False.
         :param show_steps: if True, displays plot of the reconstructed light profiles during optimization.
@@ -85,7 +87,7 @@ class SparseSolverBase(ModelOperators):
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, image_numerics_class,
                                                fixed_spectral_norm_source=fixed_spectral_norm_source,
                                                subgrid_res_source=subgrid_res_source, likelihood_mask=likelihood_mask, 
-                                               thread_count=thread_count)
+                                               thread_count=thread_count, random_seed=random_seed)
         
         # engine that computes noise levels in image / source plane, in wavelets space
         self.noise = NoiseLevels(data_class, subgrid_res_source=subgrid_res_source, boost_where_zero=1,
@@ -218,12 +220,12 @@ class SparseSolverBase(ModelOperators):
     def generate_initial_source(self):
         num_pix = self.num_pix_source
         transform = self.Phi_T_s
-        return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms)
+        return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms, seed=self._random_seed)
 
     def generate_initial_lens_light(self):
         num_pix = self.num_pix_image
         transform = self.Phi_T_l
-        return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms)
+        return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms, seed=self._random_seed)
 
     def apply_image_plane_mask(self, image_2d):
         return self.M(image_2d)
