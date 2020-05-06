@@ -2,17 +2,19 @@ __author__ = 'aymgal'
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
+from matplotlib.colors import NoNorm, LogNorm
 
 from slitronomy.Util import plot_util
-
+from slitronomy.Util import metrics
 
 class SolverPlotter(object):
 
     _cmap_1 = 'cubehelix'
-    _cmap_2 = 'gist_stern'
-    _cmap_3 = 'RdBu_r'
+    _cmap_2 = 'RdBu_r'
+    _cmap_misc = 'gist_stern'
     _color_cycle = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+    _vmin = 10**(-4)
+    _vmax = 10**(8)
 
     def __init__(self, solver_class, show_now=True):
         self._solver = solver_class
@@ -20,7 +22,7 @@ class SolverPlotter(object):
 
     def plot_init(self, image):
         title = "initial guess"
-        return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_2)
+        return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_misc)
 
     def plot_step(self, image, iter_1, iter_2=None, iter_3=None):
         if iter_3 is not None:
@@ -29,119 +31,196 @@ class SolverPlotter(object):
             title = "iteration {}-{}".format(iter_1, iter_2)
         else:
             title = "iteration {}".format(iter_1)
-        return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_2)
+        return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_misc)
 
     def plot_final(self, image):
         title = "final reconstruction"
-        return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_2)
+        return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_misc)
 
-    def plot_results(self, model_log_scale=False, res_vmin=-6, res_vmax=6, cmap_1=None, cmap_2=None):
+    def plot_results(self, log_scale=False, vmin_image=None, vmax_image=None, 
+                     vmin_source=None, vmax_source=None, vmin_res=-6, vmax_res=6,
+                     cmap_image=None, cmap_source=None, fontsize=12):
+        if cmap_image is None:
+            cmap_image = self._cmap_1
+        if cmap_source is None:
+            cmap_source = self._cmap_1
+
         n_comp = self._solver.track['loss'].shape[0]
         names = self._solver.component_names
         fig, axes = plt.subplots(2, 4, figsize=(22, 9))
+
+        # ====== IMAGING DATA ====== #
         ax = axes[0, 0]
-        ax.set_title("imaging data")
+        ax.set_title("imaging data", fontsize=fontsize)
         data = self._solver.M(self._solver.Y)
-        if model_log_scale:
-            vmin = max(data.min(), 1e-3)
-            vmax = min(data.max(), 1e10)
-            data[data <= 0.] = 1e-10
-            im = ax.imshow(data, origin='lower', cmap=self._cmap_1, 
-                           norm=LogNorm(vmin=vmin, vmax=vmax))
+        if vmin_image is None:
+            vmin = max(data.min(), self._vmin)
         else:
-            im = ax.imshow(data, origin='lower', cmap=self._cmap_1)
-        plot_util.nice_colorbar(im)
+            vmin = vmin_image
+        if vmax_image is None:
+            vmax = min(data.max(), self._vmax)
+        else:
+            vmax = vmax_image
+        if log_scale:
+            norm = LogNorm(vmin=vmin, vmax=vmax)
+        else:
+            norm = NoNorm(vmin=vmin, vmax=vmax)
+        im = ax.imshow(data, origin='lower', cmap=cmap_image, norm=norm)
+        plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
+
+        # ====== IMAGE MODEL ====== #
         ax = axes[0, 1]
-        ax.set_title("source model")
-        src_model = self._solver.source_model
-        print("Negative source pixels ? {} (min = {:.2e})".format(np.any(src_model < 0), src_model.min()))
-        if model_log_scale:
-            vmin = max(src_model.min(), 1e-3)
-            vmax = min(src_model.max(), 1e10)
-            src_model[src_model <= 0.] = 1e-10
-            im = ax.imshow(src_model, origin='lower', cmap=self._cmap_1, 
-                           norm=LogNorm(vmin=vmin, vmax=vmax))
-        else:
-            if cmap_1 is None:
-                cmap_1 = self._cmap_1
-            im = ax.imshow(src_model, origin='lower', cmap=cmap_1)
-        # ax.imshow(self.lensingOperator.sourcePlane.reduction_mask, origin='lower', cmap='gray', alpha=0.1)
-        plot_util.nice_colorbar(im)
-        ax = axes[0, 2]
         if not self._solver.no_lens_light:
-            ax.set_title("lens light model")
+            ax.set_title("lens light model", fontsize=fontsize)
             img_model = self._solver.lens_light_model
         # elif not self._solver.no_point_source:
         #     ax.set_title("point source model")
         #     img_model = self._solver.point_source_model
         else:
-            ax.set_title("image model")
+            ax.set_title("image model", fontsize=fontsize)
             img_model = self._solver.image_model(unconvolved=False)
             print("Negative image pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
-        if model_log_scale:
-            vmin = max(img_model.min(), 1e-3)
-            vmax = min(img_model.max(), 1e10)
-            img_model[img_model <= 0.] = 1e-10
-            im = ax.imshow(img_model, origin='lower', cmap=self._cmap_2,
-                           norm=LogNorm(vmin=vmin, vmax=vmax))
+        if vmin_image is None:
+            vmin = max(img_model.min(), self._vmin)
         else:
-            if cmap_2 is None:
-                cmap_2 = self._cmap_2
-            im = ax.imshow(img_model, origin='lower', cmap=cmap_2)
-        plot_util.nice_colorbar(im)
+            vmin = vmin_image
+        if vmax_image is None:
+            vmax = min(img_model.max(), self._vmax)
+        else:
+            vmax = vmax_image
+        if log_scale:
+            norm = LogNorm(vmin=vmin, vmax=vmax)
+        else:
+            norm = NoNorm(vmin=vmin, vmax=vmax)
+        im = ax.imshow(img_model, origin='lower', cmap=cmap_image, norm=norm)
+        plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
+
+        # ====== SOURCE MODEL ====== #
+        ax = axes[0, 2]
+        ax.set_title("source model", fontsize=fontsize)
+        src_model = self._solver.source_model
+        print("Negative source pixels ? {} (min = {:.2e})".format(np.any(src_model < 0), src_model.min()))
+        if vmin_source is None:
+            vmin = max(src_model.min(), self._vmin)
+        else:
+            vmin = vmin_source
+        if vmax_source is None:
+            vmax = min(src_model.max(), self._vmax)
+        else:
+            vmax = vmax_source
+        if log_scale:
+            norm = LogNorm(vmin=vmin, vmax=vmax)
+        else:
+            norm = NoNorm(vmin=vmin, vmax=vmax)
+        im = ax.imshow(src_model, origin='lower', cmap=cmap_source, norm=norm)
+        plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
+
+        # ====== REDUCED RESIDUALS ====== #
         ax = axes[0, 3]
-        ax.set_title(r"(data - model)$/\sigma$")
+        ax.set_title(r"norm. residuals", fontsize=fontsize)
         residuals_map = self._solver.reduced_residuals_model
         residuals_map_min, residuals_map_max = residuals_map.min(), residuals_map.max()
         im = ax.imshow(residuals_map, 
-                       origin='lower', cmap=self._cmap_3, vmin=res_vmin, vmax=res_vmax)
+                       origin='lower', cmap=self._cmap_2, vmin=vmin_res, vmax=vmax_res)
         text = r"$\chi^2={:.2f}$".format(self._solver.best_fit_reduced_chi2)
         ax.text(0.2, 0.1, text, color='black', fontsize=15, 
                 horizontalalignment='center', verticalalignment='center',
                 transform=ax.transAxes, bbox={'color': 'white', 'alpha': 0.8})
-        if residuals_map_min < res_vmin and residuals_map_max > res_vmax:
-            cb_extend = 'both'
-        elif residuals_map_min < res_vmin:
-            cb_extend = 'min'
-        elif residuals_map_max > res_vmax:
-            cb_extend = 'max'
-        else:
-            cb_extend = 'neither'
-        plot_util.nice_colorbar(im, colorbar_kwargs={'extend': cb_extend})
+        plot_util.nice_colorbar_residuals(im, residuals_map, vmin_res, vmax_res, 
+                                          label=r"(f${}_{\rm model}$ - f${}_{\rm data}$)/$\sigma$", 
+                                          fontsize=fontsize)
+
+        # ====== CONVERGENCE HISTORY PLOTS ====== #
         ax = axes[1, 0]
-        ax.set_title("loss | regularization")
+        ax.set_title("loss", fontsize=fontsize)
         for i in range(n_comp):
             data = self._solver.track['loss'][i, :]
             if np.all(np.isnan(data)): continue
             ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i], 
                     label='loss({})'.format(names[i]))
-        ax.set_xlabel("iterations")
-        # ax.set_ylabel("loss")
-        ax.legend(loc='upper right')
+        ax.set_xlabel("iterations", fontsize=fontsize)
+        ax.set_ylabel(r"$||{\rm Y} - {\rm HFS}||_2^2\ /\ 2$", fontsize=fontsize)
+        if n_comp > 1:
+            ax.set_ylabel(r"$||{\rm Y} - {\rm G_H} - {\rm HFS}||_2^2\ /\ 2$", fontsize=fontsize)
+            ax.legend(loc='upper right')
+
         ax = axes[1, 1]
+        ax.set_title("regularization", fontsize=fontsize)
         for i in range(n_comp):
             data = self._solver.track['reg'][i, :]
             if np.all(np.isnan(data)): continue
             ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i+n_comp], 
                      label='reg({})'.format(names[i]))
-        # ax.set_ylabel("regularization")
-        ax.legend(loc='upper right')
+        ax.set_xlabel("iterations", fontsize=fontsize)
+        ax.set_ylabel(r"$||\Phi^\top{\rm S}||_"+str(self._solver.prior_l_norm)+r"$", fontsize=fontsize)
+        if n_comp > 1:
+            ax.legend(loc='upper right')
+
         ax = axes[1, 2]
-        ax.set_title("reduced chi2")
+        ax.set_title(r"reduced $\chi^2$", fontsize=fontsize)
         for i in range(n_comp):
             data = self._solver.track['red_chi2'][i, :]
             if np.all(np.isnan(data)): continue
             ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i])
-        ax.set_xlabel("iterations")
-        ax.set_ylabel(r"$\chi^2_{\nu}$")
+        ax.set_xlabel("iterations", fontsize=fontsize)
+        ax.set_ylabel(r"$\chi^2_{\nu}$", fontsize=fontsize)
+
         ax = axes[1, 3]
-        ax.set_title("step-to-step difference")
+        ax.set_title("step-to-step difference", fontsize=fontsize)
         for i in range(n_comp):
             data = self._solver.track['step_diff'][i, :]
             if np.all(np.isnan(data)): continue
             ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i])
-        ax.set_xlabel("iterations")
-        ax.set_ylabel(r"$||x_{i+1}-x_{i}||_2$")
+        ax.set_xlabel("iterations", fontsize=fontsize)
+        ax.set_ylabel(r"$||x_{i+1}-x_{i}||_2$", fontsize=fontsize)
+        return fig
+
+    @staticmethod
+    def plot_source_residuals_comparison(source_truth, source_model_list, name_list, 
+                                         vmin_res=-0.5, vmax_res=-0.5, cmap='cubehelix',
+                                         fontsize=12):
+        """given a true source, plot residuals of a list of source model"""
+        n_model = len(source_model_list)
+        fig, axes = plt.subplots(1, 1+2*n_model, figsize=((1+2*n_model)*4.5, 3))
+        ax = axes[0]
+        #ax.get_xaxis().set_visible(False)
+        #ax.get_yaxis().set_visible(False)
+        ax.set_title("true source", fontsize=fontsize)
+        im = ax.imshow(source_truth, origin='lower', cmap=cmap, vmin=0)
+        lims = (len(source_truth)/4, 3*len(source_truth)/4)  # zoom a bit on the image
+        #ax.set_xlim(*lims)
+        #ax.set_ylim(*lims)
+        plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
+        
+        i = 1
+        for source_model, name in zip(source_model_list, name_list):
+            print("min/max for source model '{}': {}/{}".format(name, source_model.min(), source_model.max()))
+
+            residuals_source = source_truth - source_model
+            residuals_map_min, residuals_map_max = residuals_source.min(), residuals_source.max()
+
+            ax = axes[i]
+            ax.set_title("model '{}'".format(name), fontsize=fontsize)
+            #ax.get_xaxis().set_visible(False)
+            #ax.get_yaxis().set_visible(False)
+            im = ax.imshow(source_model, origin='lower', cmap=cmap)
+            #ax.set_xlim(*lims)
+            #ax.set_ylim(*lims)
+            plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
+            i += 1
+            
+            ax = axes[i]
+            #ax.get_xaxis().set_visible(False)
+            #ax.get_yaxis().set_visible(False)
+            ax.set_title("difference", fontsize=fontsize)
+            #ax.set_xlim(*lims)
+            #ax.set_ylim(*lims)
+            im = ax.imshow(residuals_source, origin='lower', cmap='RdBu_r', vmin=vmin_res, vmax=vmax_res)
+            plot_util.nice_colorbar_residuals(im, residuals_source, vmin_res, vmax_res,
+                                                label=r"f${}_{\rm model}$ - f${}_{\rm truth}$", fontsize=fontsize)
+            i += 1
+            
+            print("SDR for model '{}' = {:.3f}".format(name, metrics.SDR(source_truth, source_model)))
         return fig
 
     @staticmethod

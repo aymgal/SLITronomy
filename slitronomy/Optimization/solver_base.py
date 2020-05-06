@@ -168,8 +168,15 @@ class SparseSolverBase(ModelOperators):
     def component_names(self):
         return 'S', 'HG', 'P'
 
+    @property
+    def prior_l_norm(self):
+        return self._sparsity_prior_norm
+
     def plot_results(self, **kwargs):
         return self._plotter.plot_results(**kwargs)
+
+    def plot_source_residuals_comparison(self, *args, **kwargs):
+        return self._plotter.plot_source_residuals_comparison(*args, **kwargs)
 
     @property
     def source_model(self):
