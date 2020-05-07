@@ -115,10 +115,10 @@ class SolverPlotter(object):
         im = ax.imshow(src_model, origin='lower', cmap=cmap_source, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
-        # ====== REDUCED RESIDUALS ====== #
+        # ====== NORMALIZED RESIDUALS ====== #
         ax = axes[0, 3]
         ax.set_title(r"norm. residuals", fontsize=fontsize)
-        residuals_map = self._solver.reduced_residuals_model
+        residuals_map = self._solver.normalized_residuals_model
         residuals_map_min, residuals_map_max = residuals_map.min(), residuals_map.max()
         im = ax.imshow(residuals_map, 
                        origin='lower', cmap=self._cmap_2, vmin=vmin_res, vmax=vmax_res)

@@ -218,9 +218,9 @@ class SparseSolverBase(ModelOperators):
             return self.H(self.F(S)) + HG
 
     @property
-    def reduced_residuals_model(self):
+    def normalized_residuals_model(self):
         """ returns || Y - HFS - HG - P ||^2_2 / sigma^2 """
-        return self.reduced_residuals(S=self.source_model, 
+        return self.normalized_residuals(S=self.source_model, 
                                       HG=self.lens_light_model, 
                                       P=self.point_source_model)
 
@@ -284,7 +284,7 @@ class SparseSolverBase(ModelOperators):
         norm_alpha = np.linalg.norm((lambda_ * alpha_image).flatten(), ord=self._sparsity_prior_norm)
         return norm_alpha
 
-    def reduced_residuals(self, S=None, HG=None, P=None):
+    def normalized_residuals(self, S=None, HG=None, P=None):
         """ returns ( Y - HFS - HG - P ) / sigma """
         model = self.model_analysis(S=S, HG=HG, P=P)
         error = self.effective_image_data - model
@@ -295,7 +295,7 @@ class SparseSolverBase(ModelOperators):
         return self.M(error / sigma)
 
     def reduced_chi2(self, S=None, HG=None, P=None):
-        red_res = self.reduced_residuals(S=S, HG=HG, P=P)
+        red_res = self.normalized_residuals(S=S, HG=HG, P=P)
         chi2 = np.sum(red_res**2)
         return chi2 / self.num_data_points
 
