@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import NoNorm, LogNorm
 
 from slitronomy.Util import plot_util
-from slitronomy.Util import metrics
+from slitronomy.Util import metrics_util
 
 class SolverPlotter(object):
 
@@ -228,7 +228,7 @@ class SolverPlotter(object):
                                                 label=r"f${}_{\rm model}$ - f${}_{\rm truth}$", fontsize=fontsize)
             i += 1
             
-            print("SDR for model '{}' = {:.3f}".format(name, metrics.SDR(source_truth, source_model)))
+            print("SDR for model '{}' = {:.3f}".format(name, metrics_util.SDR(source_truth, source_model)))
         return fig
 
     @staticmethod
