@@ -39,7 +39,7 @@ class SolverPlotter(object):
 
     def plot_results(self, log_scale=False, vmin_image=None, vmax_image=None, 
                      vmin_source=None, vmax_source=None, vmin_res=-6, vmax_res=6,
-                     cmap_image=None, cmap_source=None, fontsize=12):
+                     cmap_image=None, cmap_source=None, fontsize=12, with_history=True):
         if cmap_image is None:
             cmap_image = self._cmap_1
         if cmap_source is None:
@@ -47,7 +47,12 @@ class SolverPlotter(object):
 
         n_comp = self._solver.track['loss'].shape[0]
         names = self._solver.component_names
-        fig, axes = plt.subplots(2, 4, figsize=(22, 9))
+        n_rows, n_cols = 2, 4
+        if with_history:
+            n_rows, n_cols, figsize = 2, 4, (22, 9)
+        else:
+            n_rows, n_cols, figsize = 1, 4, (22, 4)
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, squeeze=False)
 
         # ====== IMAGING DATA ====== #
         ax = axes[0, 0]
@@ -129,6 +134,9 @@ class SolverPlotter(object):
         plot_util.nice_colorbar_residuals(im, residuals_map, vmin_res, vmax_res, 
                                           label=r"(f${}_{\rm model}$ - f${}_{\rm data}$)/$\sigma$", 
                                           fontsize=fontsize)
+
+        if not with_history:
+            return fig
 
         # ====== CONVERGENCE HISTORY PLOTS ====== #
         ax = axes[1, 0]
