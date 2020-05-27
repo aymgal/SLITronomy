@@ -2,7 +2,7 @@ __author__ = 'aymgal'
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import NoNorm, LogNorm
+from matplotlib.colors import Normalize, LogNorm
 
 from slitronomy.Util import plot_util
 from slitronomy.Util import metrics_util
@@ -13,8 +13,8 @@ class SolverPlotter(object):
     _cmap_2 = 'RdBu_r'
     _cmap_misc = 'gist_stern'
     _color_cycle = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
-    _vmin = 10**(-4)
-    _vmax = 10**(8)
+    _vmin_log = 1e-5
+    _vmax_log = 1e10
 
     def __init__(self, solver_class, show_now=True):
         self._solver = solver_class
@@ -58,18 +58,7 @@ class SolverPlotter(object):
         ax = axes[0, 0]
         ax.set_title("imaging data", fontsize=fontsize)
         data = self._solver.M(self._solver.Y)
-        if vmin_image is None:
-            vmin = max(data.min(), self._vmin)
-        else:
-            vmin = vmin_image
-        if vmax_image is None:
-            vmax = min(data.max(), self._vmax)
-        else:
-            vmax = vmax_image
-        if log_scale:
-            norm = LogNorm(vmin=vmin, vmax=vmax)
-        else:
-            norm = NoNorm(vmin=vmin, vmax=vmax)
+        norm = self._prepare_color_norm(data, log_scale, vmin_image, vmax_image)
         im = ax.imshow(data, origin='lower', cmap=cmap_image, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
@@ -85,18 +74,7 @@ class SolverPlotter(object):
             ax.set_title("image model", fontsize=fontsize)
             img_model = self._solver.image_model(unconvolved=False)
             print("Negative image pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
-        if vmin_image is None:
-            vmin = max(img_model.min(), self._vmin)
-        else:
-            vmin = vmin_image
-        if vmax_image is None:
-            vmax = min(img_model.max(), self._vmax)
-        else:
-            vmax = vmax_image
-        if log_scale:
-            norm = LogNorm(vmin=vmin, vmax=vmax)
-        else:
-            norm = NoNorm(vmin=vmin, vmax=vmax)
+        norm = self._prepare_color_norm(img_model, log_scale, vmin_image, vmax_image)
         im = ax.imshow(img_model, origin='lower', cmap=cmap_image, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
@@ -105,18 +83,7 @@ class SolverPlotter(object):
         ax.set_title("source model", fontsize=fontsize)
         src_model = self._solver.source_model
         print("Negative source pixels ? {} (min = {:.2e})".format(np.any(src_model < 0), src_model.min()))
-        if vmin_source is None:
-            vmin = max(src_model.min(), self._vmin)
-        else:
-            vmin = vmin_source
-        if vmax_source is None:
-            vmax = min(src_model.max(), self._vmax)
-        else:
-            vmax = vmax_source
-        if log_scale:
-            norm = LogNorm(vmin=vmin, vmax=vmax)
-        else:
-            norm = NoNorm(vmin=vmin, vmax=vmax)
+        norm = self._prepare_color_norm(src_model, log_scale, vmin_source, vmax_source)
         im = ax.imshow(src_model, origin='lower', cmap=cmap_source, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
@@ -241,3 +208,24 @@ class SolverPlotter(object):
         plot_util.nice_colorbar(im)
         if show_now:
             plt.show()
+
+    def _prepare_color_norm(self, image, log_scale, vmin_user, vmax_user):
+        if vmin_user is None:
+            if log_scale:
+                vmin = max(image.min(), self._vmin_log)
+            else:
+                vmin = image.min()
+        else:
+            vmin = vmin_user
+        if vmax_user is None:
+            if log_scale:
+                vmax = min(image.max(), self._vmax_log)
+            else:
+                vmax = image.max()
+        else:
+            vmax = vmax_user
+        if log_scale:
+            norm = LogNorm(vmin=vmin, vmax=vmax)
+        else:
+            norm = Normalize(vmin=vmin, vmax=vmax)
+        return norm
