@@ -12,7 +12,7 @@ class LensingOperator(object):
 
     """Defines the mapping of pixelated light profiles between image and source planes"""
 
-    def __init__(self, lens_model_class, image_grid_class, source_grid_class, num_pix, subgrid_res_source,
+    def __init__(self, lens_model_class, image_grid_class, source_grid_class, num_pix, subgrid_res_source=1,
                  likelihood_mask=None, minimal_source_plane=False, min_num_pix_source=10,
                  use_mask_for_minimal_source_plane=True,
                  source_interpolation='bilinear', matrix_prod=True, verbose=False):
@@ -46,13 +46,6 @@ class LensingOperator(object):
         Raises
         ------
         ValueError
-            Description
-
-        Deleted Parameters
-        ------------------
-        image_numerics_class : TYPE
-            Description
-        source_numerics_class : TYPE
             Description
         """
         self.lensModel = lens_model_class
