@@ -9,6 +9,15 @@ def SDR(truth, model):
     return 10 * np.log10( np.linalg.norm(truth.flatten(), 2) / np.linalg.norm(diff.flatten(), 2) )
 
 
+def SSIM(truth, model):
+    import tensorflow as tf
+    dyn_range = truth.max() - truth.min()
+    t = tf.convert_to_tensor(truth[:, :, np.newaxis])
+    m = tf.convert_to_tensor(model[:, :, np.newaxis])
+    ssim = tf.image.ssim(t, m, max_val=dyn_range)
+    return ssim.numpy()
+
+
 def QOR(truth, model, noise_map):
     """computes Quality Of Reconstruction"""
     return np.std((truth-model)/noise_map)
