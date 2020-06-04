@@ -3,6 +3,7 @@ scipy
 matplotlib
 future
 astropy
+tensorflow
 
 # for lenstronomy
 sklearn

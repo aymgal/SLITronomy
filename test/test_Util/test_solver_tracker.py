@@ -44,11 +44,13 @@ class TestSolverTracker(object):
         source_model_class = LightModel(['STARLETS'])
         self.kwargs_source = [{'coeffs': 0, 'n_scales': 3, 'n_pixels': self.num_pix**2}]
 
-        numerics_class = NumericsSubFrame(pixel_grid=data_class, psf=PSF(psf_type='NONE'))
+        # define numerics classes
+        image_numerics_class = NumericsSubFrame(pixel_grid=data_class, psf=PSF(psf_type='NONE'))
+        source_numerics_class = NumericsSubFrame(pixel_grid=data_class, psf=PSF(psf_type='NONE'), supersampling_factor=1)
 
         # init sparse solver
-        self.solver = SparseSolverSource(data_class, lens_model_class, numerics_class, source_model_class,
-                                         num_iter_source=10)
+        self.solver = SparseSolverSource(data_class, lens_model_class, image_numerics_class, source_numerics_class,
+                                         source_model_class, num_iter_source=10)
 
         # init the tracker
         self.tracker_alone = SolverTracker(self.solver, verbose=True)
@@ -57,7 +59,7 @@ class TestSolverTracker(object):
         track_before = self.solver.track
         assert track_before is None  # before solver has been ran
         # launch solver
-        _, _ = self.solver.solve(self.kwargs_lens, self.kwargs_source)
+        _ = self.solver.solve(self.kwargs_lens, self.kwargs_source)
         track_after = self.solver.track
         assert isinstance(track_after, dict)
         assert len(track_after['loss'][0]) > 1

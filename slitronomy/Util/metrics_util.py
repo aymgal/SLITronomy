@@ -10,6 +10,7 @@ def SDR(truth, model):
 
 
 def SSIM(truth, model):
+    """computes Structure Similarity Index"""
     import tensorflow as tf
     dyn_range = truth.max() - truth.min()
     t = tf.convert_to_tensor(truth[:, :, np.newaxis])
