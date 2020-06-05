@@ -72,11 +72,12 @@ class TestSparseSolverBase(object):
         kwargs_psf = {'psf_type': 'PIXEL', 'kernel_point_source': kernel_pixel}
         psf = PSF(**kwargs_psf)
         numerics = NumericsSubFrame(pixel_grid=data, psf=psf)
+        source_numerics = NumericsSubFrame(pixel_grid=data, psf=psf, supersampling_factor=self.subgrid_res_source)
 
         # init the solver
-        self.solver = SparseSolverBase(data, lens_model, numerics, 
+        self.solver = SparseSolverBase(data, lens_model, numerics, source_numerics, 
                  likelihood_mask=self.likelihood_mask, source_interpolation='bilinear',
-                 subgrid_res_source=1, minimal_source_plane=True, fix_minimal_source_plane=True, 
+                 subgrid_res_source=self.subgrid_res_source, minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=self.min_num_pix_source,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False) 
@@ -159,12 +160,14 @@ class TestRaise(unittest.TestCase):
                                    'n_pixels': self.num_pix**2}]
         psf = PSF(psf_type='NONE')
         self.numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf)
-        self.solver = SparseSolverBase(self.data, self.lens_model, self.numerics)
+        self.source_numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf, supersampling_factor=self.subgrid_res_source)
+        self.solver = SparseSolverBase(self.data, self.lens_model, self.numerics, self.source_numerics,
+                                       subgrid_res_source=self.subgrid_res_source)
         
     def test_raise(self):
         with self.assertRaises(ValueError):
             # wrong sparsitiy norm
-            solver = SparseSolverBase(self.data, self.lens_model, self.numerics,
+            solver = SparseSolverBase(self.data, self.lens_model, self.numerics, self.source_numerics,
                                       sparsity_prior_norm=2)
         with self.assertRaises(ValueError):
             # non sqaure image
@@ -172,7 +175,7 @@ class TestRaise(unittest.TestCase):
             kwargs_data['image_data'] = np.ones((49, 60))
             kwargs_data['noise_map'] = 0.01 * np.ones((49, 60))
             data_nonsquare = ImageData(**kwargs_data)
-            solver = SparseSolverBase(data_nonsquare, self.lens_model, self.numerics)
+            solver = SparseSolverBase(data_nonsquare, self.lens_model, self.numerics, self.source_numerics)
         with self.assertRaises(ValueError):
             # solve is not fully implemented (on purpose) in the base class
             result = self.solver._ready()

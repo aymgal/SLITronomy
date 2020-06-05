@@ -106,6 +106,10 @@ class SizeablePlaneGrid(PlaneGrid):
         return self._num_pix
 
     @property
+    def subgrid_resolution(self):
+        return self._subgrid_res
+
+    @property
     def theta_x(self):
         if self.state == 'resized' and hasattr(self, '_x_grid_1d_resized'):
             return self._x_grid_1d_resized

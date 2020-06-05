@@ -45,6 +45,12 @@ class TestModelOperators(object):
         lens_model = LensModel(['SPEP'])
         kwargs_lens = [{'theta_E': 1, 'gamma': 2, 'center_x': 0, 'center_y': 0, 'e1': -0.05, 'e2': 0.05}]
 
+        # PSF
+        kernel_pixel = np.zeros((self.num_pix, self.num_pix))
+        kernel_pixel[int(self.num_pix/2), int(self.num_pix/2)] = 1  # just a dirac here
+        kwargs_psf = {'psf_type': 'PIXEL', 'kernel_point_source': kernel_pixel}
+        psf = PSF(**kwargs_psf)
+
         # wavelets scales for lens and source
         self.n_scales_source = 4
         self.n_scales_lens = 3
@@ -60,16 +66,16 @@ class TestModelOperators(object):
         # define some mask
         likelihood_mask = np.ones((self.num_pix, self.num_pix))
 
-        # get a lensing operator
-        self.lensing_op = LensingOperator(data, lens_model, subgrid_res_source=self.subgrid_res_source)
-        self.lensing_op.update_mapping(kwargs_lens)
+        # get grid classes
+        self.numerics = NumericsSubFrame(data, psf)
+        image_grid_class = self.numerics.grid_class
+        source_numerics = NumericsSubFrame(data, psf, supersampling_factor=self.subgrid_res_source)
+        source_grid_class = source_numerics.grid_class
 
-        # get a convolution operator
-        kernel_pixel = np.zeros((self.num_pix, self.num_pix))
-        kernel_pixel[int(self.num_pix/2), int(self.num_pix/2)] = 1  # just a dirac here
-        kwargs_psf = {'psf_type': 'PIXEL', 'kernel_point_source': kernel_pixel}
-        psf = PSF(**kwargs_psf)
-        self.numerics = NumericsSubFrame(pixel_grid=data, psf=psf)
+        # get a lensing operator
+        self.lensing_op = LensingOperator(lens_model, image_grid_class, source_grid_class, self.num_pix,
+                                          subgrid_res_source=self.subgrid_res_source)
+        self.lensing_op.update_mapping(kwargs_lens)
 
         self.model_op = ModelOperators(data, self.lensing_op, self.numerics,
                                        likelihood_mask=likelihood_mask)
@@ -107,11 +113,11 @@ class TestModelOperators(object):
 
     def test_spectral_norm_source(self):
         self.model_op.set_source_wavelet_scales(self.n_scales_source)
-        npt.assert_almost_equal(self.model_op.spectral_norm_source, 0.979, decimal=3)
+        npt.assert_almost_equal(self.model_op.spectral_norm_source, 0.97, decimal=2)
 
     def test_spectral_norm_lens(self):
         self.model_op.set_lens_wavelet_scales(self.n_scales_lens)
-        npt.assert_almost_equal(self.model_op.spectral_norm_lens, 0.999, decimal=3)
+        npt.assert_almost_equal(self.model_op.spectral_norm_lens, 0.99, decimal=2)
 
     def test_data_terms(self):
         npt.assert_equal(self.model_op.Y, self.image_data)
@@ -164,11 +170,17 @@ class TestRaise(unittest.TestCase):
         }
         self.data_nonsquare = ImageData(**kwargs_data_nonsquare)
         self.data = ImageData(**kwargs_data)
-        self.numerics = NumericsSubFrame(pixel_grid=self.data, psf=PSF(psf_type='NONE'))
+        psf = PSF('NONE')
+        self.numerics = NumericsSubFrame(self.data, psf)
         lens_model = LensModel(['SPEP'])
         self.source_model_class = LightModel(['STARLETS'])
         self.lens_light_model_class = LightModel(['STARLETS'])
-        self.lensing_op = LensingOperator(self.data, lens_model)
+        # get grid classes
+        image_grid_class = self.numerics.grid_class
+        source_numerics = NumericsSubFrame(self.data, psf, supersampling_factor=1)
+        source_grid_class = source_numerics.grid_class
+        self.lensing_op = LensingOperator(lens_model, image_grid_class, source_grid_class, self.num_pix, 
+                                          subgrid_res_source=1)
         self.model_op = ModelOperators(self.data, self.lensing_op, self.numerics)
         self.model_op.add_lens_light(self.lens_light_model_class)
         self.model_op_nolens = ModelOperators(self.data, self.lensing_op, self.numerics)

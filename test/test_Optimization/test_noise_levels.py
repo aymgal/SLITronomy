@@ -11,6 +11,8 @@ from slitronomy.Lensing.lensing_operator import LensingOperator
 from slitronomy.Util import util
 
 from lenstronomy.Data.imaging_data import ImageData
+from lenstronomy.Data.psf import PSF
+from lenstronomy.ImSim.Numerics.numerics_subframe import NumericsSubFrame
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.LightModel.light_model import LightModel
 from lenstronomy.LightModel.Profiles.gaussian import Gaussian
@@ -65,8 +67,13 @@ class TestNoiseLevels(object):
         self.lens_light_model = LightModel(['STARLETS'])
         self.kwargs_lens_light = [{'n_scales': self.n_scales_lens}]
 
+        # get grid classes
+        image_grid_class = NumericsSubFrame(data, PSF('NONE')).grid_class
+        source_grid_class = NumericsSubFrame(data, PSF('NONE'), supersampling_factor=self.subgrid_res_source).grid_class
+
         # get a lensing operator
-        self.lensing_op = LensingOperator(data, lens_model, subgrid_res_source=self.subgrid_res_source)
+        self.lensing_op = LensingOperator(lens_model, image_grid_class, source_grid_class, self.num_pix,
+                                          subgrid_res_source=self.subgrid_res_source)
 
         self.boost_where_zero = 10
         self.noise_class = NoiseLevels(data, subgrid_res_source=self.subgrid_res_source,

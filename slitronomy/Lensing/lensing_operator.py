@@ -143,6 +143,10 @@ class LensingOperator(object):
         """source pixel area divide by image pixel area"""
         return (self.sourcePlane.delta_pix / self.imagePlane.delta_pix)**2
 
+    @property
+    def source_subgrid_resolution(self):
+        return self.sourcePlane.subgrid_resolution
+
     def magnification_map(self, kwargs_lens):
         mag_map_1d = self.lensModel.magnification(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
         return util.array2image(mag_map_1d)

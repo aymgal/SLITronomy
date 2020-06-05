@@ -12,6 +12,8 @@ def prox_sparsity_wavelets(coeffs_input, step, level_const=None, level_pixels=No
     """
     if l_norm not in [0, 1]:
         raise ValueError("Sparsity proximal operator only defined with l0- and l1-norms")
+    if step == 0:
+        return coeffs_input
 
     coeffs = np.copy(coeffs_input)
     n_scales = coeffs.shape[0]

@@ -12,8 +12,7 @@ class ModelManager(object):
     """Utility class for initializing model operators and managing model components"""
 
     def __init__(self, data_class, lensing_operator_class, numerics_class,
-                 subgrid_res_source=1, likelihood_mask=None, thread_count=1,
-                 random_seed=None):
+                 likelihood_mask=None, thread_count=1, random_seed=None):
         if likelihood_mask is None:
             likelihood_mask = np.ones_like(data_class.data)
         self._mask = likelihood_mask
@@ -24,7 +23,7 @@ class ModelManager(object):
             self._conv_transpose = self._conv.copy_transpose()
         else:
             self._conv_transpose = None
-        self._prepare_data(data_class, subgrid_res_source, self._mask)
+        self._prepare_data(data_class, self._lensing_op.source_subgrid_resolution, self._mask)
         self._no_source_light = True
         self._no_lens_light = True
         self._no_point_source = True

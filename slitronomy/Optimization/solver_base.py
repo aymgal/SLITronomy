@@ -86,7 +86,7 @@ class SparseSolverBase(ModelOperators):
 
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, image_numerics_class,
                                                fixed_spectral_norm_source=fixed_spectral_norm_source,
-                                               subgrid_res_source=subgrid_res_source, likelihood_mask=likelihood_mask, 
+                                               likelihood_mask=likelihood_mask, 
                                                thread_count=thread_count, random_seed=random_seed)
         
         # engine that computes noise levels in image / source plane, in wavelets space
