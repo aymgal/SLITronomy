@@ -47,7 +47,7 @@ class SparseSolverSource(SparseSolverBase):
         """
         implements the SLIT algorithm
         """
-        # set the gradient step
+        # set the gradient step: 0 < mu < 2/spectral_norm
         mu = 1. / self.spectral_norm_source
 
         # get the gradient of the cost function, which is f = || Y - HFS ||^2_2
@@ -113,14 +113,6 @@ class SparseSolverSource(SparseSolverBase):
             # update weights if necessary
             if self._n_iter_weights > 1:
                 weights, _ = self._update_weights(alpha_S, threshold=self._k_min)
-
-            # if j > 0:
-            #     import matplotlib.pyplot as plt
-            #     fig, axes = plt.subplots(1, alpha_S.shape[0], figsize=(20, 4))
-            #     for ns in range(alpha_S.shape[0]):
-            #         im = axes[ns].imshow(weights[ns], origin='lower', cmap='gist_stern')
-            #         plt.colorbar(im, ax=axes[ns])
-            #     plt.show()
 
         # store results
         self._tracker.finalize()

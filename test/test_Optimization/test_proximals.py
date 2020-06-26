@@ -36,11 +36,13 @@ def test_prox_sparsity_wavelets():
     npt.assert_equal(coeffs_proxed_l1[-1, :, :], coeffs[-1, :, :])
 
     # test with minimal arguments
-    coeffs_proxed_minimal = proximals.prox_sparsity_wavelets(coeffs, step)
+    coeffs_proxed_minimal = proximals.prox_sparsity_wavelets(coeffs, step, l_norm=0)
     npt.assert_equal(coeffs_proxed_minimal, coeffs)
 
     coeffs_proxed_minimal_l1 = proximals.prox_sparsity_wavelets(coeffs, step, l_norm=1)
-    npt.assert_equal(coeffs_proxed_minimal_l1, coeffs)
+    npt.assert_equal(coeffs_proxed_minimal_l1[0, :, :], coeffs[0, :, :]-step)
+    npt.assert_equal(coeffs_proxed_minimal_l1[1, :, :], coeffs[1, :, :]-step)
+    npt.assert_equal(coeffs_proxed_minimal_l1[-1, :, :], coeffs[-1, :, :])
 
 def test_prox_positivity():
     image = np.arange(-8, 8).reshape(4, 4)
@@ -54,7 +56,7 @@ class TestRaise(unittest.TestCase):
     def test_raise(self):
         with self.assertRaises(ValueError):
             coeffs = np.empty((3, 5, 5))
-            proximals.prox_sparsity_wavelets(coeffs, 1, l_norm=2)
+            proximals.prox_sparsity_wavelets(coeffs, 1, l_norm=2)  # non available l-norm
 
 
 if __name__ == '__main__':

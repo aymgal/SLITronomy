@@ -59,11 +59,13 @@ class TestSolverPlotter(object):
         source_model_class = LightModel(['STARLETS'])
         self.kwargs_source = [{'coeffs': 0, 'n_scales': 3, 'n_pixels': self.num_pix**2}]
 
-        numerics_class = NumericsSubFrame(pixel_grid=data_class, psf=PSF(psf_type='NONE'))
+        # define numerics classes
+        image_numerics_class = NumericsSubFrame(pixel_grid=data_class, psf=PSF(psf_type='NONE'))
+        source_numerics_class = NumericsSubFrame(pixel_grid=data_class, psf=PSF(psf_type='NONE'), supersampling_factor=1)
 
         # init sparse solver
-        self.solver = SparseSolverSource(data_class, lens_model_class, numerics_class, source_model_class,
-                                         num_iter_source=10)
+        self.solver = SparseSolverSource(data_class, lens_model_class, image_numerics_class, source_numerics_class,
+                                         source_model_class, num_iter_source=10)
 
         # init the plotter
         self.plotter = SolverPlotter(self.solver, show_now=False)
@@ -86,8 +88,8 @@ class TestSolverPlotter(object):
 
     def test_plot_results(self):
         # launch solver first
-        _, _ = self.solver.solve(self.kwargs_lens, self.kwargs_source)
-        self.plotter.plot_results(model_log_scale=True)
+        _ = self.solver.solve(self.kwargs_lens, self.kwargs_source)
+        self.plotter.plot_results(log_scale=True)
         plt.close()
 
     def test_quick_imshow(self):

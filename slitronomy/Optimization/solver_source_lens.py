@@ -17,7 +17,7 @@ class SparseSolverSourceLens(SparseSolverSource):
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class, lens_light_model_class, 
-                 likelihood_mask=None, num_iter_source=10, num_iter_lens=10, num_iter_weights=3, **base_kwargs):
+                 likelihood_mask=None, num_iter_global=10, num_iter_source=10, num_iter_lens=1, num_iter_weights=3, **base_kwargs):
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
         :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
@@ -25,6 +25,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         :param source_numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance for source plane.
         :param source_model_class: lenstronomy.light_model.LightModel instance describing the source light.
         :param lens_light_model_class: lenstronomy.light_model.LightModel instance describing the lens light.
+        :param num_iter_global: number of iterations to alternate between source and lens light. 
         :param num_iter_source: number of iterations for sparse optimization of the source light. 
         :param num_iter_lens: number of iterations for sparse optimization of the lens light. 
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
@@ -37,6 +38,7 @@ class SparseSolverSourceLens(SparseSolverSource):
                                                      likelihood_mask=likelihood_mask, num_iter_source=num_iter_source, 
                                                      num_iter_weights=num_iter_weights, **base_kwargs)
         self.add_lens_light(lens_light_model_class)
+        self._n_iter_global = num_iter_global
         self._n_iter_lens = num_iter_lens
 
     def _ready(self):
@@ -46,18 +48,19 @@ class SparseSolverSourceLens(SparseSolverSource):
         """
         implements the SLIT_MCA algorithm
         """
-        # set the gradient step
+        # set the gradient steps: 0 < mu < 2/spectral_norm
         mu_s = 1. / self.spectral_norm_source
         mu_l = 1. / self.spectral_norm_lens
 
-        # initial guess as background random noise
+        # generate initial guesses
         S, alpha_S = self.generate_initial_source()
-        if self._init_lens_light_model is not None:
+        if self._init_lens_light_model is None:
+            HG, alpha_HG = self.generate_initial_lens_light()
+        else:
             # a guess for lens light has been provided
             HG = self._init_lens_light_model
             alpha_HG = self.Phi_T_l(HG)
-        else:
-            HG, alpha_HG = self.generate_initial_lens_light()
+
         if self._show_steps:
             self._plotter.plot_init(S)
             self._plotter.plot_init(HG)
@@ -73,22 +76,20 @@ class SparseSolverSourceLens(SparseSolverSource):
         for j in range(self._n_iter_weights):
 
             # estimate initial threshold
-            model = self.Y_eff if j == 0 else self.model_analysis(S=S)
-            thresh_init = self._estimate_threshold_MOM(self.Y)  # first estimation from data itself
+            model = self.Y_eff if j == 0 else self.model_analysis(S=S, HG=HG)
+            thresh_init = self._estimate_threshold_MOM(model)  # first estimation from data itself
             thresh = thresh_init
             # some hidden variables carried along the loop for threshold update
-            thresh_init_adapt, n_iter_adapt = thresh_init, self._n_iter_lens
+            thresh_init_adapt, n_iter_adapt = thresh_init, self._n_iter_global
 
-            # initial hidden variables
-            if j == 0 and self.algorithm == 'FISTA':
-                fista_xi_l, fista_t_l = np.copy(alpha_HG), 1.
-                fista_xi_s, fista_t_s = np.copy(alpha_S), 1.
+            ######### Loop over source and lens light at *fixed weights* ########
 
-            ######### Loop over lens light at fixed weights ########
+            for i in range(self._n_iter_global):
 
-            for i_l in range(self._n_iter_lens):
+                if self._verbose:
+                    print("threshold at iteration {}: {}".format(i, thresh))
 
-                # get the proximal operator with current weights
+                # get the proximal operators with current threshold and weights
                 prox_g_s = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights_source)
                 prox_g_l = lambda x, y: self.proximal_sparsity_lens(x, threshold=thresh, weights=weights_lens)
 
@@ -97,8 +98,12 @@ class SparseSolverSourceLens(SparseSolverSource):
                 # subtract lens light from data
                 self.subtract_lens_from_data(HG)
 
-                # get the gradient of the cost function f = || Y - HFS - HG ||^2_2  wth respect to S
+                # get the gradient of the cost function f = || Y - HFS - HG ||^2_2  with respect to S
                 grad_f_s = lambda x: self.gradient_loss_source(x)
+
+                # initial hidden variables for the source
+                if self.algorithm == 'FISTA':
+                    fista_xi_s, fista_t_s = np.copy(alpha_S), 1.
 
                 for i_s in range(self._n_iter_source):
 
@@ -113,8 +118,8 @@ class SparseSolverSourceLens(SparseSolverSource):
 
                     # save current step to track
                     self._tracker.save(S=S, S_next=S_next, 
-                                       print_bool=(i_l % 30 == 0 and i_s % 30 == 0),
-                                       iteration_text="*** iteration {}-{}-{} ***".format(j, i_l, i_s))
+                                       print_bool=(i % 30 == 0 and i_s % 30 == 0),
+                                       iteration_text="*** iteration {}-{}-{} ***".format(j, i, i_s))
                     
                     # update current estimate of source light and local parameters
                     S = S_next
@@ -124,35 +129,49 @@ class SparseSolverSourceLens(SparseSolverSource):
 
                 ######### ######## end source light ######## ########
 
+                if self._show_steps: # and i % ma.ceil(self._n_iter_global/2) == 0:
+                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
+                    #self._plotter.plot_step(HG_next, iter_1=j, iter_2=i, iter_3=i_s)
+
+                ######### Loop over lens light at fixed weights ########
+
                 # subtract source light (lensed and convolved) from data
                 self.subtract_source_from_data(S)
 
-                # get the gradient of the cost function f = || Y - HFS - HG ||^2_2  wth respect to HG
+                # get the gradient of the cost function f = || Y - HFS - HG ||^2_2  with respect to HG
                 grad_f_l = lambda x: self.gradient_loss_lens(x)
 
+                # initial hidden variables for the lens
                 if self.algorithm == 'FISTA':
-                    alpha_HG_next, fista_xi_l_next, fista_t_l_next \
-                        = algorithms.step_FISTA(alpha_HG, fista_xi_l, fista_t_l, grad_f_l, prox_g_l, mu_l)
-                    HG_next = self.Phi_l(alpha_HG_next)
+                    fista_xi_l, fista_t_l = np.copy(alpha_HG), 1.
 
-                elif self.algorithm == 'FB':
-                    HG_next = algorithms.step_FB(HG, grad_f_l, prox_g_l, mu_l)
-                    alpha_HG_next = self.Phi_T_l(HG_next)
+                for i_l in range(self._n_iter_lens):
 
-                # save current step to track
-                self._tracker.save(HG=HG, HG_next=HG_next, 
-                                   print_bool=(i_l % 10 == 0 and i_s == self._n_iter_source-1),
-                                   iteration_text="=== iteration {}-{}-{} ===".format(j, i_l, i_s))
+                    if self.algorithm == 'FISTA':
+                        alpha_HG_next, fista_xi_l_next, fista_t_l_next \
+                            = algorithms.step_FISTA(alpha_HG, fista_xi_l, fista_t_l, grad_f_l, prox_g_l, mu_l)
+                        HG_next = self.Phi_l(alpha_HG_next)
 
-                if self._show_steps and i_l % ma.ceil(self._n_iter_lens/2) == 0 and i_s == self._n_iter_source-1:
-                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i_l, iter_3=i_s)
-                    self._plotter.plot_step(HG_next, iter_1=j, iter_2=i_l, iter_3=i_s)
+                    elif self.algorithm == 'FB':
+                        HG_next = algorithms.step_FB(HG, grad_f_l, prox_g_l, mu_l)
+                        alpha_HG_next = self.Phi_T_l(HG_next)
 
-                # update current estimate of source light and local parameters
-                HG = HG_next
-                alpha_HG = alpha_HG_next
-                if self.algorithm == 'FISTA':
-                    fista_xi_l, fista_t_l = fista_xi_l_next, fista_t_l_next
+                    # save current step to track
+                    self._tracker.save(HG=HG, HG_next=HG_next, 
+                                       print_bool=(i % 30 == 0 and i_l % 30 == 0),
+                                       iteration_text="=== iteration {}-{}-{} ===".format(j, i, i_l))
+
+                    # update current estimate of source light and local parameters
+                    HG = HG_next
+                    alpha_HG = alpha_HG_next
+                    if self.algorithm == 'FISTA':
+                        fista_xi_l, fista_t_l = fista_xi_l_next, fista_t_l_next
+
+                ######### ######## end lens light ######## ########
+
+                if self._show_steps: # and i % ma.ceil(self._n_iter_global/2) == 0:
+                    #self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
+                    self._plotter.plot_step(HG_next, iter_1=j, iter_2=i, iter_3=i_l)
 
                 # update adaptive threshold
                 DS = self.Y - self.H(self.F(S))  # image with lensed convolved source subtracted
@@ -163,7 +182,7 @@ class SparseSolverSourceLens(SparseSolverSource):
                 if thresh_MOM < thresh_dec:
                     thresh = thresh_MOM
                     # update hidden variables for next loop
-                    thresh_init_adapt, n_iter_adapt = thresh_MOM, self._n_iter_lens - i_l
+                    thresh_init_adapt, n_iter_adapt = thresh_MOM, self._n_iter_global - i
                 else:
                     thresh = thresh_dec
 

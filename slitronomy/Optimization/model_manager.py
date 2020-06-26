@@ -12,7 +12,7 @@ class ModelManager(object):
     """Utility class for initializing model operators and managing model components"""
 
     def __init__(self, data_class, lensing_operator_class, numerics_class,
-                 subgrid_res_source=1, likelihood_mask=None, thread_count=1):
+                 likelihood_mask=None, thread_count=1, random_seed=None):
         if likelihood_mask is None:
             likelihood_mask = np.ones_like(data_class.data)
         self._mask = likelihood_mask
@@ -23,11 +23,12 @@ class ModelManager(object):
             self._conv_transpose = self._conv.copy_transpose()
         else:
             self._conv_transpose = None
-        self._prepare_data(data_class, subgrid_res_source, self._mask)
+        self._prepare_data(data_class, self._lensing_op.source_subgrid_resolution, self._mask)
         self._no_source_light = True
         self._no_lens_light = True
         self._no_point_source = True
         self._thread_count = thread_count
+        self._random_seed = random_seed
 
     def add_source_light(self, source_model_class):
         # takes the first source light profile in the model list
@@ -74,6 +75,8 @@ class ModelManager(object):
 
     def fill_masked_data(self, background_rms):
         """Replace masked pixels with background noise"""
+        if self._random_seed is not None:
+            np.random.seed(self._random_seed)
         noise = background_rms * np.random.randn(*self._image_data.shape)
         self._image_data[self._mask == 0] = noise[self._mask == 0]
         self._image_data_eff[self._mask == 0] = noise[self._mask == 0]
@@ -81,6 +84,10 @@ class ModelManager(object):
     @property
     def image_data(self):
         return self._image_data
+
+    @property
+    def effective_image_data(self):
+        return self._image_data_eff
 
     @property
     def lensingOperator(self):

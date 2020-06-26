@@ -88,33 +88,34 @@ class TestSparseSolverSource(object):
         kwargs_psf = {'psf_type': 'PIXEL', 'kernel_point_source': kernel_pixel}
         psf = PSF(**kwargs_psf)
         numerics = NumericsSubFrame(pixel_grid=data, psf=psf)
+        source_numerics = NumericsSubFrame(pixel_grid=data, psf=psf, supersampling_factor=self.subgrid_res_source)
 
         self.num_iter_source = 20
         self.num_iter_lens = 10
+        self.num_iter_global = 7
         self.num_iter_weights = 2
 
         # init the solver
-        self.solver_source_ana = SparseSolverSource(data, lens_model, numerics, self.source_lightModel, 
+        self.solver_source_ana = SparseSolverSource(data, lens_model, numerics, source_numerics, self.source_lightModel, 
                  likelihood_mask=self.likelihood_mask, source_interpolation='bilinear',
-                 subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
+                 subgrid_res_source=self.subgrid_res_source, minimal_source_plane=False, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False,
                  min_threshold=5, threshold_increment_high_freq=1, threshold_decrease_type='exponential', 
                  num_iter_source=self.num_iter_source, num_iter_weights=self.num_iter_weights)
-        self.solver_lens_syn = SparseSolverSourceLens(data, lens_model, numerics, self.source_lightModel, self.lens_lightModel,
+        self.solver_lens_syn = SparseSolverSourceLens(data, lens_model, numerics, source_numerics, self.source_lightModel, self.lens_lightModel,
                  likelihood_mask=self.likelihood_mask, source_interpolation='bilinear',
-                 subgrid_res_source=1, minimal_source_plane=False, fix_minimal_source_plane=True, 
+                 subgrid_res_source=self.subgrid_res_source, minimal_source_plane=False, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  sparsity_prior_norm=1, force_positivity=True, formulation='synthesis',
                  verbose=False, show_steps=False,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='linear', 
-                 num_iter_source=self.num_iter_source, num_iter_lens=self.num_iter_lens, 
-                 num_iter_weights=self.num_iter_weights)
+                 num_iter_global=self.num_iter_global, num_iter_source=self.num_iter_source, num_iter_lens=self.num_iter_lens, num_iter_weights=self.num_iter_weights)
 
     def test_solve_source_analysis(self):
         # source solver
-        image_model, param = \
+        image_model, param, logL_penalty = \
             self.solver_source_ana.solve(self.kwargs_lens, self.kwargs_source, kwargs_special=self.kwargs_special)
         assert image_model.shape == self.image_data.shape
         assert len(param) == self.num_pix_source**2*self.n_scales_source
@@ -142,7 +143,7 @@ class TestSparseSolverSource(object):
         # assert loss > 0
 
         # reduced residuals map
-        red_res = self.solver_source_ana.reduced_residuals(S=S)
+        red_res = self.solver_source_ana.normalized_residuals(S=S)
         assert red_res.shape == self.image_data.shape
 
         # L2-norm of difference of two arrays
@@ -166,7 +167,7 @@ class TestSparseSolverSource(object):
 
     def test_solve_source_lens_synthesis(self):
         # source+lens solver
-        image_model, param = \
+        image_model, param, logL_penalty = \
             self.solver_lens_syn.solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light,
                                    kwargs_special=self.kwargs_special)
         assert image_model.shape == self.image_data.shape
@@ -174,7 +175,7 @@ class TestSparseSolverSource(object):
 
         # get the track
         track = self.solver_lens_syn.track
-        len_track_exp = (self.num_iter_source + 1)*self.num_iter_lens*self.num_iter_weights
+        len_track_exp = (self.num_iter_source + self.num_iter_lens)*self.num_iter_global*self.num_iter_weights
         assert len(track['loss'][0, :]) == len_track_exp
 
         # access models
@@ -193,7 +194,7 @@ class TestSparseSolverSource(object):
         # assert loss > 0
 
         # reduced residuals map
-        red_res = self.solver_lens_syn.reduced_residuals(S=S, HG=HG)
+        red_res = self.solver_lens_syn.normalized_residuals(S=S, HG=HG)
         assert red_res.shape == self.image_data.shape
 
         # reduced chi2
@@ -239,13 +240,15 @@ class TestRaise(unittest.TestCase):
         self.kwargs_lens_light = [{'n_scales': 4}]
         psf = PSF(psf_type='NONE')
         self.numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf)
-        self.solver_source_lens = SparseSolverSourceLens(self.data, self.lens_model, self.numerics,
+        self.source_numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf, supersampling_factor=self.subgrid_res_source)
+        self.solver_source_lens = SparseSolverSourceLens(self.data, self.lens_model, self.numerics, self.source_numerics,
                                                          self.source_model, self.lens_light_model,
+                                                         subgrid_res_source=self.subgrid_res_source,
                                                          num_iter_source=1, num_iter_lens=1, num_iter_weights=1)
         
     def test_raise(self):
         with self.assertRaises(ValueError):
-            self.solver_source_lens.solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light)
+            _ = self.solver_source_lens.solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light)
             # no deconvolution of lens light is performed, so raises an error
             image_model_deconvolved = self.solver_source_lens.image_model(unconvolved=True)
 

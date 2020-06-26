@@ -12,7 +12,7 @@ class LensingOperator(object):
 
     """Defines the mapping of pixelated light profiles between image and source planes"""
 
-    def __init__(self, lens_model_class, image_grid_class, source_grid_class, num_pix, subgrid_res_source,
+    def __init__(self, lens_model_class, image_grid_class, source_grid_class, num_pix, subgrid_res_source=1,
                  likelihood_mask=None, minimal_source_plane=False, min_num_pix_source=10,
                  use_mask_for_minimal_source_plane=True,
                  source_interpolation='bilinear', matrix_prod=True, verbose=False):
@@ -46,13 +46,6 @@ class LensingOperator(object):
         Raises
         ------
         ValueError
-            Description
-
-        Deleted Parameters
-        ------------------
-        image_numerics_class : TYPE
-            Description
-        source_numerics_class : TYPE
             Description
         """
         self.lensModel = lens_model_class
@@ -150,6 +143,10 @@ class LensingOperator(object):
         """source pixel area divide by image pixel area"""
         return (self.sourcePlane.delta_pix / self.imagePlane.delta_pix)**2
 
+    @property
+    def source_subgrid_resolution(self):
+        return self.sourcePlane.subgrid_resolution
+
     def magnification_map(self, kwargs_lens):
         mag_map_1d = self.lensModel.magnification(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
         return util.array2image(mag_map_1d)
@@ -160,7 +157,20 @@ class LensingOperator(object):
         else:
             return self._mapping_resized, self._norm_image2source_resized
 
+    def delete_cache(self):
+        if hasattr(self, '_mapping'):
+            del self._mapping
+        if hasattr(self, '_norm_image2source'):
+            del self._norm_image2source
+        if hasattr(self, '_mapping_resized'):
+            del self._mapping_resized
+        if hasattr(self, '_norm_image2source_resized'):
+            del self._norm_image2source_resized
+
     def update_mapping(self, kwargs_lens, kwargs_special=None):
+        # delete cached mapping matrices
+        self.delete_cache()
+
         # compute mapping between image and source plances due to lensing, on original source plane grid
         self.sourcePlane.switch_resize(False)
         self._mapping, self._norm_image2source = self._compute_mapping(kwargs_lens, kwargs_special=kwargs_special)
@@ -171,11 +181,11 @@ class LensingOperator(object):
         if self._minimal_source_plane:
             # for source plane to be reduced to minimal size
             # we compute effective source mask and shrink the grid to match it
-            self.sourcePlane.compute_resized_grid(self._min_num_pix_source)
-
-            # recompute the mapping on a resized source plane grid
-            self.sourcePlane.switch_resize(True)
-            self._mapping_resized, self._norm_image2source_resized = self._compute_mapping(kwargs_lens, kwargs_special=kwargs_special)
+            resized_bool = self.sourcePlane.compute_resized_grid(self._min_num_pix_source)
+            if resized_bool is True:
+                # recompute the mapping on a resized source plane grid
+                self.sourcePlane.switch_resize(True)
+                self._mapping_resized, self._norm_image2source_resized = self._compute_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         return (self.sourcePlane.grid_size, self.sourcePlane.delta_pix)
 

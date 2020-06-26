@@ -51,8 +51,7 @@ Example notebooks
 
 An ensemble of example notebooks are located at `thirdparty/notebooks <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks>`_ :
 
-* `Pixelated image-to-source plane mapping (nearest-neighbor interpolation) <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/01_lensing_mapping.ipynb>`_
-* `Pixelated image-to-source plane mapping (bilinear interpolation) <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/01bis_lensing_mapping_interpol.ipynb>`_
+* `Pixelated image-to-source plane mapping <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/01_lensing_mapping.ipynb>`_
 * `Starlets decomposition and reconstruction <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/02_starlets_decomposition.ipynb>`_
 * `Sparse source reconstruction <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/03_complex_source_reconstruction.ipynb>`_
 * `Lens model optimization <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/04_source_mass_reconstruction.ipynb>`_

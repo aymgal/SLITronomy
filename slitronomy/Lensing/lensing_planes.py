@@ -86,8 +86,6 @@ class SizeablePlaneGrid(PlaneGrid):
         verbose : bool, optional
             If False, print statements are shut down (e.g. when reducing iteratively grid size).
         """
-        if not isinstance(subgrid_res, int):
-            raise TypeError("'subgrid_res' must be an integer")
         super(SizeablePlaneGrid, self).__init__(num_pix, grid_class)
         self._num_pix = int(self._num_pix * subgrid_res)  # update number of side pixels
         self._subgrid_res = subgrid_res
@@ -106,6 +104,10 @@ class SizeablePlaneGrid(PlaneGrid):
         if self.state == 'resized':
             return self._num_pix_resized
         return self._num_pix
+
+    @property
+    def subgrid_resolution(self):
+        return self._subgrid_res
 
     @property
     def theta_x(self):
@@ -145,11 +147,13 @@ class SizeablePlaneGrid(PlaneGrid):
             self._effective_mask = image_refined
 
     def compute_resized_grid(self, min_num_pix):
-        if hasattr(self, '_num_pix_resized') or (self.num_pix <= min_num_pix):
-            # if resizing already computed or already smaller than minimal allowed size
-            return  # do nothing
+        if (self.num_pix <= min_num_pix):
+            # if already smaller than minimal allowed size
+            self._resized = False
+            return False
         reduc_indices, reduced_num_pix = self.shrink_plane_iterative(self._effective_mask, min_num_pix=min_num_pix)
         self._update_resized_properties(reduc_indices, reduced_num_pix)
+        return True
 
     def project_on_original_grid(self, image):
         if hasattr(self, '_reduc_indices_1d'):
@@ -184,12 +188,7 @@ class SizeablePlaneGrid(PlaneGrid):
 
     def _update_resized_properties(self, reduc_indices, reduced_num_pix):
         self._reduc_indices_1d = util.image2array(reduc_indices).astype(bool)
-        # backup the original 'large' grid
-        # self._num_pix_large = self._num_pix
-        # self._x_grid_1d_large = np.copy(self._x_grid_1d)
-        # self._y_grid_1d_large = np.copy(self._y_grid_1d)
-        # self._effective_mask_large = np.copy(self.effective_mask)
-        # update coordinates array
+        # update resized coordinates
         self._num_pix_resized = reduced_num_pix
         self._x_grid_1d_resized = np.copy(self._x_grid_1d[self._reduc_indices_1d])
         self._y_grid_1d_resized = np.copy(self._y_grid_1d[self._reduc_indices_1d])
