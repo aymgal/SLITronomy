@@ -29,5 +29,13 @@ def chi2_nu(normalized_residuals, num_data_points):
     return np.sum(normalized_residuals**2) / num_data_points
 
 
+def chi2_threshold(normalized_residuals, sigma_threshold=3):
+    """computes the reduced chi2 from a normalized residual map"""
+    mask = np.where(np.abs(normalized_residuals) > sigma_threshold)
+    normalized_residuals_masked = normalized_residuals[mask]
+    num_data_points = normalized_residuals_masked.size
+    return np.sum(normalized_residuals_masked**2) / num_data_points
+
+
 def total_mag(flux_map, zero_point):
     return -2.5 * np.log10(np.sum(flux_map)) + zero_point
