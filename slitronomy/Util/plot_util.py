@@ -6,19 +6,22 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def nice_colorbar(mappable, position='right', pad=0.1, size='5%', label=None, fontsize=12, 
-                  divider_kwargs={}, colorbar_kwargs={}):
+                  invisible=False, divider_kwargs={}, colorbar_kwargs={}, label_kwargs={}):
     divider_kwargs.update({'position': position, 'pad': pad, 'size': size})
     ax = mappable.axes
     divider = make_axes_locatable(ax)
     cax = divider.append_axes(**divider_kwargs)
+    if invisible:
+        cax.axis('off')
+        return None
     cb = plt.colorbar(mappable, cax=cax, **colorbar_kwargs)
     if label is not None:
         colorbar_kwargs.pop('label', None)
-        cb.set_label(label, fontsize=fontsize)
+        cb.set_label(label, fontsize=fontsize, **label_kwargs)
     return cb
 
 def nice_colorbar_residuals(mappable, res_map, vmin, vmax, position='right', pad=0.1, size='5%', 
-                            label=None, fontsize=16):
+                            invisible=False, label=None, fontsize=16):
     if res_map.min() < vmin and res_map.max() > vmax:
         cb_extend = 'both'
     elif res_map.min() < vmin:
@@ -28,7 +31,7 @@ def nice_colorbar_residuals(mappable, res_map, vmin, vmax, position='right', pad
     else:
         cb_extend = 'neither'
     nice_colorbar(mappable, position=position, pad=pad, size=size, label=label, fontsize=fontsize,
-                  colorbar_kwargs={'extend': cb_extend})
+                  invisible=invisible, colorbar_kwargs={'extend': cb_extend})
 
 def log_cmap(cmap_name, vmin, vmax):
     base_cmap = plt.get_cmap(cmap_name)

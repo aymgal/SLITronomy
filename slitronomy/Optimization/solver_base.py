@@ -27,7 +27,7 @@ class SparseSolverBase(ModelOperators):
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class,
                  subgrid_res_source=1, likelihood_mask=None, source_interpolation='bilinear',
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
-                 min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='none',
+                 min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type=None,
                  fixed_spectral_norm_source=0.98, include_regridding_error=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  external_likelihood_penalty=False, random_seed=None,
@@ -54,7 +54,7 @@ class SparseSolverBase(ModelOperators):
         :param threshold_increment_high_freq: additive number to the threshold level for highest frequencies on wavelets space.
         Defaults to 1.
         :param threshold_decrease_type: strategy for decreasing the threshold level at each iteration. Can be 'none' (no decrease, directly sets to min_threshold), 'linear' or 'exponential'.
-        Defaults to 'exponential'.
+        Defaults to None, which is 'exponential' for the source-only solver, 'linear' for the source-lens solver.
         :param fixed_spectral_norm_source: if None, update the spectral norm for the source operator, for optimal gradient descent step size.
         Defaults to 0.97, which is a conservative value typical of most lens models.
         :param sparsity_prior_norm: prior l-norm (0 or 1). If 1, l1-norm and soft-thresholding are applied.
@@ -219,10 +219,10 @@ class SparseSolverBase(ModelOperators):
 
     @property
     def normalized_residuals_model(self):
-        """ returns || Y - HFS - HG - P ||^2_2 / sigma^2 """
+        """ returns || HFS + HG + P - Y ||^2_2 / sigma^2 """
         return self.normalized_residuals(S=self.source_model, 
-                                      HG=self.lens_light_model, 
-                                      P=self.point_source_model)
+                                         HG=self.lens_light_model, 
+                                         P=self.point_source_model)
 
     def generate_initial_source(self):
         num_pix = self.num_pix_source
@@ -285,9 +285,9 @@ class SparseSolverBase(ModelOperators):
         return norm_alpha
 
     def normalized_residuals(self, S=None, HG=None, P=None):
-        """ returns ( Y - HFS - HG - P ) / sigma """
+        """ returns ( HFS + HG + P - Y ) / sigma """
         model = self.model_analysis(S=S, HG=HG, P=P)
-        error = self.effective_image_data - model
+        error = model - self.effective_image_data
         if hasattr(self, '_ps_error'):
             sigma = self.noise.effective_noise_map + self._ps_error
         else:
@@ -381,6 +381,7 @@ class SparseSolverBase(ModelOperators):
             _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
         except IndexError as e:
             if self._verbose:
+                #TODO: improve this. This error happens for crazy lens models (e.g. high shear, large power-law slope) 
                 print("LENSING OPERATOR: error during lensing operator construction: {}".format(e))
                 print("The above error happened with the following parameters:")
                 print("kwargs_lens:", kwargs_lens)
@@ -393,6 +394,7 @@ class SparseSolverBase(ModelOperators):
 
         self._prepare_source(kwargs_source)
         if not self.no_lens_light:
+            # TODO: support upsampling/downsampling operator for image plane noise levels
             self._prepare_lens_light(kwargs_lens_light)
 
         # lens light initial model, if any
