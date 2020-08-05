@@ -86,8 +86,8 @@ class SparseSolverSourceLens(SparseSolverSource):
 
             for i in range(self._n_iter_global):
 
-                if self._verbose:
-                    print("threshold at iteration {}: {}".format(i, thresh))
+                # if self._verbose:
+                #     print("threshold at iteration {}: {}".format(i, thresh))
 
                 # get the proximal operators with current threshold and weights
                 prox_g_s = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights_source)

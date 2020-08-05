@@ -171,7 +171,7 @@ class LensingOperator(object):
         # delete cached mapping matrices
         self.delete_cache()
 
-        # compute mapping between image and source plances due to lensing, on original source plane grid
+        # compute mapping between image and source planes due to lensing, on original source plane grid
         self.sourcePlane.switch_resize(False)
         self._mapping, self._norm_image2source = self._compute_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
