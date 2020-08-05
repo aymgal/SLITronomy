@@ -90,7 +90,7 @@ class SparseSolverBase(ModelOperators):
                                                thread_count=thread_count, random_seed=random_seed)
         
         # engine that computes noise levels in image / source plane, in wavelets space
-        self.noise = NoiseLevels(data_class, subgrid_res_source=subgrid_res_source, boost_where_zero=1,
+        self.noise = NoiseLevels(data_class, subgrid_res_source=subgrid_res_source, boost_where_zero=10,  #TODO: interpolation instead of boost
                                  include_regridding_error=include_regridding_error)
 
         # fill masked pixels with background noise
