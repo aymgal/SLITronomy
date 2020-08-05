@@ -40,6 +40,10 @@ class ModelOperators(ModelManager):
 
     def M_s(self, source_2d):
         """Apply source plane mask"""
+        import matplotlib.pyplot as plt
+        plt.imshow(self._lensing_op.sourcePlane.effective_mask, origin='lower')
+        plt.colorbar()
+        plt.show()
         return self._lensing_op.sourcePlane.effective_mask * source_2d
 
     def H(self, array_2d):
@@ -61,6 +65,16 @@ class ModelOperators(ModelManager):
     def F_T(self, image_2d):
         """alias method for ray-tracing from image plane to source plane"""
         return self._lensing_op.image2source_2d(image_2d)
+
+    def R(self, image_2d):
+        """alias for resize to lower resolution (DOWNsampling operation), from finer grid to imaging data grid"""
+        #TODO
+        return self.Downsample(image_2d, factor=self._ss_factor)
+
+    def R_T(self, image_2d):
+        """alias for resize to higher resolution (UPsampling operation), from finer grid to imaging data grid"""
+        #TODO
+        return self.Upsample(image_2d, factor=self._ss_factor)
 
     def Phi_s(self, array_2d):
         """alias method for inverse wavelet transform"""
