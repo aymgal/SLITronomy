@@ -58,6 +58,8 @@ class SparseSolverSourceLens(SparseSolverSource):
             HG, alpha_HG = self.generate_initial_lens_light()
         else:
             # a guess for lens light has been provided
+            if self._verbose:
+                print("SparseSolverSourceLens: Using the provided lens light model as initial guess for sparse modelling")
             HG = self._init_lens_light_model
             alpha_HG = self.Phi_T_l(HG)
 
@@ -257,8 +259,6 @@ class SparseSolverSourceLens(SparseSolverSource):
         if self._force_positivity:
             HG_proxed = proximals.prox_positivity(HG_proxed)
 
-        # finally, set to 0 every pixel that is outside the 'support' in source plane
-        HG_proxed = self.apply_image_plane_mask(HG_proxed)
         return HG_proxed
 
     def _proximal_sparsity_synthesis_lens(self, alpha_HG, threshold, weights):
@@ -282,7 +282,4 @@ class SparseSolverSourceLens(SparseSolverSource):
         # if self._force_positivity:
         #     alpha_HG_proxed = proximals.prox_positivity(alpha_HG_proxed)
 
-        # finally, set to 0 every pixel that is outside the 'support' in source plane
-        for ns in range(n_scales):
-            alpha_HG_proxed[ns, :, :] = self.apply_image_plane_mask(alpha_HG_proxed[ns, :, :])
         return alpha_HG_proxed
