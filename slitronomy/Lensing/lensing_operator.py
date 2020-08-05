@@ -13,11 +13,11 @@ class LensingOperator(object):
     """Defines the mapping of pixelated light profiles between image and source planes"""
 
     def __init__(self, lens_model_class, image_grid_class, source_grid_class, num_pix, subgrid_res_source=1,
-                 likelihood_mask=None, minimal_source_plane=False, min_num_pix_source=10,
+                 likelihood_mask=None, lens_light_mask=None, minimal_source_plane=False, min_num_pix_source=10,
                  use_mask_for_minimal_source_plane=True,
                  source_interpolation='bilinear', matrix_prod=True, verbose=False):
         """Summary
-
+        
         Parameters
         ----------
         lens_model_class : TYPE
@@ -26,9 +26,13 @@ class LensingOperator(object):
             Description
         source_grid_class : TYPE
             Description
+        num_pix : TYPE
+            Description
         subgrid_res_source : TYPE
             Description
         likelihood_mask : None, optional
+            Description
+        lens_light_mask : None, optional
             Description
         minimal_source_plane : bool, optional
             Description
@@ -42,7 +46,7 @@ class LensingOperator(object):
             Description
         verbose : bool, optional
             Description
-
+        
         Raises
         ------
         ValueError
@@ -52,6 +56,7 @@ class LensingOperator(object):
         self.imagePlane  = PlaneGrid(num_pix, image_grid_class)
         self.sourcePlane = SizeablePlaneGrid(num_pix, source_grid_class, subgrid_res_source, verbose=verbose)
         self._likelihood_mask = likelihood_mask
+        self._lens_light_mask = lens_light_mask
         self._minimal_source_plane = minimal_source_plane
         self._use_mask_for_minimal_source_plane = use_mask_for_minimal_source_plane
         self._min_num_pix_source = min_num_pix_source
@@ -193,9 +198,18 @@ class LensingOperator(object):
         # de-lens a unit image it to get non-zero source plane pixel
         unit_image_mapped = self.image2source_2d(self.imagePlane.unit_image)
         unit_image_mapped[unit_image_mapped > 0] = 1
-        if self._likelihood_mask is not None and self._use_mask_for_minimal_source_plane:
-            # de-lens a unit image it to get non-zero source plane pixel
-            mask_mapped = self.image2source_2d(self._likelihood_mask)
+        if self._use_mask_for_minimal_source_plane and \
+            self._likelihood_mask is not None or self._lens_light_mask is not None:
+            # de-lens the mask defined by the user, based on 
+            # 1) the 'likelihood' mask
+            # 2) the 'lens light' mask defining the region where we assume no source flux
+            mask = np.zeros(self.imagePlane.grid_shape)
+            if self._likelihood_mask is not None:
+                mask[self._likelihood_mask == 1] = 1
+            if self._lens_light_mask is not None:
+                mask[self._lens_light_mask == 0] = 0
+            mask_mapped = self.image2source_2d(mask.astype(float))
+            # make sure it's only 0 and 1
             mask_mapped[mask_mapped > 0] = 1
         else:
             mask_mapped = None

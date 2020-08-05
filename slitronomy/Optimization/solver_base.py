@@ -25,7 +25,7 @@ class SparseSolverBase(ModelOperators):
     # E.g. the method project_on_original_grid should be attached to a SourceModel class, not to the solver.
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class,
-                 subgrid_res_source=1, likelihood_mask=None, source_interpolation='bilinear',
+                 subgrid_res_source=1, likelihood_mask=None, lens_light_mask=None, source_interpolation='bilinear',
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type=None,
                  fixed_spectral_norm_source=0.98, include_regridding_error=False,
@@ -39,7 +39,9 @@ class SparseSolverBase(ModelOperators):
         :param source_numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance for source plane.
         :param subgrid_res_source: source pixel size to image pixel ratio. Must be an integer.
         Defaults to 1.
-        :param likelihood_mask: boolean mask to exclude pixels from the optimization and chi2 computation.
+        :param likelihood_mask: boolean mask with False/0 to exclude pixels from the optimization and chi2 computation.
+        Defaults to None.
+        :param lens_light_mask: boolean mask with False/0 to exclude pixels that are assumed to contain only lens light flux.
         Defaults to None.
         :param source_interpolation: type of interpolation of source pixels on the source plane grid.
         It can be 'nearest' for nearest-neighbor or 'bilinear' for bilinear interpolation. Defaults to 'bilinear'.
@@ -79,7 +81,8 @@ class SparseSolverBase(ModelOperators):
             raise ValueError("Only square images are supported")
         image_grid_class = image_numerics_class.grid_class
         source_grid_class = source_numerics_class.grid_class
-        lensing_operator_class = LensingOperator(lens_model_class, image_grid_class, source_grid_class, num_pix_x, subgrid_res_source, likelihood_mask=likelihood_mask, 
+        lensing_operator_class = LensingOperator(lens_model_class, image_grid_class, source_grid_class, num_pix_x, subgrid_res_source, 
+                                                 likelihood_mask=likelihood_mask, lens_light_mask=lens_light_mask,
                                                  minimal_source_plane=minimal_source_plane, min_num_pix_source=min_num_pix_source,
                                                  use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
                                                  source_interpolation=source_interpolation, matrix_prod=True, verbose=verbose)
@@ -377,16 +380,17 @@ class SparseSolverBase(ModelOperators):
         The order of the following updates matters!
         """
         # update image <-> source plane mapping from lens model parameters
-        try:
-            _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
-        except IndexError as e:
-            if self._verbose:
-                #TODO: improve this. This error happens for crazy lens models (e.g. high shear, large power-law slope) 
-                print("LENSING OPERATOR: error during lensing operator construction: {}".format(e))
-                print("The above error happened with the following parameters:")
-                print("kwargs_lens:", kwargs_lens)
-                print("kwargs_special:", kwargs_special)
-            return False
+        # try:
+        #     _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
+        # except IndexError as e:
+        #     if self._verbose:
+        #         #TODO: improve this. This error happens for crazy lens models (e.g. high shear, large power-law slope) 
+        #         print("LENSING OPERATOR: error during lensing operator construction: {}".format(e))
+        #         print("The above error happened with the following parameters:")
+        #         print("kwargs_lens:", kwargs_lens)
+        #         print("kwargs_special:", kwargs_special)
+        #     return False
+        _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         if self.noise.include_regridding_error is True:
             magnification_map = self.lensingOperator.magnification_map(kwargs_lens)
