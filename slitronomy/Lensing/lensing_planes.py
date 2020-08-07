@@ -196,7 +196,7 @@ class SizeablePlaneGrid(PlaneGrid):
         effective_mask_1d = np.copy(util.image2array(self._effective_mask))
         self._effective_mask_resized = util.array2image(effective_mask_1d[self._reduc_indices_1d])
         if self._verbose:
-            print("INFO : source grid has been reduced from {} to {} side pixels".format(self._num_pix, self._num_pix_resized))
+            print("SizeablePlaneGrid: source grid has been reduced from {} to {} side pixels".format(self._num_pix, self._num_pix_resized))
 
     @staticmethod
     def shrink_plane_iterative(effective_mask, min_num_pix=10):
