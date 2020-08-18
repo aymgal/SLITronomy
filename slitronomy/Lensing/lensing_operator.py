@@ -12,7 +12,7 @@ class LensingOperator(object):
 
     """Defines the mapping of pixelated light profiles between image and source planes"""
 
-    def __init__(self, lens_model_class, image_grid_class, source_grid_class, num_pix, subgrid_res_source=1,
+    def __init__(self, lens_model_class, image_grid_class, source_grid_class, num_pix,
                  likelihood_mask=None, lens_light_mask=None, minimal_source_plane=False, min_num_pix_source=10,
                  use_mask_for_minimal_source_plane=True,
                  source_interpolation='bilinear', matrix_prod=True, verbose=False):
@@ -27,8 +27,6 @@ class LensingOperator(object):
         source_grid_class : TYPE
             Description
         num_pix : TYPE
-            Description
-        subgrid_res_source : TYPE
             Description
         likelihood_mask : None, optional
             Description
@@ -53,8 +51,8 @@ class LensingOperator(object):
             Description
         """
         self.lensModel = lens_model_class
-        self.imagePlane  = PlaneGrid(num_pix, image_grid_class)
-        self.sourcePlane = SizeablePlaneGrid(num_pix, source_grid_class, subgrid_res_source, verbose=verbose)
+        self.imagePlane  = PlaneGrid(image_grid_class)
+        self.sourcePlane = SizeablePlaneGrid(source_grid_class, verbose=verbose)
         self._likelihood_mask = likelihood_mask
         self._lens_light_mask = lens_light_mask
         self._minimal_source_plane = minimal_source_plane
@@ -204,10 +202,13 @@ class LensingOperator(object):
             # 1) the 'likelihood' mask
             # 2) the 'lens light' mask defining the region where we assume no source flux
             mask = np.zeros(self.imagePlane.grid_shape)
+            image_subgrid_res = self.imagePlane.subgrid_resolution
             if self._likelihood_mask is not None:
-                mask[self._likelihood_mask == 1] = 1
+                likelihood_mask = util.Upsample(self._likelihood_mask, factor=image_subgrid_res)
+                mask[likelihood_mask == 1] = 1
             if self._lens_light_mask is not None:
-                mask[self._lens_light_mask == 0] = 0
+                lens_light_mask = util.Upsample(self._lens_light_mask, factor=image_subgrid_res)
+                mask[lens_light_mask == 0] = 0
             mask_mapped = self.image2source_2d(mask.astype(float))
             # make sure it's only 0 and 1
             mask_mapped[mask_mapped > 0] = 1

@@ -12,18 +12,22 @@ class PlaneGrid(object):
     Base class for image and source plane grids, designed for pixelated lensing operator.
     """
 
-    def __init__(self, num_pix, grid_class):
+    def __init__(self, grid_class):
         """Initialise the grid.
         
         Parameters
         ----------
-        image_grid_class : [lenstronomy.ImSim.Numerics.grid].RegularGrid or .AdaptiveGrid
-            RegularGrid or .AdaptiveGrid instance
+        image_grid_class : [lenstronomy.ImSim.Numerics.grid].RegularGrid
+            RegularGrid instance
         """
-        self._num_pix = num_pix
         self._grid = grid_class
         self._x_grid_1d, self._y_grid_1d = self._grid.coordinates_evaluate
-        self._delta_pix = self._grid.pixel_width
+        self._delta_pix = self._grid.effective_pixel_width
+        num_pix_x, num_pix_y = self._grid.effective_num_pixel_axes
+        if num_pix_x != num_pix_y:
+            raise ValueError("Only square images are supported")
+        self._num_pix = num_pix_x
+        self._subgrid_res = grid_class.supersampling_factor
 
     @property
     def num_pix(self):
@@ -53,6 +57,10 @@ class PlaneGrid(object):
     def unit_image(self):
         return np.ones(self.grid_shape)
 
+    @property
+    def subgrid_resolution(self):
+        return self._subgrid_res
+
     def grid(self, two_dim=False):
         if two_dim:
             return util.array2image(self.theta_x), util.array2image(self.theta_y)
@@ -72,23 +80,19 @@ class SizeablePlaneGrid(PlaneGrid):
     whose size can be adapted with respect to image masks projected by a LensingOperator.
     """
 
-    def __init__(self, num_pix, grid_class, subgrid_res, verbose=False):
+    def __init__(self, grid_class, verbose=False):
         """Initialise SizeablePlaneGrid instance. 
         
         Parameters
         ----------
         num_pix : int
             number of side pixel (square grid).
-        grid_class : [lenstronomy.ImSim.Numerics.grid].RegularGrid or .AdaptiveGrid.
-            RegularGrid or .AdaptiveGrid instance
-        subgrid_res : int
-            Source pixel size to image pixel size ratio.
+        grid_class : [lenstronomy.ImSim.Numerics.grid].RegularGrid
+            RegularGrid instance
         verbose : bool, optional
             If False, print statements are shut down (e.g. when reducing iteratively grid size).
         """
-        super(SizeablePlaneGrid, self).__init__(num_pix, grid_class)
-        self._num_pix = int(self._num_pix * subgrid_res)  # update number of side pixels
-        self._subgrid_res = subgrid_res
+        super(SizeablePlaneGrid, self).__init__(grid_class)
         self._verbose = verbose
         self._resized = False
 
@@ -104,10 +108,6 @@ class SizeablePlaneGrid(PlaneGrid):
         if self.state == 'resized':
             return self._num_pix_resized
         return self._num_pix
-
-    @property
-    def subgrid_resolution(self):
-        return self._subgrid_res
 
     @property
     def theta_x(self):

@@ -18,7 +18,7 @@ class ModelManager(object):
         self._mask = likelihood_mask
         self._mask_1d = util.image2array(likelihood_mask)
         self._lensing_op = lensing_operator_class
-        self._ss_factor = numerics_class.supersampling_factor
+        self._ss_factor = numerics_class.grid_supersampling_factor
         self._conv = numerics_class.convolution_class
         if self._conv is not None:
             self._conv_transpose = self._conv.copy_transpose()
@@ -122,35 +122,3 @@ class ModelManager(object):
         self._num_pix_source = int(num_pix_x * subgrid_res_source)
         self._image_data = np.copy(data_class.data)
         self._image_data_eff = np.copy(self._image_data)
-
-    # TODO: following methods directly come from SLIT
-    @staticmethod
-    def Downsample(image, factor=1):
-        """
-        resizes image with nx x ny to nx/factor x ny/factor
-        :param image: 2d image with shape (nx,ny)
-        :param factor: integer >=1
-        :return:
-        """
-        if factor == 1:
-            return image
-        if factor < 1:
-            raise ValueError('scaling factor in re-sizing %s < 1' %factor)
-        f = int(factor)
-        nx, ny = np.shape(image)
-        if int(nx/f) == nx/f and int(ny/f) == ny/f:
-            small = image.reshape([int(nx/f), f, int(ny/f), f]).mean(3).mean(1)
-            return small
-        else:
-            raise ValueError("scaling with factor %s is not possible with grid size %s, %s" %(f, nx, ny))
-
-    @staticmethod
-    def Upsample(image, factor=1):
-        if factor == 1:
-            return image
-        factor = int(factor)
-        n1,n2 = image.shape
-        upimage = np.zeros((n1*factor, n2*factor))
-        x,y = np.where(upimage==0)
-        upimage[x,y] = image[(x/factor),(y/factor)]/factor**2
-        return upimage
