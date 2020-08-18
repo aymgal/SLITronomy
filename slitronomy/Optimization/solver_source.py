@@ -135,7 +135,7 @@ class SparseSolverSource(SparseSolverBase):
         """
         model = self.model_analysis(S, HG=None)
         error = self.Y_eff - model
-        grad  = - self.F_T(self.H_T(error))
+        grad  = - self.F_T(self.R_T(self.H_T(error)))
         return grad
 
     def _gradient_loss_synthesis_source(self, alpha_S):
@@ -145,7 +145,7 @@ class SparseSolverSource(SparseSolverBase):
         """
         model = self.model_synthesis(alpha_S, alpha_HG=None)
         error = self.Y_eff - model
-        grad  = - self.Phi_T_s(self.F_T(self.H_T(error)))
+        grad  = - self.Phi_T_s(self.F_T(self.R_T(self.H_T(error))))
         return grad
 
     def _proximal_sparsity_analysis_source(self, S, threshold, weights):

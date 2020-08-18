@@ -39,7 +39,7 @@ class SolverPlotter(object):
 
     def plot_results(self, log_scale=False, vmin_image=None, vmax_image=None, 
                      vmin_source=None, vmax_source=None, vmin_res=-6, vmax_res=6,
-                     cmap_image=None, cmap_source=None, fontsize=12, with_history=True):
+                     cmap_image=None, cmap_source=None, fontsize=12, with_history=True, unconvolved=False):
         if cmap_image is None:
             cmap_image = self._cmap_1
         if cmap_source is None:
@@ -72,7 +72,7 @@ class SolverPlotter(object):
         #     img_model = self._solver.point_source_model
         else:
             ax.set_title("image model", fontsize=fontsize)
-            img_model = self._solver.image_model(unconvolved=False)
+            img_model = self._solver.image_model(unconvolved=unconvolved)
             print("Negative image pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
         norm = self._prepare_color_norm(img_model, log_scale, vmin_image, vmax_image)
         im = ax.imshow(img_model, origin='lower', cmap=cmap_image, norm=norm)

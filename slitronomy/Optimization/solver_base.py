@@ -25,7 +25,7 @@ class SparseSolverBase(ModelOperators):
     # E.g. the method project_on_original_grid should be attached to a SourceModel class, not to the solver.
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class,
-                 subgrid_res_source=1, likelihood_mask=None, lens_light_mask=None, source_interpolation='bilinear',
+                 likelihood_mask=None, lens_light_mask=None, source_interpolation='bilinear',
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type=None,
                  fixed_spectral_norm_source=0.98, include_regridding_error=False,
@@ -37,8 +37,6 @@ class SparseSolverBase(ModelOperators):
         :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
         :param image_numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance for image plane.
         :param source_numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance for source plane.
-        :param subgrid_res_source: source pixel size to image pixel ratio. Must be an integer.
-        Defaults to 1.
         :param likelihood_mask: boolean mask with False/0 to exclude pixels from the optimization and chi2 computation.
         Defaults to None.
         :param lens_light_mask: boolean mask with False/0 to exclude pixels that are assumed to contain only lens light flux.
@@ -81,7 +79,7 @@ class SparseSolverBase(ModelOperators):
             raise ValueError("Only square images are supported")
         image_grid_class = image_numerics_class.grid_class
         source_grid_class = source_numerics_class.grid_class
-        lensing_operator_class = LensingOperator(lens_model_class, image_grid_class, source_grid_class, num_pix_x, subgrid_res_source, 
+        lensing_operator_class = LensingOperator(lens_model_class, image_grid_class, source_grid_class, num_pix_x, 
                                                  likelihood_mask=likelihood_mask, lens_light_mask=lens_light_mask,
                                                  minimal_source_plane=minimal_source_plane, min_num_pix_source=min_num_pix_source,
                                                  use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
@@ -93,7 +91,9 @@ class SparseSolverBase(ModelOperators):
                                                thread_count=thread_count, random_seed=random_seed)
         
         # engine that computes noise levels in image / source plane, in wavelets space
-        self.noise = NoiseLevels(data_class, subgrid_res_source=subgrid_res_source, boost_where_zero=10,  #TODO: interpolation instead of boost
+        boost_where_zero = 10  #TODO: interpolation instead of boost
+        self.noise = NoiseLevels(data_class, subgrid_res_source=source_grid_class.supersampling_factor,
+                                 boost_where_zero=boost_where_zero,
                                  include_regridding_error=include_regridding_error)
 
         # fill masked pixels with background noise
@@ -192,7 +192,7 @@ class SparseSolverBase(ModelOperators):
         if not hasattr(self, '_lens_light_model') and not self.no_lens_light:
             raise ValueError("You must run the optimization before accessing the lens estimate")
         if self.no_lens_light:
-            return np.zeros_like(self.image_data)
+            return None
         return self._lens_light_model
 
     @property
@@ -200,7 +200,7 @@ class SparseSolverBase(ModelOperators):
         if not hasattr(self, '_ps_model') and not self.no_point_source:
             raise ValueError("You must run the optimization before accessing the point source estimate")
         if self.no_point_source:
-            return np.zeros_like(self.image_data)
+            return None
         return self._ps_model
 
     def image_model(self, unconvolved=False):
@@ -208,17 +208,17 @@ class SparseSolverBase(ModelOperators):
             S = self.source_model
             if unconvolved:
                 return self.F(S)
-            return self.H(self.F(S))
+            return self.H(self.R(self.F(S)))
         elif not self.no_point_source:
             S, P = self.source_model, self.point_source_model
             if unconvolved:
                 raise ValueError("Deconvolution is only supported for source light")
-            return self.H(self.F(S)) + P
+            return self.H(self.R(self.F(S))) + P
         else:
             S, HG = self.source_model, self.lens_light_model
             if unconvolved:
                 raise ValueError("Deconvolution is only supported for source light")
-            return self.H(self.F(S)) + HG
+            return self.H(self.R(self.F(S))) + HG
 
     @property
     def normalized_residuals_model(self):
@@ -311,9 +311,9 @@ class SparseSolverBase(ModelOperators):
     def model_analysis(self, S=None, HG=None, P=None):
         model = 0
         if S is not None:
-            model += self.H(self.F(S))
+            model += self.H(self.R(self.F(S)))
         if HG is not None:
-            model += HG
+            model += self.R(HG)
         if P is not None:
             model += P
         return model
@@ -321,9 +321,9 @@ class SparseSolverBase(ModelOperators):
     def model_synthesis(self, alpha_S=None, alpha_HG=None, P=None):
         model = 0
         if alpha_S is not None:
-            model = self.H(self.F(self.Phi_s(alpha_S)))
+            model = self.H(self.R(self.F(self.Phi_s(alpha_S))))
         if alpha_HG is not None:
-            model += self.Phi_l(alpha_HG)
+            model += self.R(self.Phi_l(alpha_HG))
         if P is not None:
             model += P
         return model
@@ -445,7 +445,8 @@ class SparseSolverBase(ModelOperators):
 
     def update_source_noise_levels(self):
         self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
-                                        self.Phi_T_s, self.F_T, psf_kernel=self.psf_kernel)
+                                        self.Phi_T_s, self.F_T, self.R_T,
+                                        psf_kernel=self.psf_kernel)
 
     def update_image_noise_levels(self):
         self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
@@ -454,10 +455,10 @@ class SparseSolverBase(ModelOperators):
         if threshold is None:
             threshold = self._k_min
         lambda_S = self.noise.levels_source
-        weights_S  = 1. / ( 1 + np.exp(-10 * (threshold * lambda_S - alpha_S)) )  # fixed Eq. (11) of Joseph et al. 2018
+        weights_S  = 1. / ( 1 + np.exp(10 * (alpha_S - threshold * lambda_S)) )  # fixed Eq. (11) of Joseph et al. 2018
         if alpha_HG is not None:
             lambda_HG = self.noise.levels_image
-            weights_HG = 1. / ( 1 + np.exp(-10 * (threshold * lambda_HG - alpha_HG)) )  # fixed Eq. (11) of Joseph et al. 2018
+            weights_HG = 1. / ( 1 + np.exp(10 * (alpha_HG - threshold * lambda_HG)) )  # fixed Eq. (11) of Joseph et al. 2018
         else:
             weights_HG = None
         return weights_S, weights_HG
@@ -483,7 +484,7 @@ class SparseSolverBase(ModelOperators):
             return self._k_min
         noise_no_coarse = self.noise.levels_source[:-1, :, :]
         # compute threshold wrt to the source component
-        coeffs = self.Phi_T_s(self.F_T(self.H_T(data)))
+        coeffs = self.Phi_T_s(self.F_T(self.R_T(self.H_T(data))))
         coeffs_no_coarse = coeffs[:-1, :, :]
         coeffs_norm = self.M_s(coeffs_no_coarse / noise_no_coarse)
         coeffs_norm[noise_no_coarse == 0] = 0
@@ -492,7 +493,7 @@ class SparseSolverBase(ModelOperators):
     def _estimate_threshold_MOM(self, data_minus_HFS, data_minus_HG=None):
         """
         Follows a mean-of-maximum strategy (MOM) to estimate thresholds for blind source separation with two components,
-        typically in a problem solved through moprhological component analysis (see Bobin et al. 2007).
+        typically in a problem solved through morphological component analysis (see Bobin et al. 2007).
         Note that we compute the MOM in image plane, even for the source component.
         
         Parameters
@@ -512,13 +513,13 @@ class SparseSolverBase(ModelOperators):
 
         noise_no_coarse = self.noise.levels_image[:-1, :, :]
 
-        coeffs1_no_coarse = self.Phi_T_l(data_minus_HFS)[:-1, :, :]
+        coeffs1_no_coarse = self.Phi_T_l(self.R_T(data_minus_HFS))[:-1, :, :]
         coeffs1_norm = self.M(coeffs1_no_coarse / noise_no_coarse)
         coeffs1_norm[noise_no_coarse == 0] = 0
         max_HFS = np.max(np.abs(coeffs1_norm))
 
         if data_minus_HG is not None:
-            coeffs2_no_coarse = self.Phi_T_l(data_minus_HG)[:-1, :, :]
+            coeffs2_no_coarse = self.Phi_T_l(self.R_T(data_minus_HG))[:-1, :, :]
             coeffs2_norm = self.M(coeffs2_no_coarse / noise_no_coarse)
             coeffs2_norm[noise_no_coarse == 0] = 0
             max_HG = np.max(np.abs(coeffs2_norm))

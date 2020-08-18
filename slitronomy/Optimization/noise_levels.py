@@ -65,23 +65,24 @@ class NoiseLevels(object):
         return self._noise_levels_img
 
     def update_source_levels(self, num_pix_image, num_pix_source, wavelet_transform_source, 
-                             image2source_transform, psf_kernel=None):
+                             image2source_transform, upscale_transform, psf_kernel=None):
         # get transposed blurring operator
         if psf_kernel is None:
-            HT = util.dirac_impulse(num_pix_image)
+            psf_T = util.dirac_impulse(num_pix_image)
         else:
-            HT = psf_kernel.T
+            psf_T = psf_kernel.T
 
         # map noise map to source plane
-        HT_noise_diag = self.noise_map * np.sqrt(np.sum(HT**2))
-        FT_HT_noise = image2source_transform(HT_noise_diag)
+        noise_diag = self.noise_map * np.sqrt(np.sum(psf_T**2))
+        noise_diag_up = upscale_transform(noise_diag)
+        noise_source = image2source_transform(noise_diag_up)
 
         # introduce artitifically noise to pixels where there are not signal in source plane
         # to ensure threshold of starlet coefficients at these locations
-        FT_HT_noise[FT_HT_noise == 0] = self._boost_where_zero * np.mean(FT_HT_noise[FT_HT_noise != 0])
+        noise_source[noise_source == 0] = self._boost_where_zero * np.mean(noise_source[noise_source != 0])
 
-        # \Gamma^2 in  Equation (16) of Joseph+19)
-        FT_HT_noise2 = FT_HT_noise**2
+        # \Gamma^2 in  Equation (16) of Joseph+19
+        noise_source2 = noise_source**2
 
         # compute starlet transform of a dirac impulse in source plane
         dirac = util.dirac_impulse(num_pix_source)
@@ -96,7 +97,7 @@ class NoiseLevels(object):
             # starlet transform of dirac impulse at a given scale
             dirac_scale2 = dirac_coeffs2[scale_idx, :, :]
             # Equation (16) of Joseph+19
-            levels = signal.fftconvolve(dirac_scale2, FT_HT_noise2, mode='same')
+            levels = signal.fftconvolve(dirac_scale2, noise_source2, mode='same')
             # save noise at each pixel for this scale
             noise_levels[scale_idx, :, :] = np.sqrt(np.abs(levels))
         self._noise_levels_src = noise_levels

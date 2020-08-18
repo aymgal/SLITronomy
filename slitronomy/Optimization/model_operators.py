@@ -17,7 +17,7 @@ class ModelOperators(ModelManager):
         super(ModelOperators, self).__init__(data_class, lensing_operator_class, numerics_class,
                                              likelihood_mask=likelihood_mask, 
                                              thread_count=thread_count, random_seed=random_seed)
-        self._spectral_norm_HFPhiTs = fixed_spectral_norm_source
+        self._fixed_spectral_norm_source = fixed_spectral_norm_source
 
     @property
     def Y(self):
@@ -40,10 +40,6 @@ class ModelOperators(ModelManager):
 
     def M_s(self, source_2d):
         """Apply source plane mask"""
-        import matplotlib.pyplot as plt
-        plt.imshow(self._lensing_op.sourcePlane.effective_mask, origin='lower')
-        plt.colorbar()
-        plt.show()
         return self._lensing_op.sourcePlane.effective_mask * source_2d
 
     def H(self, array_2d):
@@ -69,12 +65,13 @@ class ModelOperators(ModelManager):
     def R(self, image_2d):
         """alias for resize to lower resolution (DOWNsampling operation), from finer grid to imaging data grid"""
         #TODO
-        return self.Downsample(image_2d, factor=self._ss_factor)
+        return util.Downsample(image_2d, factor=self._ss_factor)
 
     def R_T(self, image_2d):
         """alias for resize to higher resolution (UPsampling operation), from finer grid to imaging data grid"""
         #TODO
-        return self.Upsample(image_2d, factor=self._ss_factor)
+        res = util.Upsample(image_2d, factor=self._ss_factor)
+        return res
 
     def Phi_s(self, array_2d):
         """alias method for inverse wavelet transform"""
@@ -114,7 +111,7 @@ class ModelOperators(ModelManager):
 
     @property
     def spectral_norm_source_is_fixed(self):
-        return self._spectral_norm_HFPhiTs is not None
+        return self._fixed_spectral_norm_source is not None
 
     @property
     def spectral_norm_source(self):
@@ -130,7 +127,7 @@ class ModelOperators(ModelManager):
 
     def update_spectral_norm_source(self):
         if self.spectral_norm_source_is_fixed:
-            self._spectral_norm_source = self._spectral_norm_HFPhiTs
+            self._spectral_norm_source = self._fixed_spectral_norm_source
         else:
             self._spectral_norm_source = self.compute_spectral_norm_source()
 
@@ -140,21 +137,25 @@ class ModelOperators(ModelManager):
     def compute_spectral_norm_source(self):
         def _operator(x):
             x = self.H_T(x)
+            x = self.R_T(x)
             x = self.F_T(x)
             x = self.Phi_T_s(x)
             return x
         def _inverse_operator(x):
             x = self.Phi_s(x)
             x = self.F(x)
+            x = self.R(x)
             x = self.H(x)
             return x
         return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)
 
     def compute_spectral_norm_lens(self):
         def _operator(x):
+            x = self.R_T(x)
             x = self.Phi_T_l(x)
             return x
         def _inverse_operator(x):
             x = self.Phi_l(x)
+            x = self.R(x)
             return x
         return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)

@@ -388,3 +388,35 @@ def regridding_error_map_squared(mag_map=None, data_image=None, image_pixel_scal
     return noise_map2, noise_map2_prefactor
 
 
+# TODO: following methods directly come from SLIT
+def Downsample(image, factor=1):
+    """
+    resizes image with nx x ny to nx/factor x ny/factor
+    :param image: 2d image with shape (nx,ny)
+    :param factor: integer >=1
+    :return:
+    """
+    if factor == 1:
+        return image
+    if factor < 1:
+        raise ValueError('scaling factor in re-sizing %s < 1' %factor)
+    f = int(factor)
+    nx, ny = np.shape(image)
+    if int(nx/f) == nx/f and int(ny/f) == ny/f:
+        small = image.reshape([int(nx/f), f, int(ny/f), f]).mean(3).mean(1)
+        return small
+    else:
+        raise ValueError("scaling with factor %s is not possible with grid size %s, %s" %(f, nx, ny))
+
+def Upsample(image, factor=1):
+    if factor == 1:
+        return image
+    if factor < 1:
+        raise ValueError('scaling factor in re-sizing %s < 1' %factor)
+    f = int(factor)
+    n1, n2 = image.shape
+    upimage = np.zeros((n1*f, n2*f))
+    x, y = np.where(upimage == 0)
+    x_, y_ = (x/f).astype(int), (y/f).astype(int)
+    upimage[x, y] = image[x_, y_] / f**2
+    return upimage
