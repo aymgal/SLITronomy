@@ -3,6 +3,7 @@ __author__ = 'aymgal'
 import numpy as np
 from scipy import signal
 from slitronomy.Util import util
+from skimage import filters
 
 
 class NoiseLevels(object):
@@ -12,7 +13,7 @@ class NoiseLevels(object):
     taking into account lensing and optionally blurring and regridding error for pixelated reconstructions.
     """
 
-    def __init__(self, data_class, subgrid_res_source=1, boost_where_zero=10, include_regridding_error=False):
+    def __init__(self, data_class, subgrid_res_source=1, include_regridding_error=False):
         """
         :param subgrid_res_source: resolution factor between image plane and source plane
         :param boost_where_zero: sets the multiplcative factor in fron tof the average noise levels
@@ -28,8 +29,6 @@ class NoiseLevels(object):
         if self.include_regridding_error:
             self._initialise_regridding_error(data_class.data, data_class.pixel_width, 
                                               data_class.pixel_width/subgrid_res_source)
-        # boost noise in pixels that are not mapped to any image plane pixels
-        self._boost_where_zero = boost_where_zero
 
     @property
     def background_rms(self):
@@ -65,8 +64,7 @@ class NoiseLevels(object):
         return self._noise_levels_img
 
     def update_source_levels(self, num_pix_image, num_pix_source, wavelet_transform_source, 
-                             image2source_transform, upscale_transform, source_plane_masking,
-                             psf_kernel=None):
+                             image2source_transform, upscale_transform, psf_kernel=None):
         # get transposed blurring operator
         if psf_kernel is None:
             psf_T = util.dirac_impulse(num_pix_image)
@@ -78,31 +76,14 @@ class NoiseLevels(object):
         noise_diag_up = upscale_transform(noise_diag)
         noise_source = image2source_transform(noise_diag_up)
 
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.imshow(np.log10(noise_source), origin='lower')
-        plt.colorbar()
-        plt.show()
+        # we gaussian filter the noise map with sigma adatpted to supersampling factor
+        # to fill adequately pixels that are not mapped to any image plane pixels
+        noise_source = filters.gaussian(noise_source, sigma=num_pix_source/num_pix_image)
 
-        # TEST: inpainting to fill holes (TOO SLOW)
-        # from skimage.restoration import inpaint
-        # mask_inpaint = np.zeros_like(noise_source)
-        # mask_inpaint[noise_source == 0] = 1
-        # mask_inpaint = source_plane_masking(mask_inpaint)
-        # noise_source = inpaint.inpaint_biharmonic(noise_source, mask_inpaint)
-        
-        # # introduce artitifically noise to pixels where there are not signal in source plane
-        # # to ensure threshold of starlet coefficients at these locations
-        #noise_source[noise_source == 0] = self._boost_where_zero * np.mean(noise_source[noise_source != 0])
-
-        # TEST2: gaussian filtering
-        from skimage import filters
-        noise_source = filters.gaussian(noise_source, sigma=2)
-
-        # plt.figure()
-        # plt.imshow(np.log10(noise_source), origin='lower')
-        # plt.colorbar()
-        # plt.show()
+        # old way:
+        # introduce artitifically noise to pixels where there are not signal in source plane
+        # to ensure threshold of starlet coefficients at these locations
+        # noise_source[noise_source == 0] = self._boost_where_zero * np.mean(noise_source[noise_source != 0])
 
         # \Gamma^2 in  Equation (16) of Joseph+19
         noise_source2 = noise_source**2
@@ -121,34 +102,9 @@ class NoiseLevels(object):
             dirac_scale2 = dirac_coeffs2[scale_idx, :, :]
             # Equation (16) of Joseph+19
             levels2 = signal.fftconvolve(dirac_scale2, noise_source2, mode='same')
-
             levels = np.sqrt(np.abs(levels2))
-
-            # plt.figure()
-            # plt.text(0, 0, scale_idx, fontsize=16, color='white')
-            # plt.imshow(np.log10(levels), origin='lower')
-            # plt.colorbar()
-            # plt.show()
-
-            # TEST
-            # levels[levels == 0] = np.mean(levels[levels != 0])
-
-            # plt.figure()
-            # plt.text(0, 0, scale_idx, fontsize=16, color='white')
-            # plt.imshow(np.log10(levels), origin='lower')
-            # plt.colorbar()
-            # plt.show()
-
             # save noise at each pixel for this scale
             noise_levels[scale_idx, :, :] = levels
-
-        # plt.figure()
-        # plt.imshow(np.log10(noise_levels[0, :, :]), origin='lower')
-        # plt.colorbar()
-        # plt.show()
-
-        # raise
-
         self._noise_levels_src = noise_levels
 
     def update_image_levels(self, num_pix_image, wavelet_transform_image):
