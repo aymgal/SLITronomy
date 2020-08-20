@@ -210,9 +210,107 @@ class LensingOperator(object):
 
     def _compute_mapping(self, kwargs_lens, kwargs_special=None):
         if self._interpolation == 'nearest':
-            return self._compute_mapping_nearest(kwargs_lens, kwargs_special=kwargs_special)
+            # return self._compute_mapping_nearest(kwargs_lens, kwargs_special=kwargs_special)
+            return self._compute_fast_mapping_nearest(kwargs_lens, kwargs_special=kwargs_special)
         elif self._interpolation == 'bilinear':
             return self._compute_mapping_bilinear(kwargs_lens, kwargs_special=kwargs_special)
+
+    def _compute_fast_mapping_nearest(self, kwargs_lens, kwargs_special):
+        # Compute lens mapping from image to source coordinates
+        beta_x, beta_y = self.lensModel.ray_shooting(self.imagePlane.theta_x,
+                                                     self.imagePlane.theta_y,
+                                                     kwargs_lens)
+
+        # Get source plane offsets
+        grid_offset_x, grid_offset_y = self._source_grid_offsets(kwargs_special)
+
+        # Determine source pixels and their appropriate weights
+        indices, weights = self._find_source_pixels_nearest(beta_x, beta_y,
+                                                            grid_offset_x,
+                                                            grid_offset_y)
+
+        # Build lensing matrix as a csr (sparse) matrix for fast operations
+        dense_shape = (self.imagePlane.grid_size, self.sourcePlane.grid_size)
+        lens_mapping = sparse.csr_matrix((weights, indices), shape=dense_shape)
+        norm_image2source = np.squeeze(np.maximum(1, lens_mapping.sum(axis=0)).A)
+        return lens_mapping, norm_image2source
+
+    def _find_source_pixels_nearest(self, beta_x, beta_y, grid_offset_x,
+                                    grid_offset_y):
+        """Fast nearest-neighbor binning of ray-traced coordinates.
+
+        Parameters
+        ----------
+        beta_x, beta_y : array-like
+            Coordinates in the source plane of ray-traced points from the
+            image plane (obtained from lenstronomy).
+        grid_offset_x, grid_offset_y : float
+            Amount by which to shift the source plane grid in each direction.
+
+        Returns
+        -------
+        (row, col), weight
+            Weights all have the value 1 and belong at position (row, col) in
+            the sparse lensing matrix. There is at most 1 active column in
+            each row.
+
+        Notes
+        -----
+        Ray-traced coordinates from the image plane are simply removed if they
+        fall outside of the source plane grid, as is done in Treu & Koopmans
+        (2004). Although this should only rarely occur in practice, e.g. for
+        extreme parameters of the lens model, a better approach might still be
+        to expand the source plane instead.
+
+        """
+        # Standardize inputs for vectorization
+        beta_x = np.atleast_1d(beta_x)
+        beta_y = np.atleast_1d(beta_y)
+        assert len(beta_x) == len(beta_y), "Input arrays must be the same size."
+        num_beta = len(beta_x)
+
+        # Shift source plane grid if necessary
+        source_theta_x = self.sourcePlane.theta_x + grid_offset_x
+        source_theta_y = self.sourcePlane.theta_y + grid_offset_y
+
+        # Compute bin edges so that (theta_x, theta_y) lie at the grid centers
+        num_pix = self.sourcePlane.num_pix
+        delta_pix = self.sourcePlane.delta_pix
+        half_pix = delta_pix / 2
+
+        theta_x = source_theta_x[:num_pix]
+        x_dir = -1 if theta_x[0] > theta_x[-1] else 1  # Handle x-axis inversion
+        x_lower = theta_x[0] - x_dir * half_pix
+        x_upper = theta_x[-1] + x_dir * half_pix
+        xbins = np.linspace(x_lower, x_upper, num_pix + 1)
+
+        theta_y = source_theta_y[::num_pix]
+        y_dir = -1 if theta_y[0] > theta_y[-1] else 1  # Handle y-axis inversion
+        y_lower = theta_y[0] - y_dir * half_pix
+        y_upper = theta_y[-1] + y_dir * half_pix
+        ybins = np.linspace(y_lower, y_upper, num_pix + 1)
+
+        # Keep only betas that fall within the source plane grid
+        x_min, x_max = [x_lower, x_upper][::x_dir]
+        y_min, y_max = [y_lower, y_upper][::y_dir]
+        selection = ((beta_x > x_min) & (beta_x < x_max) &
+                     (beta_y > y_min) & (beta_y < y_max))
+        if np.any(1 - selection.astype(int)):
+            beta_x = beta_x[selection]
+            beta_y = beta_y[selection]
+            num_beta = len(beta_x)
+
+        # Find the (1D) source plane pixel that (beta_x, beta_y) falls in
+        index_x = np.digitize(beta_x, xbins) - 1
+        index_y = np.digitize(beta_y, ybins) - 1
+        index_1 = index_x + index_y * num_pix
+
+        # Generate 2D indices of unit elements for the sparse matrix
+        row = np.nonzero(selection)[0]
+        col = index_1
+        weight = [1] * len(row)
+
+        return (row, col), weight
 
     def _compute_mapping_bilinear(self, kwargs_lens, kwargs_special, resized_source_plane=True):
         """Compute the mapping between image and source plane pixels.
