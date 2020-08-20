@@ -102,7 +102,7 @@ class LensingOperator(object):
             self.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         lens_mapping, norm_image2source = self.get_lens_mapping(original_source_grid)
-        if not self._matrix_prod and self._interpolation == 'nearest':
+        if not self._matrix_prod and self._interpolation == 'nearest_legacy':
             source = self._image2source_list(image_1d, lens_mapping, no_flux_norm)
         else:
             source = self._image2source_matrix(image_1d, lens_mapping, norm_image2source, no_flux_norm)
@@ -224,9 +224,11 @@ class LensingOperator(object):
         return grid_offset_x, grid_offset_y
 
     def _compute_mapping(self, kwargs_lens, kwargs_special=None):
+        if self._interpolation == 'nearest_legacy':
+            return self._compute_mapping_nearest_legacy(kwargs_lens, kwargs_special=kwargs_special)
         if self._interpolation == 'nearest':
             return self._compute_mapping_nearest(kwargs_lens, kwargs_special=kwargs_special)
-        elif self._interpolation == 'bilinear':
+        else:
             return self._compute_mapping_bilinear(kwargs_lens, kwargs_special=kwargs_special)
 
     def _compute_mapping_bilinear(self, kwargs_lens, kwargs_special, resized_source_plane=True):
@@ -380,7 +382,7 @@ class LensingOperator(object):
 
         return (row[mask], col[mask]), weight[mask]
 
-    def _compute_mapping_nearest(self, kwargs_lens, kwargs_special):
+    def _compute_mapping_nearest_legacy(self, kwargs_lens, kwargs_special):
         """
         Core method that computes the mapping between image and source planes pixels
         from ray-tracing performed by the input parametric mass model
@@ -400,7 +402,7 @@ class LensingOperator(object):
         # iterate through indices of image plane (indices 'i')
         for i in range(self.imagePlane.grid_size):
             # find source pixel that corresponds to ray traced image pixel
-            j = self._find_source_pixel_nearest(i, beta_x, beta_y, grid_offset_x=grid_offset_x, grid_offset_y=grid_offset_y)
+            j = self._find_source_pixel_nearest_legacy(i, beta_x, beta_y, grid_offset_x=grid_offset_x, grid_offset_y=grid_offset_y)
 
             # fill the mapping array
             if self._matrix_prod:
@@ -418,7 +420,7 @@ class LensingOperator(object):
             norm_image2source = None  # in this case normalization is performed when calling image2source()
         return lens_mapping, norm_image2source
 
-    def _find_source_pixel_nearest(self, i, beta_x, beta_y, grid_offset_x=0, grid_offset_y=0):
+    def _find_source_pixel_nearest_legacy(self, i, beta_x, beta_y, grid_offset_x=0, grid_offset_y=0):
         dist2_map = self._distance_squared_to_source_grid(i, beta_x, beta_y, grid_offset_x=grid_offset_x, grid_offset_y=grid_offset_y)
         # find the index that corresponds to the minimal distance (closest pixel)
         j = np.argmin(dist2_map)
