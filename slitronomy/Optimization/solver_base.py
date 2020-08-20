@@ -91,9 +91,7 @@ class SparseSolverBase(ModelOperators):
                                                thread_count=thread_count, random_seed=random_seed)
         
         # engine that computes noise levels in image / source plane, in wavelets space
-        boost_where_zero = 1  #TODO: interpolation instead of boost
         self.noise = NoiseLevels(data_class, subgrid_res_source=source_grid_class.supersampling_factor,
-                                 boost_where_zero=boost_where_zero,
                                  include_regridding_error=include_regridding_error)
 
         # fill masked pixels with background noise
@@ -433,30 +431,25 @@ class SparseSolverBase(ModelOperators):
             self.update_image_noise_levels()
 
     def update_source_noise_levels(self):
-
-
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.imshow(self._lensing_op.sourcePlane.effective_mask, origin='lower', cmap='gray')
-        plt.colorbar()
-        plt.show()
-
-
         self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
-                                        self.Phi_T_s, self.F_T, self.R_T, self.M_s,
+                                        self.Phi_T_s, self.F_T, self.R_T,
                                         psf_kernel=self.psf_kernel)
 
     def update_image_noise_levels(self):
         self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
 
     def _update_weights(self, alpha_S, alpha_HG=None, threshold=None):
+        lambda_S = np.copy(self.noise.levels_source)
         if threshold is None:
             threshold = self._k_min
-        lambda_S = self.noise.levels_source
-        weights_S  = 1. / ( 1 + np.exp(10 * (alpha_S - threshold * lambda_S)) )  # fixed Eq. (11) of Joseph et al. 2018
+        lambda_S[1:, :, :] *= threshold
+        lambda_S[0, :, :] *= (threshold + self._increm_high_freq)
+        weights_S  = 1. / ( 1 + np.exp(10 * (alpha_S - lambda_S)) )  # fixed Eq. (11) of Joseph et al. 2018
         if alpha_HG is not None:
-            lambda_HG = self.noise.levels_image
-            weights_HG = 1. / ( 1 + np.exp(10 * (alpha_HG - threshold * lambda_HG)) )  # fixed Eq. (11) of Joseph et al. 2018
+            lambda_HG = np.copy(self.noise.levels_image)
+            lambda_HG[1:, :, :] *= threshold
+            lambda_HG[0, :, :] *= (threshold + self._increm_high_freq)
+            weights_HG = 1. / ( 1 + np.exp(10 * (alpha_HG - lambda_HG)) )  # fixed Eq. (11) of Joseph et al. 2018
         else:
             weights_HG = None
         return weights_S, weights_HG
