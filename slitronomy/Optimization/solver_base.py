@@ -91,7 +91,7 @@ class SparseSolverBase(ModelOperators):
                                                thread_count=thread_count, random_seed=random_seed)
         
         # engine that computes noise levels in image / source plane, in wavelets space
-        boost_where_zero = 10  #TODO: interpolation instead of boost
+        boost_where_zero = 1  #TODO: interpolation instead of boost
         self.noise = NoiseLevels(data_class, subgrid_res_source=source_grid_class.supersampling_factor,
                                  boost_where_zero=boost_where_zero,
                                  include_regridding_error=include_regridding_error)
@@ -379,17 +379,6 @@ class SparseSolverBase(ModelOperators):
         Update state of the solver : operators, noise levels, ...
         The order of the following updates matters!
         """
-        # update image <-> source plane mapping from lens model parameters
-        # try:
-        #     _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
-        # except IndexError as e:
-        #     if self._verbose:
-        #         #TODO: improve this. This error happens for crazy lens models (e.g. high shear, large power-law slope) 
-        #         print("LENSING OPERATOR: error during lensing operator construction: {}".format(e))
-        #         print("The above error happened with the following parameters:")
-        #         print("kwargs_lens:", kwargs_lens)
-        #         print("kwargs_special:", kwargs_special)
-        #     return False
         _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         if self.noise.include_regridding_error is True:
@@ -444,8 +433,17 @@ class SparseSolverBase(ModelOperators):
             self.update_image_noise_levels()
 
     def update_source_noise_levels(self):
+
+
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.imshow(self._lensing_op.sourcePlane.effective_mask, origin='lower', cmap='gray')
+        plt.colorbar()
+        plt.show()
+
+
         self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
-                                        self.Phi_T_s, self.F_T, self.R_T,
+                                        self.Phi_T_s, self.F_T, self.R_T, self.M_s,
                                         psf_kernel=self.psf_kernel)
 
     def update_image_noise_levels(self):

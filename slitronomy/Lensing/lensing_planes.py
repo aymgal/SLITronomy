@@ -27,7 +27,7 @@ class PlaneGrid(object):
         if num_pix_x != num_pix_y:
             raise ValueError("Only square images are supported")
         self._num_pix = num_pix_x
-        self._subgrid_res = grid_class.supersampling_factor
+        self._subgrid_res = self._grid.supersampling_factor
 
     @property
     def num_pix(self):

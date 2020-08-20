@@ -65,7 +65,8 @@ class NoiseLevels(object):
         return self._noise_levels_img
 
     def update_source_levels(self, num_pix_image, num_pix_source, wavelet_transform_source, 
-                             image2source_transform, upscale_transform, psf_kernel=None):
+                             image2source_transform, upscale_transform, source_plane_masking,
+                             psf_kernel=None):
         # get transposed blurring operator
         if psf_kernel is None:
             psf_T = util.dirac_impulse(num_pix_image)
@@ -77,9 +78,31 @@ class NoiseLevels(object):
         noise_diag_up = upscale_transform(noise_diag)
         noise_source = image2source_transform(noise_diag_up)
 
-        # introduce artitifically noise to pixels where there are not signal in source plane
-        # to ensure threshold of starlet coefficients at these locations
-        noise_source[noise_source == 0] = self._boost_where_zero * np.mean(noise_source[noise_source != 0])
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.imshow(np.log10(noise_source), origin='lower')
+        plt.colorbar()
+        plt.show()
+
+        # TEST: inpainting to fill holes (TOO SLOW)
+        # from skimage.restoration import inpaint
+        # mask_inpaint = np.zeros_like(noise_source)
+        # mask_inpaint[noise_source == 0] = 1
+        # mask_inpaint = source_plane_masking(mask_inpaint)
+        # noise_source = inpaint.inpaint_biharmonic(noise_source, mask_inpaint)
+        
+        # # introduce artitifically noise to pixels where there are not signal in source plane
+        # # to ensure threshold of starlet coefficients at these locations
+        #noise_source[noise_source == 0] = self._boost_where_zero * np.mean(noise_source[noise_source != 0])
+
+        # TEST2: gaussian filtering
+        from skimage import filters
+        noise_source = filters.gaussian(noise_source, sigma=2)
+
+        # plt.figure()
+        # plt.imshow(np.log10(noise_source), origin='lower')
+        # plt.colorbar()
+        # plt.show()
 
         # \Gamma^2 in  Equation (16) of Joseph+19
         noise_source2 = noise_source**2
@@ -97,9 +120,35 @@ class NoiseLevels(object):
             # starlet transform of dirac impulse at a given scale
             dirac_scale2 = dirac_coeffs2[scale_idx, :, :]
             # Equation (16) of Joseph+19
-            levels = signal.fftconvolve(dirac_scale2, noise_source2, mode='same')
+            levels2 = signal.fftconvolve(dirac_scale2, noise_source2, mode='same')
+
+            levels = np.sqrt(np.abs(levels2))
+
+            # plt.figure()
+            # plt.text(0, 0, scale_idx, fontsize=16, color='white')
+            # plt.imshow(np.log10(levels), origin='lower')
+            # plt.colorbar()
+            # plt.show()
+
+            # TEST
+            # levels[levels == 0] = np.mean(levels[levels != 0])
+
+            # plt.figure()
+            # plt.text(0, 0, scale_idx, fontsize=16, color='white')
+            # plt.imshow(np.log10(levels), origin='lower')
+            # plt.colorbar()
+            # plt.show()
+
             # save noise at each pixel for this scale
-            noise_levels[scale_idx, :, :] = np.sqrt(np.abs(levels))
+            noise_levels[scale_idx, :, :] = levels
+
+        # plt.figure()
+        # plt.imshow(np.log10(noise_levels[0, :, :]), origin='lower')
+        # plt.colorbar()
+        # plt.show()
+
+        # raise
+
         self._noise_levels_src = noise_levels
 
     def update_image_levels(self, num_pix_image, wavelet_transform_image):
