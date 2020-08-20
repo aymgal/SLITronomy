@@ -5,6 +5,29 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
+def std_colorbar(mappable, label=None, fontsize=12, label_kwargs={}, **colorbar_kwargs):
+    cb = plt.colorbar(mappable, **colorbar_kwargs)
+    if label is not None:
+        colorbar_kwargs.pop('label', None)
+        cb.set_label(label, fontsize=fontsize, **label_kwargs)
+    return cb
+
+
+def std_colorbar_residuals(mappable, res_map, vmin, vmax, label=None, fontsize=12, 
+                           label_kwargs={}, **colorbar_kwargs):
+    if res_map.min() < vmin and res_map.max() > vmax:
+        cb_extend = 'both'
+    elif res_map.min() < vmin:
+        cb_extend = 'min'
+    elif res_map.max() > vmax:
+        cb_extend = 'max'
+    else:
+        cb_extend = 'neither'
+    colorbar_kwargs.update({'extend': cb_extend})
+    return std_colorbar(mappable, label=label, fontsize=fontsize, 
+                        label_kwargs=label_kwargs, **colorbar_kwargs)
+
+
 def nice_colorbar(mappable, position='right', pad=0.1, size='5%', label=None, fontsize=12, 
                   invisible=False, divider_kwargs={}, colorbar_kwargs={}, label_kwargs={}):
     divider_kwargs.update({'position': position, 'pad': pad, 'size': size})
