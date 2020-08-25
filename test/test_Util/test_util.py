@@ -2,7 +2,7 @@ __author__ = 'aymgal'
 
 from slitronomy.Util import util
 
-from lenstronomy.LightModel.Profiles.starlets import Starlets
+from lenstronomy.LightModel.Profiles.starlets import SLIT_Starlets
 from lenstronomy.LensModel.lens_model import LensModel
 
 import numpy as np
@@ -129,8 +129,7 @@ def test_spectral_norm():
     true_norm = np.real(np.linalg.eigvals(A.T.dot(A)).max())
     npt.assert_almost_equal(true_norm, util.spectral_norm(num_pix, operator, inverse_operator), decimal=2)
 
-    from lenstronomy.LightModel.Profiles.starlets import Starlets
-    starlets = Starlets()
+    starlets = SLIT_Starlets()
     n_scales = 3
     n_pixels = num_pix**2
     operator = lambda X: starlets.decomposition_2d(X, n_scales)
@@ -142,7 +141,7 @@ def test_generate_initial_guess():
     num_pix = 20
     n_scales = 3
     n_pixels = num_pix**2
-    starlets = Starlets()
+    starlets = SLIT_Starlets()
     transform = lambda X: starlets.decomposition_2d(X, n_scales)
     inverse_transform = lambda X: starlets.function_2d(X, n_scales, n_pixels)
 
@@ -175,7 +174,7 @@ def test_generate_initial_guess():
 def test_generate_initial_guess_simple():
     num_pix = 10
     n_scales = 3
-    starlets = Starlets()
+    starlets = SLIT_Starlets()
     transform = lambda X: starlets.decomposition_2d(X, n_scales)
     background_rms = 0.1
     guess_direct_space, guess_transf_space = util.generate_initial_guess_simple(num_pix, transform, background_rms)

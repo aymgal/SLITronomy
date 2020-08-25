@@ -41,7 +41,7 @@ class TestSolverTracker(object):
         self.kwargs_lens = [{'theta_E': 1, 'gamma': 2, 'center_x': 0, 'center_y': 0, 'e1': -0.05, 'e2': 0.05}]
 
         # source light class
-        source_model_class = LightModel(['STARLETS'])
+        source_model_class = LightModel(['SLIT_STARLETS'])
         self.kwargs_source = [{'coeffs': 0, 'n_scales': 3, 'n_pixels': self.num_pix**2}]
 
         # define numerics classes
