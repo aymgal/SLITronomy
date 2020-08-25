@@ -30,10 +30,12 @@ class SparseSolverSourcePS(SparseSolverSource):
         :param num_iter_ps: number of iterations for the point source linear inversion.
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
         :param base_kwargs: keyword arguments for SparseSolverBase.
-        If not set, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
+        
+        If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
         """
         if base_kwargs.get('threshold_decrease_type', None) is None:
-            threshold_decrease_type = 'exponential'
+            base_kwargs['threshold_decrease_type'] = 'exponential'
+            
         super(SparseSolverSourcePS, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class,
                                                    likelihood_mask=likelihood_mask, num_iter_source=num_iter_source, 
                                                    num_iter_weights=num_iter_weights, **base_kwargs)

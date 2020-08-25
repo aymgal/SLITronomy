@@ -51,12 +51,12 @@ class SparseSolverBase(ModelOperators):
         Only used when minimal_source_plane is True. Defaults to 20.
         :param min_threshold: in unit of the noise (sigma), minimum threshold for wavelets denoising.
         Typically between 3 (more conservative thresholding) and 5 (more aggressive thresholding). Defaults to 3.
-        :param threshold_increment_high_freq: additive number to the threshold level for highest frequencies on wavelets space.
+        :param threshold_increment_high_freq: additive number to the threshold level (in unit of the noise) for the highest frequencies on wavelets space.
         Defaults to 1.
         :param threshold_decrease_type: strategy for decreasing the threshold level at each iteration. Can be 'none' (no decrease, directly sets to min_threshold), 'linear' or 'exponential'.
         Defaults to None, which is 'exponential' for the source-only solver, 'linear' for the source-lens solver.
         :param fixed_spectral_norm_source: if None, update the spectral norm for the source operator, for optimal gradient descent step size.
-        Defaults to 0.97, which is a conservative value typical of most lens models.
+        Defaults to 0.98, which is a conservative value typical of most lens models.
         :param sparsity_prior_norm: prior l-norm (0 or 1). If 1, l1-norm and soft-thresholding are applied.
         If 0, it is l0-norm and hard-thresholding. Defaults to 1.
         :param force_positivity: if True, apply positivity constraint to the source flux.
@@ -105,6 +105,8 @@ class SparseSolverBase(ModelOperators):
             self._increm_high_freq = threshold_increment_high_freq
 
         # strategy to decrease threshold up to the max threshold above
+        if threshold_decrease_type not in ['none', 'lin', 'linear', 'exp', 'exponential']:
+            raise ValueError("threshold_decrease_type must be in ['none', 'lin', 'linear', 'exp', 'exponential']")
         self._threshold_decrease_type = threshold_decrease_type
 
         if sparsity_prior_norm not in [0, 1]:
@@ -444,12 +446,12 @@ class SparseSolverBase(ModelOperators):
             threshold = self._k_min
         lambda_S[1:, :, :] *= threshold
         lambda_S[0, :, :] *= (threshold + self._increm_high_freq)
-        weights_S  = 1. / ( 1 + np.exp(10 * (alpha_S - lambda_S)) )  # fixed Eq. (11) of Joseph et al. 2018
+        weights_S  = 1. / ( 1 + np.exp(10 * (alpha_S - lambda_S)) )  # fixed Eq. (C.1)
         if alpha_HG is not None:
             lambda_HG = np.copy(self.noise.levels_image)
             lambda_HG[1:, :, :] *= threshold
             lambda_HG[0, :, :] *= (threshold + self._increm_high_freq)
-            weights_HG = 1. / ( 1 + np.exp(10 * (alpha_HG - lambda_HG)) )  # fixed Eq. (11) of Joseph et al. 2018
+            weights_HG = 1. / ( 1 + np.exp(10 * (alpha_HG - lambda_HG)) )  # fixed Eq. (C.1)
         else:
             weights_HG = None
         return weights_S, weights_HG

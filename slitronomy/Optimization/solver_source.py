@@ -27,10 +27,12 @@ class SparseSolverSource(SparseSolverBase):
         :param num_iter_lens: number of iterations for sparse optimization of the lens light. 
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
         :param base_kwargs: keyword arguments for SparseSolverBase.
-        If not set, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
+
+        If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
         """
         if base_kwargs.get('threshold_decrease_type', None) is None:
-            threshold_decrease_type = 'exponential'
+            base_kwargs['threshold_decrease_type'] = 'exponential'
+
         super(SparseSolverSource, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, 
                                                  likelihood_mask=likelihood_mask, **base_kwargs)
         self.add_source_light(source_model_class)
