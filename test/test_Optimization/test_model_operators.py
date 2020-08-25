@@ -56,11 +56,11 @@ class TestModelOperators(object):
         self.n_scales_lens = 3
 
         # list of source light profiles
-        source_model = LightModel(['STARLETS'])
+        source_model = LightModel(['SLIT_STARLETS'])
         self.kwargs_source = [{'n_scales': self.n_scales_source}]
 
         # list of lens light profiles
-        lens_light_model = LightModel(['STARLETS'])
+        lens_light_model = LightModel(['SLIT_STARLETS'])
         self.kwargs_lens_light = [{'n_scales': self.n_scales_lens}]
 
         # define some mask
@@ -73,8 +73,7 @@ class TestModelOperators(object):
         source_grid_class = source_numerics.grid_class
 
         # get a lensing operator
-        self.lensing_op = LensingOperator(lens_model, image_grid_class, source_grid_class, self.num_pix,
-                                          subgrid_res_source=self.subgrid_res_source)
+        self.lensing_op = LensingOperator(lens_model, image_grid_class, source_grid_class, self.num_pix)
         self.lensing_op.update_mapping(kwargs_lens)
 
         self.model_op = ModelOperators(data, self.lensing_op, self.numerics,
@@ -173,14 +172,13 @@ class TestRaise(unittest.TestCase):
         psf = PSF('NONE')
         self.numerics = NumericsSubFrame(self.data, psf)
         lens_model = LensModel(['SPEP'])
-        self.source_model_class = LightModel(['STARLETS'])
-        self.lens_light_model_class = LightModel(['STARLETS'])
+        self.source_model_class = LightModel(['SLIT_STARLETS'])
+        self.lens_light_model_class = LightModel(['SLIT_STARLETS'])
         # get grid classes
         image_grid_class = self.numerics.grid_class
         source_numerics = NumericsSubFrame(self.data, psf, supersampling_factor=1)
         source_grid_class = source_numerics.grid_class
-        self.lensing_op = LensingOperator(lens_model, image_grid_class, source_grid_class, self.num_pix, 
-                                          subgrid_res_source=1)
+        self.lensing_op = LensingOperator(lens_model, image_grid_class, source_grid_class, self.num_pix)
         self.model_op = ModelOperators(self.data, self.lensing_op, self.numerics)
         self.model_op.add_lens_light(self.lens_light_model_class)
         self.model_op_nolens = ModelOperators(self.data, self.lensing_op, self.numerics)

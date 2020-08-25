@@ -53,12 +53,12 @@ class TestSparseSolverBase(object):
         self.n_scales_lens = 3
 
         # list of source light profiles
-        source_model = LightModel(['STARLETS'])
+        source_model = LightModel(['SLIT_STARLETS'])
         self.kwargs_source = [{'coeffs': 1, 'n_scales': self.n_scales_source, 
                                'n_pixels': self.num_pix_source**2}]
 
         # list of lens light profiles
-        lens_light_model = LightModel(['STARLETS'])
+        lens_light_model = LightModel(['SLIT_STARLETS'])
         self.kwargs_lens_light = [{'coeffs': 1, 'n_scales': self.n_scales_lens,
                                    'n_pixels': self.num_pix**2}]
 
@@ -76,8 +76,7 @@ class TestSparseSolverBase(object):
 
         # init the solver
         self.solver = SparseSolverBase(data, lens_model, numerics, source_numerics, 
-                 likelihood_mask=self.likelihood_mask, source_interpolation='bilinear',
-                 subgrid_res_source=self.subgrid_res_source, minimal_source_plane=True, 
+                 likelihood_mask=self.likelihood_mask, source_interpolation='bilinear', minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=self.min_num_pix_source,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  verbose=False, show_steps=False) 
@@ -151,8 +150,8 @@ class TestRaise(unittest.TestCase):
         self.data = ImageData(**self.kwargs_data)
         self.lens_model = LensModel(['SPEP'])
         self.kwargs_lens = [{'theta_E': 1, 'gamma': 2, 'center_x': 0, 'center_y': 0, 'e1': -0.05, 'e2': 0.05}]
-        self.source_model = LightModel(['STARLETS'])
-        self.lens_light_model = LightModel(['STARLETS'])
+        self.source_model = LightModel(['SLIT_STARLETS'])
+        self.lens_light_model = LightModel(['SLIT_STARLETS'])
         self.kwargs_source = [{'coeffs': 1, 'n_scales': 4, 
                                'n_pixels': self.num_pix_source**2}]
 
@@ -161,8 +160,7 @@ class TestRaise(unittest.TestCase):
         psf = PSF(psf_type='NONE')
         self.numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf)
         self.source_numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf, supersampling_factor=self.subgrid_res_source)
-        self.solver = SparseSolverBase(self.data, self.lens_model, self.numerics, self.source_numerics,
-                                       subgrid_res_source=self.subgrid_res_source)
+        self.solver = SparseSolverBase(self.data, self.lens_model, self.numerics, self.source_numerics)
         
     def test_raise(self):
         with self.assertRaises(ValueError):

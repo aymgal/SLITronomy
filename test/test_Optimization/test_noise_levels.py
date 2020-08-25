@@ -60,11 +60,11 @@ class TestNoiseLevels(object):
         self.n_scales_lens = 3
 
         # list of source light profiles
-        self.source_model = LightModel(['STARLETS'])
+        self.source_model = LightModel(['SLIT_STARLETS'])
         self.kwargs_source = [{'n_scales': self.n_scales_source}]
 
         # list of lens light profiles
-        self.lens_light_model = LightModel(['STARLETS'])
+        self.lens_light_model = LightModel(['SLIT_STARLETS'])
         self.kwargs_lens_light = [{'n_scales': self.n_scales_lens}]
 
         # get grid classes
@@ -72,15 +72,11 @@ class TestNoiseLevels(object):
         source_grid_class = NumericsSubFrame(data, PSF('NONE'), supersampling_factor=self.subgrid_res_source).grid_class
 
         # get a lensing operator
-        self.lensing_op = LensingOperator(lens_model, image_grid_class, source_grid_class, self.num_pix,
-                                          subgrid_res_source=self.subgrid_res_source)
+        self.lensing_op = LensingOperator(lens_model, image_grid_class, source_grid_class, self.num_pix)
 
-        self.boost_where_zero = 10
         self.noise_class = NoiseLevels(data, subgrid_res_source=self.subgrid_res_source,
-                                        boost_where_zero=self.boost_where_zero, 
                                         include_regridding_error=False)
-        self.noise_class_regrid = NoiseLevels(data, subgrid_res_source=self.subgrid_res_source,
-                                        boost_where_zero=self.boost_where_zero, 
+        self.noise_class_regrid = NoiseLevels(data, subgrid_res_source=self.subgrid_res_source, 
                                         include_regridding_error=True)
 
     def test_background_rms(self):
@@ -94,14 +90,17 @@ class TestNoiseLevels(object):
     def test_update_source_levels(self):
         wavelet_transform_source = lambda x: self.source_model.func_list[0].decomposition_2d(x, self.kwargs_source[0]['n_scales'])
         image2source_transform = lambda x: self.lensing_op.image2source_2d(x, kwargs_lens=self.kwargs_lens)
+        upscale_transform = lambda x: x
         self.noise_class.update_source_levels(self.num_pix, self.num_pix_source, 
                                                wavelet_transform_source,
                                                image2source_transform, 
+                                               upscale_transform,
                                                psf_kernel=None)  # without psf_kernel specified
         assert self.noise_class.levels_source.shape == (self.n_scales_source, self.num_pix_source, self.num_pix_source)
         self.noise_class.update_source_levels(self.num_pix, self.num_pix_source, 
                                                wavelet_transform_source,
                                                image2source_transform, 
+                                               upscale_transform,
                                                psf_kernel=self.psf_kernel)
         assert self.noise_class.levels_source.shape == (self.n_scales_source, self.num_pix_source, self.num_pix_source)
 

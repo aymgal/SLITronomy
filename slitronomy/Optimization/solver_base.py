@@ -27,7 +27,7 @@ class SparseSolverBase(ModelOperators):
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class,
                  likelihood_mask=None, lens_light_mask=None, source_interpolation='bilinear',
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
-                 min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type=None,
+                 min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='exponential',
                  fixed_spectral_norm_source=0.98, include_regridding_error=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  external_likelihood_penalty=False, random_seed=None,
