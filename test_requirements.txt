@@ -1,5 +1,6 @@
 numpy>=1.16.4
 scipy
+scikit-image
 matplotlib
 future
 astropy
