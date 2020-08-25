@@ -202,8 +202,7 @@ class TestLensingOperator(object):
 
         subgrid_res = 2
         source_grid_class = NumericsSubFrame(self.data, self.psf, supersampling_factor=subgrid_res).grid_class
-        lensing_op = LensingOperator(self.lens_model, self.image_grid_class, source_grid_class, self.num_pix, 
-                                     subgrid_res_source=subgrid_res)
+        lensing_op = LensingOperator(self.lens_model, self.image_grid_class, source_grid_class, self.num_pix)
         theta_x, theta_y = lensing_op.source_plane_coordinates
         assert theta_x.size == self.num_pix**2 * subgrid_res**2
         assert theta_y.size == self.num_pix**2 * subgrid_res**2
@@ -220,7 +219,7 @@ class TestLensingOperator(object):
         beta_x, beta_y = self.lens_model.ray_shooting(lensing_op.imagePlane.theta_x, lensing_op.imagePlane.theta_y,
                                                      self.kwargs_lens)
         i = 10
-        j = lensing_op._find_source_pixel_nearest(i, beta_x, beta_y)
+        j = lensing_op._find_source_pixel_nearest_legacy(i, beta_x, beta_y)
         assert (isinstance(j, int) or isinstance(j, np.int64))
 
 

@@ -3,7 +3,7 @@ __author__ = 'aymgal', 'austinpeel'
 import numpy as np
 from scipy import sparse
 
-from slitronomy.Lensing.lensing_planes import PlaneGrid, SizeablePlaneGrid
+from slitronomy.Lensing.lensing_plane import PlaneGrid, SizeablePlaneGrid
 from slitronomy.Util import util
 
 
