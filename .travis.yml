@@ -75,7 +75,7 @@ install:
   - cd $PACKAGES_DIR
   - git clone https://github.com/aymgal/lenstronomy.git
   - cd lenstronomy
-  - git checkout dev_slit-algo
+  - git checkout dev_slit-bis
   - pip install .
   # - pip install -e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
 
