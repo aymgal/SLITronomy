@@ -23,7 +23,7 @@ def test_SSIM():
     ssim = metrics_util.SSIM(np.zeros((n, n)), np.zeros((n, n)))
     assert np.isnan(ssim)
     ssim = metrics_util.SSIM(np.ones((n, n)), np.ones((n, n)))
-    assert np.isnan(ssim)
+    assert ssim == 1.
 
 
 def test_QOR():
