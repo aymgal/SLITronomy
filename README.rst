@@ -69,5 +69,5 @@ References
 ==========
 
 * SLITronomy paper: in prep.
-* Sparse Linear Inversion Technique: `Joseph et al. 2019 <https://arxiv.org/abs/1809.09121>`_
+* Sparse Linear Inversion Technique: `Joseph et al. 2019 <https://arxiv.org/abs/1809.09121>`_.
 * lenstronomy modelling software: `Birrer & Amara 2018 <https://arxiv.org/abs/1803.09746v2>`_.

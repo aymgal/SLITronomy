@@ -109,36 +109,29 @@ class TestLensingOperator(object):
         image_1d = util.image2array(self.source_light_lensed)
         assert lensing_op.image2source(image_1d).size < source_1d.size
 
-        # # test for keeping same minimal source plane while updating kwargs_lens
-        # lensing_op = LensingOperator(self.lens_model, self.image_grid_class, self.source_grid_class_default, self.num_pix,
-        #                              source_interpolation='nearest',
-        #                              likelihood_mask=self.likelihood_mask, minimal_source_plane=True,
-        #                              fix_minimal_source_plane=True)
-        # lensing_op.update_mapping(self.kwargs_lens)
-        # source_plane_size_before = lensing_op.sourcePlane.grid_size
-        # kwargs_lens_new = copy.deepcopy(self.kwargs_lens)
-        # kwargs_lens_new[0] = {key: value*2 for key, value in kwargs_lens_new[0].items()}  # multiply by 2 some parameters
-        # lensing_op.update_mapping(kwargs_lens_new)
-        # assert lensing_op.sourcePlane.grid_size == source_plane_size_before
-
-        # # test for NOT keeping same minimal source plane while updating kwargs_lens
-        # lensing_op = LensingOperator(self.lens_model, self.image_grid_class, self.source_grid_class_default, self.num_pix,
-        #                              source_interpolation='nearest',
-        #                              likelihood_mask=self.likelihood_mask, minimal_source_plane=True,
-        #                              fix_minimal_source_plane=False)
-        # lensing_op.update_mapping(self.kwargs_lens)
-        # source_plane_size_before = lensing_op.sourcePlane.grid_size
-        # kwargs_lens_new = copy.deepcopy(self.kwargs_lens)
-        # kwargs_lens_new[0] = {key: value*2 for key, value in kwargs_lens_new[0].items()}  # multiply by 2 some parameters
-        # lensing_op.update_mapping(kwargs_lens_new)
-        # assert lensing_op.sourcePlane.grid_size != source_plane_size_before
-
         # for 'bilinear' operator, only works with no mask (for now)
         lensing_op = LensingOperator(self.lens_model, self.image_grid_class, self.source_grid_class_default, self.num_pix,
                                      source_interpolation='bilinear', likelihood_mask=None, minimal_source_plane=True)
         lensing_op.update_mapping(self.kwargs_lens)
         image_1d = util.image2array(self.source_light_lensed)
         assert lensing_op.image2source(image_1d).size < source_1d.size
+
+    def test_legacy_mapping(self):
+        """testing than image2source / source2image are close to the parametric mapping""" 
+        lensing_op = LensingOperator(self.lens_model, self.image_grid_class, self.source_grid_class_default, self.num_pix,
+                                     source_interpolation='nearest_legacy')
+        lensing_op.update_mapping(self.kwargs_lens)
+
+        source_1d = util.image2array(self.source_light_delensed)
+        image_1d = util.image2array(self.source_light_lensed)
+
+        source_1d_lensed = lensing_op.source2image(source_1d)
+        image_1d_delensed = lensing_op.image2source(image_1d)
+        assert source_1d_lensed.shape == image_1d.shape
+        assert image_1d_delensed.shape == source_1d.shape
+
+        npt.assert_almost_equal(source_1d_lensed/source_1d_lensed.max(), image_1d/image_1d.max(), decimal=0.6)
+        npt.assert_almost_equal(image_1d_delensed/image_1d_delensed.max(), source_1d/source_1d.max(), decimal=0.6)
 
     def test_simple_mapping(self):
         """testing than image2source / source2image are close to the parametric mapping""" 

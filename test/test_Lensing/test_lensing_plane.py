@@ -130,7 +130,38 @@ class TestSizeablePlaneGrid(object):
         self.source_plane.switch_resize(True)
         assert self.source_plane.num_pix in [min_num_pix-1, min_num_pix, min_num_pix+1]
 
+    def test_project_on_original_grid(self):
+        # resize the grid by means of masks
+        self.source_plane.add_delensed_masks(self.unit_image_mapped, mapped_mask=self.mask_mapped)
+        _ = self.source_plane.compute_resized_grid(min_num_pix=10)
+        self.source_plane.switch_resize(True)
+        # project an image that has resized size onto the original grid
+        image = np.random.rand(*self.source_plane.grid_shape)
+        image_original_grid = self.source_plane.project_on_original_grid(image)
+        assert image_original_grid.shape != image.shape
+        assert image_original_grid.shape == (self.num_pix*self.subgrid_res_source, self.num_pix*self.subgrid_res_source)
+        # test access to resized effective mask
+        assert self.source_plane.effective_mask.shape == self.source_plane.grid_shape
 
+
+class TestRaise(unittest.TestCase):
+    def test_raise(self):
+        with self.assertRaises(ValueError):
+            # test rectangular size
+            num_pix_x = 25
+            num_pix_y = 30
+            delta_pix = 0.24
+            _, _, ra_at_xy_0, dec_at_xy_0, _, _, Mpix2coord, _ \
+                = l_util.make_grid_with_coordtransform(numPix=num_pix_x, deltapix=delta_pix, subgrid_res=1, 
+                                                             inverse=False, left_lower=False)
+            kwargs_data = {
+                'ra_at_xy_0': ra_at_xy_0, 'dec_at_xy_0': dec_at_xy_0, 
+                'transform_pix2angle': Mpix2coord,
+                'image_data': np.zeros((num_pix_x, num_pix_y))
+            }
+            numerics = NumericsSubFrame(ImageData(**kwargs_data), PSF('NONE'))
+            plane_grid = PlaneGrid(numerics.grid_class)
+            
 
 if __name__ == '__main__':
     pytest.main()
