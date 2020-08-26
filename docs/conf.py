@@ -27,6 +27,8 @@ version = '0.2.0'
 # The full version, including alpha/beta/rc tags
 release = '0.2.0'
 
+# The master toctree document.
+master_doc = 'index'
 
 # -- General configuration ---------------------------------------------------
 
