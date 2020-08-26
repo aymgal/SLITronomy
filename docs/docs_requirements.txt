@@ -1,0 +1,9 @@
+numpy>=1.16.4
+scipy
+scikit-image
+matplotlib
+future
+astropy
+pybind11
+# python-pysap  # fail due to cmake not installed on readthedocs servers
+# tensorflow>=2.3.0  # only for SSIM computation
