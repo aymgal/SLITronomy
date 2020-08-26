@@ -2,30 +2,36 @@
 SLITronomy
 **********
 
-.. image:: https://readthedocs.org/projects/slitronomy/badge/?version=latest
-    :target: https://slitronomy.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
-
 .. image:: https://travis-ci.org/aymgal/SLITronomy.svg?branch=master
     :target: https://travis-ci.org/aymgal/SLITronomy
+    :alt: Build status
 
 .. image:: https://coveralls.io/repos/github/aymgal/SLITronomy/badge.svg
     :target: https://coveralls.io/github/aymgal/SLITronomy
+    :alt: Coverage status
 
 .. .. image:: https://codecov.io/gh/aymgal/SLITronomy/branch/master/graph/badge.svg
 ..   :target: https://codecov.io/gh/aymgal/SLITronomy
 
 .. image:: https://badge.fury.io/py/slitronomy.svg
     :target: https://badge.fury.io/py/slitronomy
+    :alt: PyPi status
+
+.. image:: https://readthedocs.org/projects/slitronomy/badge/?version=latest
+    :target: https://slitronomy.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 .. image:: https://img.shields.io/badge/python-3.6-blue.svg
     :target: https://badge.fury.io/py/slitronomy
+    :alt: Python 3.6 support
 
 .. image:: https://img.shields.io/badge/python-3.7-blue.svg
     :target: https://badge.fury.io/py/slitronomy
+    :alt: Python 3.7 support
 
 .. image:: https://img.shields.io/badge/license-MIT-blue.svg?style=flat
     :target: https://github.com/aymgal/slitronomy/blob/master/LICENSE
+    :alt: MIT license
 
 
 Updated and improved version of the Sparse Lens Inversion Technique (SLIT), developed within the framework of lens modelling software lenstronomy.
