@@ -34,13 +34,15 @@ SLITronomy
     :alt: MIT license
 
 
-Updated and improved version of the Sparse Lens Inversion Technique (SLIT), developed within the framework of lens modelling software lenstronomy.
+Updated and improved version of the Sparse Lens Inversion Technique (`SLIT <https://github.com/herjy/SLIT>`_), developed within the framework of lens modelling software `lenstronomy <https://github.com/sibirrer/lenstronomy>`_.
 
-IMPORTANT : the current version of SLItronomy only works with the branch ``dev_algo-slit`` on `this fork <https://github.com/aymgal/lenstronomy/tree/dev_slit-algo>`_  of lenstronomy. In some rare cases (e.g. travis-ci builds), it may also requires the following `fork of pySAP <https://github.com/aymgal/pysap/tree/dev-aym>`_, switched to branch ``dev-aym``.
+The documentation is available on `readthedocs.org <http://slitronomy.readthedocs.org/>`_ (currently in development).
+
+IMPORTANT : the current (beta) version of SLItronomy only works with the branch ``dev_slit-bis`` on `this fork <https://github.com/aymgal/lenstronomy/tree/dev_slit-bis>`_  of lenstronomy. In some rare cases (e.g. travis-ci builds) you may have issues with the latest stable release of PySAP. If this is the case, please use this `fork of pySAP <https://github.com/aymgal/pysap/tree/dev-aym>`_ switched to branch ``dev-aym``, instead.
 
 
 Installation
-++++++++++++
+============
 
 This package is available through PyPi.
 
@@ -49,15 +51,8 @@ This package is available through PyPi.
     $ pip install slitronomy
 
 
-Links
-+++++
-
-Original lenstronomy : `lenstronomy <https://github.com/sibirrer/lenstronomy>`_
-
-Original SLIT : `SLIT <https://github.com/herjy/SLIT>`_
-
 Example notebooks
-+++++++++++++++++
+=================
 
 An ensemble of example notebooks are located at `thirdparty/notebooks <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks>`_ :
 
@@ -65,9 +60,14 @@ An ensemble of example notebooks are located at `thirdparty/notebooks <https://g
 * `Starlets decomposition and reconstruction <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/02_starlets_decomposition.ipynb>`_
 * `Sparse source reconstruction <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/03_complex_source_reconstruction.ipynb>`_
 * `Lens model optimization <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/04_source_mass_reconstruction.ipynb>`_
-* `Multi-band source reconstruction <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/05_multiband_source_reconstruction.ipynb>`_ (requires MuSCADeT)
+* `Multi-band source reconstruction <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/05_multiband_source_reconstruction.ipynb>`_ (requires `MuSCADeT <https://github.com/aymgal/MuSCADeT>`_)
 * `Sparse source and lens light reconstructions <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/06_complex_sourcelens_reconstruction.ipynb>`_
 * `Sparse source reconstruction with quasar images <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/07_complex_quasar_source.ipynb>`_
 
-If required, install the fork of Multi-band morpho-Spectral Component Analysis Deblending Tool : `MuSCADeT <https://github.com/aymgal/MuSCADeT>`_
 
+References
+==========
+
+* SLITronomy paper: in prep.
+* Sparse Linear Inversion Technique: `Joseph et al. 2019 <https://arxiv.org/abs/1809.09121>`_
+* lenstronomy modelling software: `Birrer & Amara 2018 <https://arxiv.org/abs/1803.09746v2>`_.
