@@ -2,6 +2,10 @@
 SLITronomy
 **********
 
+.. image:: https://readthedocs.org/projects/slitronomy/badge/?version=latest
+    :target: https://slitronomy.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
 .. image:: https://travis-ci.org/aymgal/SLITronomy.svg?branch=master
     :target: https://travis-ci.org/aymgal/SLITronomy
 
