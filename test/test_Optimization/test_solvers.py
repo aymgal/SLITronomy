@@ -220,6 +220,11 @@ class TestSparseSolverSource(object):
         # test plot results
         fig = self.solver_source_ana.plot_results()
         plt.close()
+        source_truth = np.ones_like(source_light)  # we don't test whether the source reconstruction is ok here
+        source_model_list = [source_light, source_light]
+        name_list = ['model 1', 'model 2']
+        fig = self.solver_source_ana.plot_source_residuals_comparison(source_truth, source_model_list, name_list)
+        plt.close()
 
     def test_solve_source_lens_synthesis(self):
         # source+lens solver

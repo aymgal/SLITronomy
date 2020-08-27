@@ -92,6 +92,15 @@ class TestSolverPlotter(object):
         self.plotter.plot_results(log_scale=True)
         plt.close()
 
+    def test_plot_source_residuals_comparison(self):
+        # launch solver first
+        _ = self.solver.solve(self.kwargs_lens, self.kwargs_source)
+        source_truth = np.ones((self.num_pix, self.num_pix))  # we don't test whether the source reconstruction is ok here
+        source_model_list = [np.ones((self.num_pix, self.num_pix)), np.ones((self.num_pix, self.num_pix))]
+        name_list = ['model 1', 'model 2']
+        fig = self.plotter.plot_source_residuals_comparison(source_truth, source_model_list, name_list)
+        plt.close()
+
     def test_quick_imshow(self):
         image = np.random.rand(self.num_pix, self.num_pix)
         kwargs = {'cmap': 'bwr'}
