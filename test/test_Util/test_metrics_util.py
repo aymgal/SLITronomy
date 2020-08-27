@@ -38,8 +38,9 @@ def test_chi2_nu():
 
 def test_chi2_threshold():
     n = 20
+    np.random.seed(18)
     chi2_nu = metrics_util.chi2_threshold(4*np.random.rand(n, n), sigma_threshold=3)
-    npt.assert_almost_equal(chi2_nu, 12.469249199, decimal=8)
+    npt.assert_almost_equal(chi2_nu, 12.469249, decimal=6)
 
 def test_total_mag():
     n = 20
