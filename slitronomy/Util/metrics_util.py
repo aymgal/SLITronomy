@@ -34,7 +34,7 @@ def chi2_threshold(normalized_residuals, sigma_threshold=3):
     mask = np.where(np.abs(normalized_residuals) > sigma_threshold)
     normalized_residuals_masked = normalized_residuals[mask]
     num_data_points = normalized_residuals_masked.size
-    return np.sum(normalized_residuals_masked**2) / num_data_points
+    return chi2_nu(normalized_residuals_masked, num_data_points)
 
 
 def total_mag(flux_map, zero_point):
