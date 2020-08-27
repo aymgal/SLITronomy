@@ -1,6 +1,6 @@
-**********
-SLITronomy
-**********
+**********************************************
+SLITronomy - Sparse Linear Inversion Technique
+**********************************************
 
 .. image:: https://travis-ci.org/aymgal/SLITronomy.svg?branch=master
     :target: https://travis-ci.org/aymgal/SLITronomy
