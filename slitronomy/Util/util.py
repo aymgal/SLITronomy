@@ -388,7 +388,6 @@ def regridding_error_map_squared(mag_map=None, data_image=None, image_pixel_scal
     return noise_map2, noise_map2_prefactor
 
 
-# TODO: following methods directly come from SLIT
 def Downsample(image, factor=1):
     """
     resizes image with nx x ny to nx/factor x ny/factor

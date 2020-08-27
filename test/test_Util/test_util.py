@@ -85,6 +85,24 @@ def test_hard_threshold():
     npt.assert_equal(array_ht[array > 0.5], array[array > 0.5])
     npt.assert_equal(array_ht[array <= 0.5], 0)
 
+def test_downsampling():
+    factor = 2
+    array = np.random.rand(10, 10)
+    array_down = util.Downsample(array, factor=factor)
+    assert array_down.shape == (array.shape[0]/factor, array.shape[1]/factor)
+    array = np.random.rand(10, 10)
+    array_down_fac1 = util.Downsample(array, factor=1)
+    npt.assert_equal(array, array_down_fac1)
+
+def test_upsampling():
+    factor = 2
+    array = np.random.rand(10, 10)
+    array_up = util.Upsample(array, factor=factor)
+    assert array_up.shape == (array.shape[0]*factor, array.shape[1]*factor)
+    array = np.random.rand(10, 10)
+    array_up_fac1 = util.Upsample(array, factor=1)
+    npt.assert_equal(array, array_up_fac1)
+
 def test_indices_conversion():
     num_pix = 99
 
@@ -111,8 +129,6 @@ def test_dirac_impulse():
     dirac_odd = util.dirac_impulse(21)
     assert dirac_odd[10, 10] == 1
 
-
-
 def test_spectral_norm():
     num_pix = 10
     operator = lambda X: X
@@ -135,7 +151,6 @@ def test_spectral_norm():
     operator = lambda X: starlets.decomposition_2d(X, n_scales)
     inverse_operator = lambda X: starlets.function_2d(X, n_scales, n_pixels)
     npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=8)
-
 
 def test_generate_initial_guess():
     num_pix = 20
@@ -197,7 +212,6 @@ def test_linear_decrease_at_iter():
     assert thresholds[0] == thresh_init
     np.testing.assert_almost_equal(thresholds[-n_iter_min_value:], thresh_min*np.ones((n_iter_min_value,)), decimal=10)
 
-
 def test_exponential_decrease():
     n_iter_min_value = 10
     n_iter = 30
@@ -212,7 +226,6 @@ def test_exponential_decrease():
     thresholds = np.array(thresholds)
     assert thresholds[0] == thresh_init
     np.testing.assert_almost_equal(thresholds[-n_iter_min_value:], thresh_min*np.ones((n_iter_min_value,)), decimal=10)
-
 
 def test_regridding_error_map_squared():
     num_pix, delta_pix = 99, 0.08  # cutout pixel size
@@ -266,6 +279,15 @@ class TestRaise(unittest.TestCase):
         with self.assertRaises(ValueError):
             array = np.ones((2, 2))
             util.array2cube(array, 2, 2)
+        with self.assertRaises(ValueError):
+            array = np.ones((3, 3))
+            util.Downsample(array, factor=2)
+        with self.assertRaises(ValueError):
+            array = np.ones((3, 3))
+            util.Downsample(array, factor=0.5)
+        with self.assertRaises(ValueError):
+            array = np.ones((3, 3))
+            util.Upsample(array, factor=0.5)
         with self.assertRaises(ValueError):
             util.linear_decrease(100, 200, 5, 4, 5)
         with self.assertRaises(ValueError):
