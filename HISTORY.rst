@@ -24,3 +24,14 @@ History
 * Fix L1-norm reweighting scheme in solvers
 * Vast design improvements
 * Various bug fixes
+
+0.3.0 (2020-08-30)
+++++++++++++++++++
+
+LOTS of improvements on various aspects:
+* Unified LensingOperator, that supports 'legacy' implementation of nearest-neighbors interpolation, and faster implementations of nearest-neighbors and bilinear interpolations (credits to @austinpeel for fast versions)
+* Improved adaptive initialisation and refinement of regularisation strength
+* Improved noise propagation to source plane and starlet space, with gaussian filtering for better estimation of unconstrained source pixels
+* Basic support of image plane supersampling (only nearest-neighbors interpolation for upsampling)
+* User can now provide a mask to select pixel that belongs only to lens light, for improving masking of source plane region. Use it with care!
+* Better integration with lenstronomy classes

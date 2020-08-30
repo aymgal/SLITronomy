@@ -42,7 +42,7 @@ PACKAGE_PATH = os.path.abspath(os.path.join(__file__, os.pardir))
 
 setup(
     name='slitronomy',
-    version='0.2.0',
+    version='0.3.0',
     description='Sparse Linear Inversion Technique for lenstronomy',
     long_description=desc,
     author='Aymeric Galan',
