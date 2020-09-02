@@ -33,6 +33,7 @@ class SparseSolverSourceLens(SparseSolverSource):
 
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'linear'.
         """
+        # define default threshold decrease strategy
         if base_kwargs.get('threshold_decrease_type', None) is None:
             base_kwargs['threshold_decrease_type'] = 'linear'
             

@@ -15,8 +15,8 @@ class SparseSolverSourcePS(SparseSolverSource):
 
     """Implements the original SLIT algorithm with point source support"""
 
-    def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class, point_source_linear_solver, 
-                 likelihood_mask=None, num_iter_source=10, num_iter_ps=10, num_iter_weights=3, **base_kwargs):
+    def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class, 
+                 likelihood_mask=None, num_iter_source=10, num_iter_global=10, num_iter_weights=3, **base_kwargs):
 
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
@@ -27,12 +27,16 @@ class SparseSolverSourcePS(SparseSolverSource):
         :param point_source_linear_solver: method that linearly solve the amplitude of point sources,
         given a source subtracted image. This might change in the future.
         :param num_iter_source: number of iterations for sparse optimization of the source light. 
-        :param num_iter_ps: number of iterations for the point source linear inversion.
+        :param num_iter_global: number of iterations to alternate between source and point source optimisation. 
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
         :param base_kwargs: keyword arguments for SparseSolverBase.
         
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
         """
+        # remove settings not related to this solver
+        _ = base_kwargs.pop('num_iter_lens', None)
+
+        # define default threshold decrease strategy
         if base_kwargs.get('threshold_decrease_type', None) is None:
             base_kwargs['threshold_decrease_type'] = 'exponential'
             
@@ -40,8 +44,10 @@ class SparseSolverSourcePS(SparseSolverSource):
                                                    likelihood_mask=likelihood_mask, num_iter_source=num_iter_source, 
                                                    num_iter_weights=num_iter_weights, **base_kwargs)
         self.add_point_source()
-        self._n_iter_ps = num_iter_ps
-        self._ps_solver = point_source_linear_solver
+        self._n_iter_global = num_iter_global
+
+    def set_point_source_solver_func(point_source_solver_func):
+        self._ps_solver = point_source_solver_func
 
     def _ready(self):
         return not self.no_source_light and not self.no_point_source
@@ -50,6 +56,9 @@ class SparseSolverSourcePS(SparseSolverSource):
         """
         implements the SLIT algorithm with point source support
         """
+        if not hasattr(self, '_ps_solver'):
+            raise ValueError("No function has been provided for point source amplitude inversion")
+
         # set the gradient step
         mu = 1. / self.spectral_norm_source
 
@@ -78,7 +87,7 @@ class SparseSolverSourcePS(SparseSolverSource):
 
             ######### Loop over point source optimization at fixed weights ########
 
-            for i_p in range(self._n_iter_ps):
+            for i in range(self._n_iter_global):
 
                 ######### Loop over source light at fixed weights ########
 
@@ -112,11 +121,11 @@ class SparseSolverSourcePS(SparseSolverSource):
 
                     # save current step to track
                     self._tracker.save(S=S, S_next=S_next, 
-                                       print_bool=(i_p % 30 == 0 and i_s % 30 == 0),
-                                       iteration_text="*** iteration {}-{}-{} ***".format(j, i_p, i_s))
+                                       print_bool=(i % 30 == 0 and i_s % 30 == 0),
+                                       iteration_text="*** iteration {}-{}-{} ***".format(j, i, i_s))
 
                     if self._show_steps and (i_s % ma.ceil(self._n_iter_source/2) == 0):
-                        self._plotter.plot_step(S_next, iter_1=j, iter_2=i_p, iter_3=i_s)
+                        self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
 
                     # update current estimate of source light and local parameters
                     S = S_next
@@ -136,8 +145,8 @@ class SparseSolverSourcePS(SparseSolverSource):
                 P, ps_error, ps_cov_param, ps_param = self._ps_solver(current_model_no_ps, kwargs_lens, kwargs_ps, 
                                                                       kwargs_special=kwargs_special, inv_bool=False)
 
-                if self._show_steps and i_p % ma.ceil(self._n_iter_ps/2) == 0 and i_s == self._n_iter_source-1:
-                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i_p, iter_3=i_s)
+                if self._show_steps and i % ma.ceil(self._n_iter_global/2) == 0 and i_s == self._n_iter_source-1:
+                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
 
             ######### ######## end point source ######## ########
 

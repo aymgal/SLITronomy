@@ -30,6 +30,11 @@ class SparseSolverSource(SparseSolverBase):
 
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
         """
+        # remove settings not related to this solver
+        _ = base_kwargs.pop('num_iter_lens', None)
+        _ = base_kwargs.pop('num_iter_global', None)
+
+        # define default threshold decrease strategy
         if base_kwargs.get('threshold_decrease_type', None) is None:
             base_kwargs['threshold_decrease_type'] = 'exponential'
 

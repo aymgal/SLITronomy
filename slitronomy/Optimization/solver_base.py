@@ -22,7 +22,7 @@ class SparseSolverBase(ModelOperators):
     # (also when reducing source plane size, re-check consistency)
 
     #TODO: create classes for lens and source models.
-    # E.g. the method project_on_original_grid should be attached to a SourceModel class, not to the solver.
+    # E.g. the method project_on_original_grid_source should be attached to some new "SourceModel" class, not to the solver.
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class,
                  likelihood_mask=None, lens_light_mask=None, source_interpolation='bilinear',
@@ -230,12 +230,12 @@ class SparseSolverBase(ModelOperators):
     def generate_initial_source(self):
         num_pix = self.num_pix_source
         transform = self.Phi_T_s
-        return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms, seed=self._random_seed)
+        return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms, seed=self.random_seed)
 
     def generate_initial_lens_light(self):
         num_pix = self.num_pix_image
         transform = self.Phi_T_l
-        return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms, seed=self._random_seed)
+        return util.generate_initial_guess_simple(num_pix, transform, self.noise.background_rms, seed=self.random_seed)
 
     def apply_image_plane_mask(self, image_2d):
         return self.M(image_2d)
