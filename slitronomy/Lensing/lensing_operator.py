@@ -15,7 +15,7 @@ class LensingOperator(object):
     def __init__(self, lens_model_class, image_grid_class, source_grid_class, num_pix,
                  lens_light_mask=None, minimal_source_plane=False, min_num_pix_source=10,
                  use_mask_for_minimal_source_plane=True,
-                 source_interpolation='bilinear', matrix_prod=True, verbose=False):
+                 source_interpolation='bilinear', verbose=False):
         """Summary
         
         Parameters
@@ -40,8 +40,6 @@ class LensingOperator(object):
             Description
         source_interpolation : str, optional
             Description
-        matrix_prod : bool, optional
-            Description
         verbose : bool, optional
             Description
         
@@ -60,7 +58,6 @@ class LensingOperator(object):
         if source_interpolation not in ['nearest_legacy', 'nearest', 'bilinear']:
             raise ValueError("source interpolation '{}' not supported in LensingOperator (only 'nearest', 'bilinear')")
         self._interpolation = source_interpolation
-        self._matrix_prod = matrix_prod
         self._likelihood_mask = np.ones(self.imagePlane.grid_shape)
 
     def set_likelihood_mask(self, mask):
@@ -74,7 +71,7 @@ class LensingOperator(object):
             self.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         lens_mapping, _ = self.get_lens_mapping(original_source_grid)
-        if not self._matrix_prod and self._interpolation == 'nearest_legacy':
+        if self._interpolation == 'nearest_legacy':
             image = self._source2image_list(source_1d, lens_mapping)
         else:
             image = self._source2image_matrix(source_1d, lens_mapping)
@@ -105,7 +102,7 @@ class LensingOperator(object):
             self.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         lens_mapping, norm_image2source = self.get_lens_mapping(original_source_grid)
-        if not self._matrix_prod and self._interpolation == 'nearest_legacy':
+        if self._interpolation == 'nearest_legacy':
             source = self._image2source_list(image_1d, lens_mapping, no_flux_norm)
         else:
             source = self._image2source_matrix(image_1d, lens_mapping, norm_image2source, no_flux_norm)
@@ -488,10 +485,7 @@ class LensingOperator(object):
         from ray-tracing performed by the input parametric mass model
         """
         # initialize matrix
-        if self._matrix_prod:
-            lens_mapping_matrix = np.zeros((self.imagePlane.grid_size, self.sourcePlane.grid_size))
-        else:
-            lens_mapping_list = []
+        lens_mapping_list = []
 
         # backward ray-tracing to get source coordinates in image plane (the 'betas')
         beta_x, beta_y = self.lensModel.ray_shooting(self.imagePlane.theta_x, self.imagePlane.theta_y, kwargs_lens)
@@ -505,19 +499,11 @@ class LensingOperator(object):
             j = self._find_source_pixel_nearest_legacy(i, beta_x, beta_y, grid_offset_x=grid_offset_x, grid_offset_y=grid_offset_y)
 
             # fill the mapping array
-            if self._matrix_prod:
-                lens_mapping_matrix[i, j] = 1
-            else:
-                lens_mapping_list.append(j)
+            lens_mapping_list.append(j)
 
-        if self._matrix_prod:
-            # convert numpy array to sparse matrix, using Compressed Sparse Row (CSR) format for fast vector products
-            lens_mapping = sparse.csr_matrix(lens_mapping_matrix)
-            norm_image2source = np.squeeze(np.maximum(1, lens_mapping.sum(axis=0)).A)
-        else:
-            # convert the list to array
-            lens_mapping = np.array(lens_mapping_list)
-            norm_image2source = None  # in this case normalization is performed when calling image2source()
+        # convert the list to array
+        lens_mapping = np.array(lens_mapping_list)
+        norm_image2source = None  # in this case normalization is performed when calling image2source()
         return lens_mapping, norm_image2source
 
     def _find_source_pixel_nearest_legacy(self, i, beta_x, beta_y, grid_offset_x=0, grid_offset_y=0):

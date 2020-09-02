@@ -77,11 +77,11 @@ class TestLensingOperator(object):
 
     def test_matrix_product(self):
         lensing_op = LensingOperator(self.lens_model, self.image_grid_class, self.source_grid_class_default, self.num_pix,
-                                     source_interpolation='nearest', matrix_prod=False)
+                                     source_interpolation='nearest_legacy')
         lensing_op.update_mapping(self.kwargs_lens)
 
         lensing_op_mat = LensingOperator(self.lens_model, self.image_grid_class, self.source_grid_class_default, self.num_pix,
-                                         source_interpolation='nearest', matrix_prod=True)
+                                         source_interpolation='nearest')
         lensing_op_mat.update_mapping(self.kwargs_lens)
 
         source_1d = util.image2array(self.source_light_delensed)
