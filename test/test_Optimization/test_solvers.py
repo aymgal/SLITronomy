@@ -15,7 +15,6 @@ from slitronomy.Optimization.solver_source import SparseSolverSource
 from slitronomy.Optimization.solver_source_lens import SparseSolverSourceLens
 from slitronomy.Optimization.solver_source_ps import SparseSolverSourcePS
 
-from lenstronomy.ImSim.image_sparse_solve import ImageSparseFit
 from lenstronomy.ImSim.image_model import ImageModel
 from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.Data.psf import PSF
@@ -120,7 +119,6 @@ class TestSparseSolverSource(object):
 
         self.num_iter_source = 20
         self.num_iter_lens = 10
-        self.num_iter_ps = 10
         self.num_iter_global = 7
         self.num_iter_weights = 2
 
@@ -135,26 +133,41 @@ class TestSparseSolverSource(object):
         # SOLVER SOURCE, with analysis formulation
         self.source_model_class = LightModel(['SLIT_STARLETS'])
         self.kwargs_source = [{'n_scales': self.n_scales_source}]
-        self.solver_source_ana = SparseSolverSource(data_class, self.lens_model_class, numerics, source_numerics, self.source_model_class, 
-                 likelihood_mask=self.likelihood_mask, source_interpolation='bilinear', minimal_source_plane=False, 
-                 use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
-                 sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
-                 verbose=False, show_steps=False,
-                 min_threshold=5, threshold_increment_high_freq=1, threshold_decrease_type='exponential', 
-                 num_iter_source=self.num_iter_source, num_iter_weights=self.num_iter_weights)
+        self.solver_source_ana = SparseSolverSource(data_class, self.lens_model_class, numerics, source_numerics, 
+                                                    self.source_model_class, 
+                                                    source_interpolation='bilinear', minimal_source_plane=False, 
+                                                    use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
+                                                    sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
+                                                    verbose=False, show_steps=False,
+                                                    min_threshold=5, threshold_increment_high_freq=1, threshold_decrease_type='exponential', 
+                                                    num_iter_source=self.num_iter_source, num_iter_weights=self.num_iter_weights)
+        self.solver_source_ana.set_likelihood_mask(self.likelihood_mask)
         
-        # SOLVER SOURCE + LENS, with synthetic formulation
+        # SOLVER SOURCE + LENS, with synthesis formulation
         self.lens_light_model_class = LightModel(['SLIT_STARLETS'])
         self.kwargs_lens_light = [{'n_scales': self.n_scales_lens}]
-        self.solver_lens_syn = SparseSolverSourceLens(data_class, self.lens_model_class, numerics, source_numerics, self.source_model_class, self.lens_light_model_class,
-                 likelihood_mask=self.likelihood_mask, source_interpolation='bilinear', minimal_source_plane=False, 
-                 use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
-                 sparsity_prior_norm=1, force_positivity=True, formulation='synthesis',
-                 verbose=False, show_steps=False,
-                 min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='linear', 
-                 num_iter_global=self.num_iter_global, num_iter_source=self.num_iter_source, num_iter_lens=self.num_iter_lens, num_iter_weights=self.num_iter_weights)
+        self.solver_lens_syn = SparseSolverSourceLens(data_class, self.lens_model_class, numerics, source_numerics, 
+                                                      self.source_model_class, self.lens_light_model_class,
+                                                      source_interpolation='bilinear', minimal_source_plane=False, 
+                                                      use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
+                                                      sparsity_prior_norm=1, force_positivity=True, formulation='synthesis',
+                                                      verbose=False, show_steps=False,
+                                                      min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='linear', 
+                                                      num_iter_global=self.num_iter_global, num_iter_source=self.num_iter_source, num_iter_lens=self.num_iter_lens, num_iter_weights=self.num_iter_weights)
+        self.solver_lens_syn.set_likelihood_mask(self.likelihood_mask)
 
         # SOLVER SOURCE + PS, with analysis formulation
+        self.kwargs_ps = kwargs_ps.copy()
+        self.n_point_sources = len(point_amp)
+        self.solver_source_ps_ana = SparseSolverSourcePS(data_class, self.lens_model_class, numerics, source_numerics, 
+                                                         self.source_model_class, 
+                                                         source_interpolation='bilinear', minimal_source_plane=False, 
+                                                         use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
+                                                         sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
+                                                         verbose=False, show_steps=False,
+                                                         min_threshold=5, threshold_increment_high_freq=1, threshold_decrease_type='exponential', 
+                                                         num_iter_source=self.num_iter_source, num_iter_global=self.num_iter_global, num_iter_weights=self.num_iter_weights)
+        self.solver_source_ps_ana.set_likelihood_mask(self.likelihood_mask)
         # TODO: for now it's a dummy test, with no linear amplitude solver for point sources
         def _dummy_ps_linear_solver(sparse_model, kwargs_lens=None, kwargs_ps=None, kwargs_special=None, inv_bool=False):
             model = np.copy(sparse_model)
@@ -162,16 +175,7 @@ class TestSparseSolverSource(object):
             cov_param = None
             param = np.ones_like(ra_image)
             return model, model_error, cov_param, param
-        self.kwargs_ps = kwargs_ps.copy()
-        self.n_point_sources = len(point_amp)
-        self.solver_source_ps_ana = SparseSolverSourcePS(data_class, self.lens_model_class, numerics, source_numerics, 
-                 self.source_model_class, _dummy_ps_linear_solver,
-                 likelihood_mask=self.likelihood_mask, source_interpolation='bilinear', minimal_source_plane=False, 
-                 use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
-                 sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
-                 verbose=False, show_steps=False,
-                 min_threshold=5, threshold_increment_high_freq=1, threshold_decrease_type='exponential', 
-                 num_iter_source=self.num_iter_source, num_iter_ps=self.num_iter_ps, num_iter_weights=self.num_iter_weights)
+        self.solver_source_ps_ana.set_point_source_solver_func(_dummy_ps_linear_solver)
 
     def test_solve_source_analysis(self):
         # source solver
@@ -283,7 +287,7 @@ class TestSparseSolverSource(object):
 
         # get the track
         track = self.solver_source_ps_ana.track
-        len_track_theory = self.num_iter_source*self.num_iter_ps*self.num_iter_weights
+        len_track_theory = self.num_iter_source*self.num_iter_global*self.num_iter_weights
         assert len(track['loss'][0, :]) == len_track_theory
 
         # access models

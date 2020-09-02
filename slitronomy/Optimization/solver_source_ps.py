@@ -46,7 +46,7 @@ class SparseSolverSourcePS(SparseSolverSource):
         self.add_point_source()
         self._n_iter_global = num_iter_global
 
-    def set_point_source_solver_func(point_source_solver_func):
+    def set_point_source_solver_func(self, point_source_solver_func):
         self._ps_solver = point_source_solver_func
 
     def _ready(self):

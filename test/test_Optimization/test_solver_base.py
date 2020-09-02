@@ -76,10 +76,11 @@ class TestSparseSolverBase(object):
 
         # init the solver
         self.solver = SparseSolverBase(data, lens_model, numerics, source_numerics, 
-                 likelihood_mask=self.likelihood_mask, source_interpolation='bilinear', minimal_source_plane=True, 
+                 source_interpolation='bilinear', minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=self.min_num_pix_source,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
-                 verbose=False, show_steps=False) 
+                 verbose=False, show_steps=False)
+        self.solver.set_likelihood_mask(self.likelihood_mask)
 
     def test_solve(self):
         pass # tested in inheriting classes
