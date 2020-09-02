@@ -95,23 +95,22 @@ class TestLensingOperator(object):
 
         # test with no mask
         lensing_op = LensingOperator(self.lens_model, self.image_grid_class, self.source_grid_class_default, self.num_pix,
-                                     source_interpolation='nearest',
-                                     likelihood_mask=None, minimal_source_plane=True)
+                                     source_interpolation='nearest', minimal_source_plane=True)
         lensing_op.update_mapping(self.kwargs_lens)
         image_1d = util.image2array(self.source_light_lensed)
         assert lensing_op.image2source(image_1d).size < source_1d.size
 
         # test with mask
         lensing_op = LensingOperator(self.lens_model, self.image_grid_class, self.source_grid_class_default, self.num_pix,
-                                     source_interpolation='nearest',
-                                     likelihood_mask=self.likelihood_mask, minimal_source_plane=True)
+                                     source_interpolation='nearest', minimal_source_plane=True)
+        lensing_op.set_likelihood_mask(self.likelihood_mask)
         lensing_op.update_mapping(self.kwargs_lens)
         image_1d = util.image2array(self.source_light_lensed)
         assert lensing_op.image2source(image_1d).size < source_1d.size
 
         # for 'bilinear' operator, only works with no mask (for now)
         lensing_op = LensingOperator(self.lens_model, self.image_grid_class, self.source_grid_class_default, self.num_pix,
-                                     source_interpolation='bilinear', likelihood_mask=None, minimal_source_plane=True)
+                                     source_interpolation='bilinear', minimal_source_plane=True)
         lensing_op.update_mapping(self.kwargs_lens)
         image_1d = util.image2array(self.source_light_lensed)
         assert lensing_op.image2source(image_1d).size < source_1d.size

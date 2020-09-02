@@ -76,12 +76,12 @@ class TestModelOperators(object):
         self.lensing_op = LensingOperator(lens_model, image_grid_class, source_grid_class, self.num_pix)
         self.lensing_op.update_mapping(kwargs_lens)
 
-        self.model_op = ModelOperators(data, self.lensing_op, self.numerics,
-                                       likelihood_mask=likelihood_mask)
+        self.model_op = ModelOperators(data, self.lensing_op, self.numerics)
+        self.model_op._set_likelihood_mask(likelihood_mask)
         self.model_op.add_source_light(source_model)
         self.model_op.add_lens_light(lens_light_model)
-        self.model_op_nolens = ModelOperators(data, self.lensing_op, self.numerics,
-                                       likelihood_mask=likelihood_mask)
+        self.model_op_nolens = ModelOperators(data, self.lensing_op, self.numerics)
+        self.model_op_nolens._set_likelihood_mask(likelihood_mask)
         self.model_op_nolens.add_source_light(source_model)
 
         # define some test images in direct space
