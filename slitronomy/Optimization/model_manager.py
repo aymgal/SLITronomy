@@ -29,7 +29,7 @@ class ModelManager(object):
         self._no_lens_light = True
         self._no_point_source = True
         self._thread_count = thread_count
-        self._random_seed = random_seed
+        self.random_seed = random_seed
 
     def add_source_light(self, source_model_class):
         # takes the first source light profile in the model list
@@ -54,6 +54,10 @@ class ModelManager(object):
     def set_lens_wavelet_scales(self, n_scales_lens):
         self._n_scales_lens_light = n_scales_lens
 
+    def set_likelihood_mask(self, likelihood_mask):
+        self._mask = likelihood_mask
+        self._lensing_op.set_likelihood_mask(likelihood_mask)
+
     @property
     def n_scales_source(self):
         if not hasattr(self, '_n_scales_source'):
@@ -76,8 +80,8 @@ class ModelManager(object):
 
     def fill_masked_data(self, background_rms):
         """Replace masked pixels with background noise"""
-        if self._random_seed is not None:
-            np.random.seed(self._random_seed)
+        if self.random_seed is not None:
+            np.random.seed(self.random_seed)
         noise = background_rms * np.random.randn(*self._image_data.shape)
         self._image_data[self._mask == 0] = noise[self._mask == 0]
         self._image_data_eff[self._mask == 0] = noise[self._mask == 0]

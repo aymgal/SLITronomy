@@ -25,31 +25,6 @@ def make_grid(numPix, deltapix, subgrid_res=1, left_lower=False):
         shift = np.sum(x_grid) / numPix_eff**2
     return x_grid - shift, y_grid - shift
 
-
-# def grid_from_coordinate_transform(nx, ny, Mpix2coord, ra_at_xy_0, dec_at_xy_0):
-#     """
-#     Credits to S. Birrer (lenstronomy)
-    
-#     return a grid in x and y coordinates that satisfy the coordinate system
-
-
-#     :param nx: number of pixels in x-axis
-#     :param ny: number of pixels in y-axis
-#     :param Mpix2coord: transformation matrix (2x2) of pixels into coordinate displacements
-#     :param ra_at_xy_0: RA coordinate at (x,y) = (0,0)
-#     :param dec_at_xy_0: DEC coordinate at (x,y) = (0,0)
-#     :return: RA coordinate grid, DEC coordinate grid
-#     """
-#     a = np.arange(nx)
-#     b = np.arange(ny)
-#     matrix = np.dstack(np.meshgrid(a, b)).reshape(-1, 2)
-#     x_grid = matrix[:, 0]
-#     y_grid = matrix[:, 1]
-#     ra_grid = x_grid * Mpix2coord[0, 0] + y_grid * Mpix2coord[0, 1] + ra_at_xy_0
-#     dec_grid = x_grid * Mpix2coord[1, 0] + y_grid * Mpix2coord[1, 1] + dec_at_xy_0
-#     return ra_grid, dec_grid
-
-
 def array2image(array, nx=0, ny=0):
     """
     returns the information contained in a 1d array into an n*n 2d array (only works when lenght of array is n**2)
@@ -129,7 +104,7 @@ def hard_threshold(array, thresh):
     return array_th
 
 
-def spectral_norm(num_pix, operator, inverse_operator, num_iter=20, tol=1e-10):
+def spectral_norm(num_pix, operator, inverse_operator, num_iter=20, tol=1e-10, seed=None):
     """
 
     compute spectral norm from operator and its inverse
@@ -141,6 +116,8 @@ def spectral_norm(num_pix, operator, inverse_operator, num_iter=20, tol=1e-10):
     See e.g. http://fourier.eng.hmc.edu/e161/lectures/algebra/node12.html
 
     """
+    if seed is not None:
+        np.random.seed(seed)
     random_array = np.random.rand(num_pix, num_pix)
     norm = np.linalg.norm(random_array)
     random_array /= norm

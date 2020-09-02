@@ -63,6 +63,9 @@ class LensingOperator(object):
         self._interpolation = source_interpolation
         self._matrix_prod = matrix_prod
 
+    def set_likelihood_mask(self, likelihood_mask):
+        self._likelihood_mask = likelihood_mask
+
     def source2image(self, source_1d, kwargs_lens=None, kwargs_special=None, update_mapping=False,
                      original_source_grid=False):
         if not hasattr(self, '_mapping') or update_mapping:

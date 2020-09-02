@@ -147,7 +147,7 @@ class ModelOperators(ModelManager):
             x = self.R(x)
             x = self.H(x)
             return x
-        return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)
+        return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10, seed=self.random_seed)
 
     def compute_spectral_norm_lens(self):
         def _operator(x):
