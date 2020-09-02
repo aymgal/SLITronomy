@@ -13,7 +13,7 @@ class LensingOperator(object):
     """Defines the mapping of pixelated light profiles between image and source planes"""
 
     def __init__(self, lens_model_class, image_grid_class, source_grid_class, num_pix,
-                 likelihood_mask=None, lens_light_mask=None, minimal_source_plane=False, min_num_pix_source=10,
+                 lens_light_mask=None, minimal_source_plane=False, min_num_pix_source=10,
                  use_mask_for_minimal_source_plane=True,
                  source_interpolation='bilinear', matrix_prod=True, verbose=False):
         """Summary
@@ -53,7 +53,6 @@ class LensingOperator(object):
         self.lensModel = lens_model_class
         self.imagePlane  = PlaneGrid(image_grid_class)
         self.sourcePlane = SizeablePlaneGrid(source_grid_class, verbose=verbose)
-        self._likelihood_mask = likelihood_mask
         self._lens_light_mask = lens_light_mask
         self._minimal_source_plane = minimal_source_plane
         self._use_mask_for_minimal_source_plane = use_mask_for_minimal_source_plane
@@ -62,9 +61,10 @@ class LensingOperator(object):
             raise ValueError("source interpolation '{}' not supported in LensingOperator (only 'nearest', 'bilinear')")
         self._interpolation = source_interpolation
         self._matrix_prod = matrix_prod
+        self._likelihood_mask = np.ones(self.imagePlane.grid_shape)
 
-    def set_likelihood_mask(self, likelihood_mask):
-        self._likelihood_mask = likelihood_mask
+    def set_likelihood_mask(self, mask):
+        self._likelihood_mask = mask
 
     def source2image(self, source_1d, kwargs_lens=None, kwargs_special=None, update_mapping=False,
                      original_source_grid=False):

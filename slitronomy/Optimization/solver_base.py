@@ -25,7 +25,7 @@ class SparseSolverBase(ModelOperators):
     # E.g. the method project_on_original_grid_source should be attached to some new "SourceModel" class, not to the solver.
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class,
-                 likelihood_mask=None, lens_light_mask=None, source_interpolation='bilinear',
+                 lens_light_mask=None, source_interpolation='bilinear',
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='exponential',
                  fixed_spectral_norm_source=0.98, include_regridding_error=False,
@@ -37,8 +37,6 @@ class SparseSolverBase(ModelOperators):
         :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
         :param image_numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance for image plane.
         :param source_numerics_class: lenstronomy.ImSim.Numerics.numerics_subframe.NumericsSubFrame instance for source plane.
-        :param likelihood_mask: boolean mask with False/0 to exclude pixels from the optimization and chi2 computation.
-        Defaults to None.
         :param lens_light_mask: boolean mask with False/0 to exclude pixels that are assumed to contain only lens light flux.
         Defaults to None.
         :param source_interpolation: type of interpolation of source pixels on the source plane grid.
@@ -79,23 +77,19 @@ class SparseSolverBase(ModelOperators):
             raise ValueError("Only square images are supported")
         image_grid_class = image_numerics_class.grid_class
         source_grid_class = source_numerics_class.grid_class
-        lensing_operator_class = LensingOperator(lens_model_class, image_grid_class, source_grid_class, num_pix_x, 
-                                                 likelihood_mask=likelihood_mask, lens_light_mask=lens_light_mask,
+        lensing_operator_class = LensingOperator(lens_model_class, image_grid_class, source_grid_class, num_pix_x,
+                                                 lens_light_mask=lens_light_mask,
                                                  minimal_source_plane=minimal_source_plane, min_num_pix_source=min_num_pix_source,
                                                  use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
                                                  source_interpolation=source_interpolation, matrix_prod=True, verbose=verbose)
 
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, image_numerics_class,
                                                fixed_spectral_norm_source=fixed_spectral_norm_source,
-                                               likelihood_mask=likelihood_mask, 
                                                thread_count=thread_count, random_seed=random_seed)
         
         # engine that computes noise levels in image / source plane, in wavelets space
         self.noise = NoiseLevels(data_class, subgrid_res_source=source_grid_class.supersampling_factor,
                                  include_regridding_error=include_regridding_error)
-
-        # fill masked pixels with background noise
-        self.fill_masked_data(self.noise.background_rms)
 
         # threshold level k_min (in units of the noise)
         self._k_min = min_threshold
@@ -122,6 +116,11 @@ class SparseSolverBase(ModelOperators):
 
         self._tracker = SolverTracker(self, verbose=verbose)
         self._plotter = SolverPlotter(self, show_now=True)
+
+    def set_likelihood_mask(self, mask=None):
+        self._set_likelihood_mask(mask)
+        # fill masked pixels with background noise
+        self.fill_masked_data(self.noise.background_rms)
 
     def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None,
               init_lens_light_model=None, init_ps_model=None):

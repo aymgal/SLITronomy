@@ -17,7 +17,7 @@ class SparseSolverSource(SparseSolverBase):
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class, 
-                 likelihood_mask=None, num_iter_source=10, num_iter_weights=3, **base_kwargs):
+                 num_iter_source=10, num_iter_weights=3, **base_kwargs):
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
         :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
@@ -38,8 +38,8 @@ class SparseSolverSource(SparseSolverBase):
         if base_kwargs.get('threshold_decrease_type', None) is None:
             base_kwargs['threshold_decrease_type'] = 'exponential'
 
-        super(SparseSolverSource, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, 
-                                                 likelihood_mask=likelihood_mask, **base_kwargs)
+        super(SparseSolverSource, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class,
+                                                 **base_kwargs)
         self.add_source_light(source_model_class)
         self._n_iter_source = num_iter_source
         if self._sparsity_prior_norm == 1:

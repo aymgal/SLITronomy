@@ -11,12 +11,7 @@ class ModelManager(object):
 
     """Utility class for initializing model operators and managing model components"""
 
-    def __init__(self, data_class, lensing_operator_class, numerics_class,
-                 likelihood_mask=None, thread_count=1, random_seed=None):
-        if likelihood_mask is None:
-            likelihood_mask = np.ones_like(data_class.data)
-        self._mask = likelihood_mask
-        self._mask_1d = util.image2array(likelihood_mask)
+    def __init__(self, data_class, lensing_operator_class, numerics_class, thread_count=1, random_seed=None):
         self._lensing_op = lensing_operator_class
         self._ss_factor = numerics_class.grid_supersampling_factor
         self._conv = numerics_class.convolution_class
@@ -24,11 +19,13 @@ class ModelManager(object):
             self._conv_transpose = self._conv.copy_transpose()
         else:
             self._conv_transpose = None
-        self._prepare_data(data_class, self._lensing_op.source_subgrid_resolution, self._mask)
+        self._prepare_data(data_class, self._lensing_op.source_subgrid_resolution)
         self._no_source_light = True
         self._no_lens_light = True
         self._no_point_source = True
         self._thread_count = thread_count
+        self._mask = np.ones_like(data_class.data)
+        self._mask_1d = util.image2array(self._mask)
         self.random_seed = random_seed
 
     def add_source_light(self, source_model_class):
@@ -53,10 +50,6 @@ class ModelManager(object):
 
     def set_lens_wavelet_scales(self, n_scales_lens):
         self._n_scales_lens_light = n_scales_lens
-
-    def set_likelihood_mask(self, likelihood_mask):
-        self._mask = likelihood_mask
-        self._lensing_op.set_likelihood_mask(likelihood_mask)
 
     @property
     def n_scales_source(self):
@@ -118,7 +111,12 @@ class ModelManager(object):
     def num_pix_source(self):
         return self._lensing_op.sourcePlane.num_pix
 
-    def _prepare_data(self, data_class, subgrid_res_source, mask):
+    def _set_likelihood_mask(self, mask):
+        self._mask = mask
+        self._mask_1d = util.image2array(mask)
+        self._lensing_op.set_likelihood_mask(mask)
+
+    def _prepare_data(self, data_class, subgrid_res_source):
         num_pix_x, num_pix_y = data_class.num_pixel_axes
         if num_pix_x != num_pix_y:
             raise ValueError("Only square images are supported")

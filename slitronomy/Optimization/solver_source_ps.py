@@ -16,7 +16,7 @@ class SparseSolverSourcePS(SparseSolverSource):
     """Implements the original SLIT algorithm with point source support"""
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class, 
-                 likelihood_mask=None, num_iter_source=10, num_iter_global=10, num_iter_weights=3, **base_kwargs):
+                 num_iter_source=10, num_iter_global=10, num_iter_weights=3, **base_kwargs):
 
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
@@ -41,8 +41,8 @@ class SparseSolverSourcePS(SparseSolverSource):
             base_kwargs['threshold_decrease_type'] = 'exponential'
             
         super(SparseSolverSourcePS, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class,
-                                                   likelihood_mask=likelihood_mask, num_iter_source=num_iter_source, 
-                                                   num_iter_weights=num_iter_weights, **base_kwargs)
+                                                   num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, 
+                                                   **base_kwargs)
         self.add_point_source()
         self._n_iter_global = num_iter_global
 
