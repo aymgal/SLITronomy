@@ -81,7 +81,7 @@ class SparseSolverBase(ModelOperators):
                                                  lens_light_mask=lens_light_mask,
                                                  minimal_source_plane=minimal_source_plane, min_num_pix_source=min_num_pix_source,
                                                  use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
-                                                 source_interpolation=source_interpolation, matrix_prod=True, verbose=verbose)
+                                                 source_interpolation=source_interpolation, verbose=verbose)
 
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, image_numerics_class,
                                                fixed_spectral_norm_source=fixed_spectral_norm_source,
