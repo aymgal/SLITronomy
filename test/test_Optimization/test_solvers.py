@@ -13,7 +13,7 @@ import copy
 from slitronomy.Util import util
 from slitronomy.Optimization.solver_source import SparseSolverSource
 from slitronomy.Optimization.solver_source_lens import SparseSolverSourceLens
-from slitronomy.Optimization.solver_source_ps import SparseSolverSourcePS
+# from slitronomy.Optimization.solver_source_ps import SparseSolverSourcePS
 
 from lenstronomy.ImSim.image_model import ImageModel
 from lenstronomy.Data.imaging_data import ImageData
@@ -156,26 +156,26 @@ class TestSparseSolverSource(object):
                                                       num_iter_global=self.num_iter_global, num_iter_source=self.num_iter_source, num_iter_lens=self.num_iter_lens, num_iter_weights=self.num_iter_weights)
         self.solver_lens_syn.set_likelihood_mask(self.likelihood_mask)
 
-        # SOLVER SOURCE + PS, with analysis formulation
-        self.kwargs_ps = kwargs_ps.copy()
-        self.n_point_sources = len(point_amp)
-        self.solver_source_ps_ana = SparseSolverSourcePS(data_class, self.lens_model_class, numerics, source_numerics, 
-                                                         self.source_model_class, 
-                                                         source_interpolation='bilinear', minimal_source_plane=False, 
-                                                         use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
-                                                         sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
-                                                         verbose=False, show_steps=False,
-                                                         min_threshold=5, threshold_increment_high_freq=1, threshold_decrease_type='exponential', 
-                                                         num_iter_source=self.num_iter_source, num_iter_global=self.num_iter_global, num_iter_weights=self.num_iter_weights)
-        self.solver_source_ps_ana.set_likelihood_mask(self.likelihood_mask)
-        # TODO: for now it's a dummy test, with no linear amplitude solver for point sources
-        def _dummy_ps_linear_solver(sparse_model, kwargs_lens=None, kwargs_ps=None, kwargs_special=None, inv_bool=False):
-            model = np.copy(sparse_model)
-            model_error = None
-            cov_param = None
-            param = np.ones_like(ra_image)
-            return model, model_error, cov_param, param
-        self.solver_source_ps_ana.set_point_source_solver_func(_dummy_ps_linear_solver)
+        # # SOLVER SOURCE + PS, with analysis formulation
+        # self.kwargs_ps = kwargs_ps.copy()
+        # self.n_point_sources = len(point_amp)
+        # self.solver_source_ps_ana = SparseSolverSourcePS(data_class, self.lens_model_class, numerics, source_numerics, 
+        #                                                  self.source_model_class, 
+        #                                                  source_interpolation='bilinear', minimal_source_plane=False, 
+        #                                                  use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
+        #                                                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
+        #                                                  verbose=False, show_steps=False,
+        #                                                  min_threshold=5, threshold_increment_high_freq=1, threshold_decrease_type='exponential', 
+        #                                                  num_iter_source=self.num_iter_source, num_iter_global=self.num_iter_global, num_iter_weights=self.num_iter_weights)
+        # self.solver_source_ps_ana.set_likelihood_mask(self.likelihood_mask)
+        # # TODO: for now it's a dummy test, with no linear amplitude solver for point sources
+        # def _dummy_ps_linear_solver(sparse_model, kwargs_lens=None, kwargs_ps=None, kwargs_special=None, inv_bool=False):
+        #     model = np.copy(sparse_model)
+        #     model_error = None
+        #     cov_param = None
+        #     param = np.ones_like(ra_image)
+        #     return model, model_error, cov_param, param
+        # self.solver_source_ps_ana.set_point_source_solver_func(_dummy_ps_linear_solver)
 
     def test_solve_source_analysis(self):
         # source solver
@@ -274,48 +274,48 @@ class TestSparseSolverSource(object):
         ms = self.solver_lens_syn.model_synthesis(alpha_S, alpha_HG)
         npt.assert_almost_equal(ma, ms, decimal=4)
 
-    def test_solve_source_ps_analysis(self):
-        # source solver
-        image_model, param, logL_penalty = \
-            self.solver_source_ps_ana.solve(self.kwargs_lens, self.kwargs_source, 
-                                            kwargs_ps=self.kwargs_ps,
-                                            kwargs_special=self.kwargs_special,
-                                            init_ps_model=self.ps_sim)
-        assert image_model.shape == self.image_sim.shape
-        len_param_theory = self.num_pix_source**2*self.n_scales_source + self.n_point_sources
-        assert len(param) == len_param_theory
+    # def test_solve_source_ps_analysis(self):
+    #     # source solver
+    #     image_model, param, logL_penalty = \
+    #         self.solver_source_ps_ana.solve(self.kwargs_lens, self.kwargs_source, 
+    #                                         kwargs_ps=self.kwargs_ps,
+    #                                         kwargs_special=self.kwargs_special,
+    #                                         init_ps_model=self.ps_sim)
+    #     assert image_model.shape == self.image_sim.shape
+    #     len_param_theory = self.num_pix_source**2*self.n_scales_source + self.n_point_sources
+    #     assert len(param) == len_param_theory
 
-        # get the track
-        track = self.solver_source_ps_ana.track
-        len_track_theory = self.num_iter_source*self.num_iter_global*self.num_iter_weights
-        assert len(track['loss'][0, :]) == len_track_theory
+    #     # get the track
+    #     track = self.solver_source_ps_ana.track
+    #     len_track_theory = self.num_iter_source*self.num_iter_global*self.num_iter_weights
+    #     assert len(track['loss'][0, :]) == len_track_theory
 
-        # access models
-        image_model = self.solver_source_ps_ana.image_model()
-        assert image_model.shape == self.image_sim.shape
-        source_light = self.solver_source_ps_ana.source_model
-        assert source_light.shape == (self.num_pix_source, self.num_pix_source)
-        ps_light = self.solver_source_ps_ana.point_source_model
-        assert ps_light.shape == (self.num_pix, self.num_pix)
+    #     # access models
+    #     image_model = self.solver_source_ps_ana.image_model()
+    #     assert image_model.shape == self.image_sim.shape
+    #     source_light = self.solver_source_ps_ana.source_model
+    #     assert source_light.shape == (self.num_pix_source, self.num_pix_source)
+    #     ps_light = self.solver_source_ps_ana.point_source_model
+    #     assert ps_light.shape == (self.num_pix, self.num_pix)
 
-        S, P = source_light, ps_light
+    #     S, P = source_light, ps_light
 
-        # reduced residuals map
-        red_res = self.solver_source_ps_ana.normalized_residuals(S=S, P=P)
-        assert red_res.shape == self.image_sim.shape
+    #     # reduced residuals map
+    #     red_res = self.solver_source_ps_ana.normalized_residuals(S=S, P=P)
+    #     assert red_res.shape == self.image_sim.shape
 
-        # L2-norm of difference of two arrays
-        S_ = np.random.rand(self.num_pix_source, self.num_pix_source)
-        assert self.solver_source_ps_ana.norm_diff(S, S_) > 0
+    #     # L2-norm of difference of two arrays
+    #     S_ = np.random.rand(self.num_pix_source, self.num_pix_source)
+    #     assert self.solver_source_ps_ana.norm_diff(S, S_) > 0
 
-        # reduced chi2
-        red_chi2 = self.solver_source_ps_ana.reduced_chi2(S=S, P=P)
-        assert red_chi2 > 0
-        assert self.solver_source_ps_ana.best_fit_reduced_chi2 == self.solver_source_ps_ana.reduced_chi2(S=S, P=P)
+    #     # reduced chi2
+    #     red_chi2 = self.solver_source_ps_ana.reduced_chi2(S=S, P=P)
+    #     assert red_chi2 > 0
+    #     assert self.solver_source_ps_ana.best_fit_reduced_chi2 == self.solver_source_ps_ana.reduced_chi2(S=S, P=P)
 
-        # test plot results
-        fig = self.solver_source_ps_ana.plot_results()
-        plt.close()
+    #     # test plot results
+    #     fig = self.solver_source_ps_ana.plot_results()
+    #     plt.close()
 
 class TestRaise(unittest.TestCase):
 

@@ -133,10 +133,8 @@ class SparseSolverBase(ModelOperators):
         if not self._ready(): return
 
         # update lensing operator and noise levels
-        prepare_bool = self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
-                                           kwargs_special=kwargs_special, init_lens_light_model=init_lens_light_model, init_ps_model=init_ps_model)
-        if prepare_bool is False:
-            return None, None
+        self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
+                            kwargs_special=kwargs_special, init_lens_light_model=init_lens_light_model, init_ps_model=init_ps_model)
 
         # call solver
         image_model, coeffs_source, coeffs_lens_light, amps_ps \
@@ -396,8 +394,6 @@ class SparseSolverBase(ModelOperators):
         if not self.no_point_source and init_ps_model is None:
             raise ValueError("A rough point source model is required to optimize point source amplitudes")
         self._init_ps_model = init_ps_model
-        
-        return True  # roger that
 
     def _prepare_source(self, kwargs_source):
         """

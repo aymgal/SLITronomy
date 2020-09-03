@@ -22,8 +22,8 @@ class PlaneGrid(object):
         """
         self._grid = grid_class
         self._x_grid_1d, self._y_grid_1d = self._grid.coordinates_evaluate
-        self._delta_pix = self._grid.effective_pixel_width
-        num_pix_x, num_pix_y = self._grid.effective_num_pixel_axes
+        self._delta_pix = self._grid.grid_points_spacing
+        num_pix_x, num_pix_y = self._grid.num_grid_points_axes
         if num_pix_x != num_pix_y:
             raise ValueError("Only square images are supported")
         self._num_pix = num_pix_x
