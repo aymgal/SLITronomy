@@ -40,8 +40,8 @@ class TestSparseSolverSource(object):
         # data specifics
         sigma_bkg = .05  # background noise per pixel
         exp_time = 100  # exposure time (arbitrary units, flux per pixel is in units #photons/exp_time unit)
-        self.num_pix = 49  # cutout pixel size
-        delta_pix = 0.24  # pixel size in arcsec (area per pixel = delta_pix**2)
+        self.num_pix = 100  # cutout pixel size
+        delta_pix = 0.05  # pixel size in arcsec (area per pixel = delta_pix**2)
         fwhm = 0.5  # full width half max of PSF
 
         # supersampling factor for source plane
@@ -216,7 +216,11 @@ class TestSparseSolverSource(object):
         assert self.solver_source_ana.best_fit_reduced_chi2 == self.solver_source_ana.reduced_chi2(S=S)
 
         # synthesis and analysis models
+        import time
+        st = time.time()
         alpha_S = self.source_model_class.func_list[0].decomposition_2d(S, n_scales=self.n_scales_source)
+        print("decomposition runtime", time.time()-st)
+        raise
         ma = self.solver_source_ana.model_analysis(S)
         ms = self.solver_source_ana.model_synthesis(alpha_S)
         npt.assert_almost_equal(ma, ms, decimal=4)
