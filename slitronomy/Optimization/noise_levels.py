@@ -78,11 +78,10 @@ class NoiseLevels(object):
 
         # we gaussian filter the noise map with sigma adatpted to supersampling factor
         # to fill adequately pixels that are not mapped to any image plane pixels
-        # noise_source_max = noise_source.max()
         filter_width = num_pix_source / num_pix_image
-        noise_source = filters.gaussian(noise_source, sigma=filter_width)
+        noise_source_filtered = filters.gaussian(noise_source, sigma=filter_width)
         # renormalize amplitudes
-        noise_source = noise_source * noise_source_max / noise_source.max()
+        noise_source = noise_source_filtered * noise_source.max() / noise_source_filtered.max()
 
         # old way:
         # introduce artitifically noise to pixels where there are not signal in source plane

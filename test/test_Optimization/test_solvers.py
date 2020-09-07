@@ -216,11 +216,7 @@ class TestSparseSolverSource(object):
         assert self.solver_source_ana.best_fit_reduced_chi2 == self.solver_source_ana.reduced_chi2(S=S)
 
         # synthesis and analysis models
-        import time
-        st = time.time()
         alpha_S = self.source_model_class.func_list[0].decomposition_2d(S, n_scales=self.n_scales_source)
-        print("decomposition runtime", time.time()-st)
-        raise
         ma = self.solver_source_ana.model_analysis(S)
         ms = self.solver_source_ana.model_synthesis(alpha_S)
         npt.assert_almost_equal(ma, ms, decimal=4)
