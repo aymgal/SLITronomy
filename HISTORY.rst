@@ -35,3 +35,9 @@ LOTS of improvements on various aspects:
 * Basic support of image plane supersampling (only nearest-neighbors interpolation for upsampling)
 * User can now provide a mask to select pixel that belongs only to lens light, for improving masking of source plane region. Use it with care!
 * Better integration with lenstronomy classes
+
+0.3.1 (2020-09-07)
+++++++++++++++++++
+
+* Stable version release
+* Finalised integration to lenstronomy, as an optional package for pixel-based modelling
