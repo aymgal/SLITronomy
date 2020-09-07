@@ -79,16 +79,16 @@ class NoiseLevels(object):
         # we gaussian filter the noise map with sigma adatpted to supersampling factor
         # to fill adequately pixels that are not mapped to any image plane pixels
         # noise_source_max = noise_source.max()
-        # filter_width = num_pix_source/num_pix_image
-        # noise_source = filters.gaussian(noise_source, sigma=filter_width)
-        # # renormalize amplitudes
-        # noise_source = noise_source * noise_source_max / noise_source.max()
+        filter_width = num_pix_source / num_pix_image
+        noise_source = filters.gaussian(noise_source, sigma=filter_width)
+        # renormalize amplitudes
+        noise_source = noise_source * noise_source_max / noise_source.max()
 
         # old way:
         # introduce artitifically noise to pixels where there are not signal in source plane
         # to ensure threshold of starlet coefficients at these locations
-        boost_where_zero = 10
-        noise_source[noise_source == 0] = boost_where_zero * np.mean(noise_source[noise_source != 0])
+        # boost_where_zero = 10
+        # noise_source[noise_source == 0] = boost_where_zero * np.mean(noise_source[noise_source != 0])
 
         # \Gamma^2 in  Equation (16) of Joseph+19
         noise_source2 = noise_source**2
@@ -108,16 +108,6 @@ class NoiseLevels(object):
             # Equation (16) of Joseph+19
             levels2 = signal.fftconvolve(dirac_scale2, noise_source2, mode='same')
             levels = np.sqrt(np.abs(levels2))
-
-
-            # PROMISING:
-            # if scale_idx in [0]:
-            #     levels_max = levels.max()
-            #     filter_width = 1 #num_pix_source/num_pix_image
-            #     levels = filters.gaussian(levels, sigma=filter_width)
-            #     # renormalize amplitudes
-            #     levels = levels * levels_max / levels.max()
-
 
             # save noise at each pixel for this scale
             noise_levels[scale_idx, :, :] = levels
