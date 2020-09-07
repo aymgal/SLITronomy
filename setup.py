@@ -41,13 +41,13 @@ PACKAGE_PATH = os.path.abspath(os.path.join(__file__, os.pardir))
 
 setup(
     name='slitronomy',
-    version='0.3.1',
+    version='0.3.2',
     description='Sparse Linear Inversion Technique for lenstronomy',
     long_description=desc,
     author='Aymeric Galan',
     author_email='aymeric.galan@gmail.com',
     url='https://github.com/aymgal/SLITronomy',
-    download_url='https://github.com/aymgal/slitronomy/archive/0.3.1.tar.gz.zip',
+    download_url='https://github.com/aymgal/slitronomy/archive/0.3.2.tar.gz.zip',
     packages=find_packages(PACKAGE_PATH, exclude=['thirdparty', 'test']),
     package_dir={'slitronomy': 'slitronomy'},
     include_package_data=True,

@@ -22,10 +22,10 @@ copyright = '2020, Aymeric Galan, Remy Joseph, Austin Peel'
 author = 'Aymeric Galan, Remy Joseph, Austin Peel'
 
 # The major project version
-version = '0.3.1'
+version = '0.3.2'
 
 # The full version, including alpha/beta/rc tags
-release = '0.3.1'
+release = '0.3.2'
 
 # The master toctree document.
 master_doc = 'index'
