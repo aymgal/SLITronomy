@@ -121,6 +121,8 @@ class SparseSolverBase(ModelOperators):
         self._set_likelihood_mask(mask)
         # fill masked pixels with background noise
         self.fill_masked_data(self.noise.background_rms)
+        #TODO: make this clean!!!
+        self.noise._noise_map_data[mask == 0] = self.noise.background_rms
 
     def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None,
               init_lens_light_model=None, init_ps_model=None):
@@ -292,11 +294,12 @@ class SparseSolverBase(ModelOperators):
             sigma = self.noise.effective_noise_map + self._ps_error
         else:
             sigma = self.noise.effective_noise_map
-        return self.M(error / sigma)
+        norm_res = self.M(error / sigma)
+        return norm_res
 
     def reduced_chi2(self, S=None, HG=None, P=None):
-        red_res = self.normalized_residuals(S=S, HG=HG, P=P)
-        chi2 = np.sum(red_res**2)
+        norm_res = self.normalized_residuals(S=S, HG=HG, P=P)
+        chi2 = np.sum(norm_res**2)
         return chi2 / self.num_data_points
 
     @staticmethod
@@ -382,7 +385,7 @@ class SparseSolverBase(ModelOperators):
             magnification_map = self.lensingOperator.magnification_map(kwargs_lens)
             self.noise.update_regridding_error(magnification_map)
 
-        self._prepare_source(kwargs_source)
+        self._prepare_source(kwargs_source, kwargs_lens)
         if not self.no_lens_light:
             # TODO: support upsampling/downsampling operator for image plane noise levels
             self._prepare_lens_light(kwargs_lens_light)
@@ -395,7 +398,7 @@ class SparseSolverBase(ModelOperators):
             raise ValueError("A rough point source model is required to optimize point source amplitudes")
         self._init_ps_model = init_ps_model
 
-    def _prepare_source(self, kwargs_source):
+    def _prepare_source(self, kwargs_source, kwargs_lens):
         """
         updates source number of decomposition scales, spectral norm and noise levels
         related to the operator H(F(Phi_T_s( . )))
@@ -406,7 +409,7 @@ class SparseSolverBase(ModelOperators):
         # update spectral norm of operators
         self.update_spectral_norm_source()
         # update wavelets noise levels in source plane
-        self.update_source_noise_levels()
+        self.update_source_noise_levels(kwargs_lens)
 
     def _prepare_lens_light(self, kwargs_lens_light):
         """
@@ -427,10 +430,59 @@ class SparseSolverBase(ModelOperators):
             # update wavelets noise levels in image plane
             self.update_image_noise_levels()
 
-    def update_source_noise_levels(self):
+    def update_source_noise_levels(self, kwargs_lens):
         self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
                                         self.Phi_T_s, self.F_T, self.R_T,
+                                        self._mask,
                                         psf_kernel=self.psf_kernel)
+
+    # def update_source_noise_levels_sourceMC(self, kwargs_lens):
+    #     np.random.seed(18)
+    #     n_draw = 10
+    #     noise_levels_MC = []
+    #     delta_pix = self._lensing_op.sourcePlane.delta_pix
+    #     print(delta_pix)
+    #     import matplotlib.pyplot as plt
+    #     for _ in range(n_draw):
+    #         kwargs_special = {
+    #             'delta_x_source_grid': np.random.uniform(-delta_pix/2., delta_pix/2.),
+    #             'delta_y_source_grid': np.random.uniform(-delta_pix/2., delta_pix/2.),
+    #         }
+    #         F_T_shift = lambda x: self._lensing_op.image2source_2d(x, kwargs_lens=kwargs_lens, 
+    #                                                                kwargs_special=kwargs_special, 
+    #                                                                update_mapping=True)
+    #         noise_levels = self.noise._compute_source_levels(self.num_pix_image, self.num_pix_source,
+    #                                         self.Phi_T_s, F_T_shift, self.R_T,
+    #                                         psf_kernel=self.psf_kernel)
+    #         noise_levels_MC.append(noise_levels)
+            
+    #         fig = plt.figure()
+    #         plt.imshow(np.log10(noise_levels[0]), origin='lower')
+    #         plt.show()
+
+    #     master_noise = np.mean(np.array(noise_levels_MC), axis=0)
+    #     self.noise._noise_levels_src = master_noise
+
+    #     fig = plt.figure()
+    #     plt.title("master")
+    #     plt.imshow(np.log10(master_noise[0]), origin='lower')
+    #     plt.show()
+
+    # def update_source_noise_levels_imageMC(self, kwargs_lens):
+    #     import scipy
+    #     np.random.seed(18)
+    #     n_draw = 100
+    #     noise_levels_MC = []
+    #     bkp = np.copy(self.noise._noise_map_data)
+    #     for _ in range(n_draw):
+    #         shift = [np.random.uniform(-1., 1.), np.random.uniform(-1., 1.)]
+    #         self.noise._noise_map_data = scipy.ndimage.shift(self.noise._noise_map_data, shift)
+    #         noise_levels = self.noise._compute_source_levels(self.num_pix_image, self.num_pix_source,
+    #                                         self.Phi_T_s, self.F_T, self.R_T,
+    #                                         psf_kernel=self.psf_kernel)
+    #         noise_levels_MC.append(noise_levels)
+    #     self.noise._noise_levels_src = np.median(np.array(noise_levels_MC), axis=0)
+    #     self.noise._noise_map_data = bkp
 
     def update_image_noise_levels(self):
         self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
