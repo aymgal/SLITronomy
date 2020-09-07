@@ -4,7 +4,6 @@ import os
 import sys
 from setuptools.command.test import test as TestCommand
 from setuptools import find_packages
-from setuptools.command.build_ext import build_ext as _build_ext
 
 try:
     from setuptools import setup
@@ -42,13 +41,13 @@ PACKAGE_PATH = os.path.abspath(os.path.join(__file__, os.pardir))
 
 setup(
     name='slitronomy',
-    version='0.3.0',
+    version='0.3.1',
     description='Sparse Linear Inversion Technique for lenstronomy',
     long_description=desc,
     author='Aymeric Galan',
     author_email='aymeric.galan@gmail.com',
     url='https://github.com/aymgal/SLITronomy',
-    download_url='https://github.com/aymgal/slitronomy/archive/0.1.1.tar.gz.zip',
+    download_url='https://github.com/aymgal/slitronomy/archive/0.3.1.tar.gz.zip',
     packages=find_packages(PACKAGE_PATH, exclude=['thirdparty', 'test']),
     package_dir={'slitronomy': 'slitronomy'},
     include_package_data=True,
@@ -57,12 +56,13 @@ setup(
     zip_safe=False,
     keywords='slitronomy',
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Science/Research",
         "Natural Language :: English",
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
     ],
     tests_require=tests_require,
     python_requires='>=3.6',
