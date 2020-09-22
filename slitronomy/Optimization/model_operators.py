@@ -34,8 +34,9 @@ class ModelOperators(ModelManager):
 
     def M(self, image_2d):
         """Apply image plane mask"""
-        image_2d[self._mask == 0] = 0.
-        return image_2d
+        # image_2d[self._mask == 0] = 0.
+        # return image_2d
+        return image_2d * self._mask
 
     def M_s(self, source_2d):
         """Apply source plane mask"""

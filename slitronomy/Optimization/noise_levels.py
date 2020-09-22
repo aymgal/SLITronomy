@@ -21,10 +21,10 @@ class NoiseLevels(object):
         :param include_regridding_error: if True, includes the regridding error controbution in noise covariance.
         See Suyu et al. 2009 (https://ui.adsabs.harvard.edu/abs/2009ApJ...691..277S/abstract) for details.
         """
-        # background noise
-        self._background_rms = data_class.background_rms
-        # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
+        # noise diagonal covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
         self._noise_map_data = np.sqrt(data_class.C_D)
+        # background noise
+        self._background_rms = data_class.background_rms  # is not correct for ELT source recon, since change of instrumental settings
         self.include_regridding_error = include_regridding_error
         if self.include_regridding_error:
             self._initialise_regridding_error(data_class.data, data_class.pixel_width, 
@@ -101,18 +101,18 @@ class NoiseLevels(object):
         #Original strategy:
         # introduce artitifically noise to pixels where there are not signal in source plane
         # to ensure threshold of starlet coefficients at these locations
-        # boost_where_zero = 10
-        # noise_source[noise_source == 0] = boost_where_zero * np.mean(noise_source[noise_source != 0])
+        boost_where_zero = 10
+        noise_source[noise_source == 0] = boost_where_zero * np.mean(noise_source[noise_source != 0])
 
         #New strategy:
         # we gaussian filter the noise map with sigma adatpted to supersampling factor
         # to fill adequately pixels that are not mapped to any image plane pixels
-        filter_width = num_pix_source / num_pix_image
-        noise_source_filtered = filters.gaussian(noise_source, sigma=filter_width)
-        # renormalize amplitudes
-        noise_source = noise_source_filtered * noise_source.max() / noise_source_filtered.max()
+        # filter_width = num_pix_source / num_pix_image
+        # noise_source_filtered = filters.gaussian(noise_source, sigma=filter_width)
+        # # renormalize amplitudes
+        # noise_source = noise_source_filtered * noise_source.max() / noise_source_filtered.max()
 
-        # TODO: test this alternative more thouroughly:
+        # TODO: test this alternative more thoroughly:
         # from scipy import interpolate
         # array = np.ma.array(noise_source, mask=mask_interpol)
         # x = np.arange(0, noise_source.shape[0])
@@ -169,7 +169,8 @@ class NoiseLevels(object):
 
     def _initialise_regridding_error(self, data_image, image_pixel_scale, source_pixel_scale):
         _, self._regrid_error_prefac = util.regridding_error_map_squared(mag_map=None, data_image=data_image,
-                                                                         image_pixel_scale=image_pixel_scale, source_pixel_scale=source_pixel_scale)
+                                                                         image_pixel_scale=image_pixel_scale, 
+                                                                         source_pixel_scale=source_pixel_scale)
 
     def update_regridding_error(self, magnification_map):
         if not self.include_regridding_error:

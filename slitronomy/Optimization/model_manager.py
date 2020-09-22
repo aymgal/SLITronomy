@@ -112,9 +112,9 @@ class ModelManager(object):
         return self._lensing_op.sourcePlane.num_pix
 
     def _set_likelihood_mask(self, mask):
-        self._mask = mask
-        self._mask_1d = util.image2array(mask)
-        self._lensing_op.set_likelihood_mask(mask)
+        self._mask = mask.astype(float)
+        self._mask_1d = util.image2array(self._mask)
+        self._lensing_op.set_likelihood_mask(self._mask)
 
     def _prepare_data(self, data_class, subgrid_res_source):
         num_pix_x, num_pix_y = data_class.num_pixel_axes

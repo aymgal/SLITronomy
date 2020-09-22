@@ -117,7 +117,7 @@ class SparseSolverBase(ModelOperators):
         self._tracker = SolverTracker(self, verbose=verbose)
         self._plotter = SolverPlotter(self, show_now=True)
 
-    def set_likelihood_mask(self, mask=None):
+    def set_likelihood_mask(self, mask):
         self._set_likelihood_mask(mask)
         # fill masked pixels with background noise
         self.fill_masked_data(self.noise.background_rms)
