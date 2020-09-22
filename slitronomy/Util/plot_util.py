@@ -1,7 +1,9 @@
 __author__ = 'aymgal'
 
+import copy
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize, LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
@@ -56,8 +58,30 @@ def nice_colorbar_residuals(mappable, res_map, vmin, vmax, position='right', pad
     nice_colorbar(mappable, position=position, pad=pad, size=size, label=label, fontsize=fontsize,
                   invisible=invisible, colorbar_kwargs={'extend': cb_extend})
 
+def prepare_color_norm(image, log_scale, vmin_user, vmax_user, 
+                       default_log_vmin=1e-5, default_log_vmax=1e10):
+    if vmin_user is None:
+        if log_scale:
+            vmin = max(image.min(), default_log_vmin)
+        else:
+            vmin = image.min()
+    else:
+        vmin = vmin_user
+    if vmax_user is None:
+        if log_scale:
+            vmax = min(image.max(), default_log_vmax)
+        else:
+            vmax = image.max()
+    else:
+        vmax = vmax_user
+    if log_scale:
+        norm = LogNorm(vmin=vmin, vmax=vmax)
+    else:
+        norm = Normalize(vmin=vmin, vmax=vmax)
+    return norm
+
 def log_cmap(cmap_name, vmin, vmax):
-    base_cmap = plt.get_cmap(cmap_name)
+    base_cmap = copy.copy(plt.get_cmap(cmap_name))
     return ReNormColormapAdaptor(base_cmap, mpl.colors.LogNorm(vmin, vmax))
 
 class ReNormColormapAdaptor(mpl.colors.Colormap):
@@ -71,7 +95,7 @@ class ReNormColormapAdaptor(mpl.colors.Colormap):
         if orig_norm is None:
             if isinstance(base, mpl.cm.ScalarMappable):
                 orig_norm = base.norm
-                base = base.cmap
+                base = copy.copy(base.cmap)
             else:
                 orig_norm = mpl.colors.Normalize(0,1)
         base.set_bad(color=base(0))

@@ -2,7 +2,6 @@ __author__ = 'aymgal'
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import Normalize, LogNorm
 
 from slitronomy.Util import plot_util
 from slitronomy.Util import metrics_util
@@ -58,7 +57,9 @@ class SolverPlotter(object):
         ax = axes[0, 0]
         ax.set_title("imaging data", fontsize=fontsize)
         data = self._solver.M(self._solver.Y)
-        norm = self._prepare_color_norm(data, log_scale, vmin_image, vmax_image)
+        norm = plot_util.prepare_color_norm(data, log_scale, vmin_image, vmax_image,
+                                       default_log_vmin=self._vmin_log,
+                                       default_log_vmax=self._vmax_log)
         im = ax.imshow(data, origin='lower', cmap=cmap_image, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
@@ -74,7 +75,9 @@ class SolverPlotter(object):
             ax.set_title("image model", fontsize=fontsize)
             img_model = self._solver.image_model(unconvolved=unconvolved)
             print("Negative image pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
-        norm = self._prepare_color_norm(img_model, log_scale, vmin_image, vmax_image)
+        norm = plot_util.prepare_color_norm(img_model, log_scale, vmin_image, vmax_image,
+                                       default_log_vmin=self._vmin_log,
+                                       default_log_vmax=self._vmax_log)
         im = ax.imshow(img_model, origin='lower', cmap=cmap_image, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
@@ -83,7 +86,9 @@ class SolverPlotter(object):
         ax.set_title("source model", fontsize=fontsize)
         src_model = self._solver.source_model
         print("Negative source pixels ? {} (min = {:.2e})".format(np.any(src_model < 0), src_model.min()))
-        norm = self._prepare_color_norm(src_model, log_scale, vmin_source, vmax_source)
+        norm = plot_util.prepare_color_norm(src_model, log_scale, vmin_source, vmax_source,
+                                       default_log_vmin=self._vmin_log,
+                                       default_log_vmax=self._vmax_log)
         im = ax.imshow(src_model, origin='lower', cmap=cmap_source, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
@@ -127,7 +132,7 @@ class SolverPlotter(object):
             ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i+n_comp], 
                      label='reg({})'.format(names[i]))
         ax.set_xlabel("iterations", fontsize=fontsize)
-        ax.set_ylabel(r"$||\Phi^\top{\rm S}||_"+str(self._solver.prior_l_norm)+r"$", fontsize=fontsize)
+        ax.set_ylabel(r"$||\Phi^\top{\rm x}||_"+str(self._solver.prior_l_norm)+r"$", fontsize=fontsize)
         if n_comp > 1:
             ax.legend(loc='upper right')
 
@@ -151,9 +156,21 @@ class SolverPlotter(object):
         return fig
 
     @staticmethod
-    def plot_source_residuals_comparison(source_truth, source_model_list, name_list, 
-                                         vmin_res=-0.5, vmax_res=-0.5, cmap='cubehelix',
-                                         fontsize=12):
+    def quick_imshow(image, title=None, show_now=False, **kwargs):
+        fig, axes = plt.subplots(1, 1, figsize=(5, 4))
+        ax = axes
+        if title is not None:
+            ax.set_title(title)
+        im = ax.imshow(image, origin='lower', **kwargs)
+        plot_util.nice_colorbar(im)
+        if show_now:
+            plt.show()
+
+    @staticmethod
+    def plot_source_residuals_comparison(source_truth, source_model_list, name_list, log_scale=False,
+                                         vmin_source=None, vmax_source=None,
+                                         vmin_res=-0.5, vmax_res=0.5,
+                                         cmap='cubehelix', fontsize=12):
         """given a true source, plot residuals of a list of source model"""
         n_model = len(source_model_list)
         fig, axes = plt.subplots(1, 1+2*n_model, figsize=((1+2*n_model)*4.5, 3))
@@ -161,7 +178,8 @@ class SolverPlotter(object):
         #ax.get_xaxis().set_visible(False)
         #ax.get_yaxis().set_visible(False)
         ax.set_title("true source", fontsize=fontsize)
-        im = ax.imshow(source_truth, origin='lower', cmap=cmap, vmin=0)
+        norm = plot_util.prepare_color_norm(source_truth, log_scale, vmin_source, vmax_source)
+        im = ax.imshow(source_truth, origin='lower', cmap=cmap, norm=norm)
         lims = (len(source_truth)/4, 3*len(source_truth)/4)  # zoom a bit on the image
         #ax.set_xlim(*lims)
         #ax.set_ylim(*lims)
@@ -169,7 +187,7 @@ class SolverPlotter(object):
         
         i = 1
         for source_model, name in zip(source_model_list, name_list):
-            print("min/max for source model '{}': {}/{}".format(name, source_model.min(), source_model.max()))
+            print("min/max for source model '{}': {:.3e} / {:.3e}".format(name, source_model.min(), source_model.max()))
 
             residuals_source = source_truth - source_model
             residuals_map_min, residuals_map_max = residuals_source.min(), residuals_source.max()
@@ -178,7 +196,8 @@ class SolverPlotter(object):
             ax.set_title("model '{}'".format(name), fontsize=fontsize)
             #ax.get_xaxis().set_visible(False)
             #ax.get_yaxis().set_visible(False)
-            im = ax.imshow(source_model, origin='lower', cmap=cmap)
+            norm = plot_util.prepare_color_norm(source_model, log_scale, vmin_source, vmax_source)
+            im = ax.imshow(source_model, origin='lower', cmap=cmap, norm=norm)
             #ax.set_xlim(*lims)
             #ax.set_ylim(*lims)
             plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
@@ -197,35 +216,3 @@ class SolverPlotter(object):
             
             print("SDR for model '{}' = {:.3f}".format(name, metrics_util.SDR(source_truth, source_model)))
         return fig
-
-    @staticmethod
-    def quick_imshow(image, title=None, show_now=False, **kwargs):
-        fig, axes = plt.subplots(1, 1, figsize=(5, 4))
-        ax = axes
-        if title is not None:
-            ax.set_title(title)
-        im = ax.imshow(image, origin='lower', **kwargs)
-        plot_util.nice_colorbar(im)
-        if show_now:
-            plt.show()
-
-    def _prepare_color_norm(self, image, log_scale, vmin_user, vmax_user):
-        if vmin_user is None:
-            if log_scale:
-                vmin = max(image.min(), self._vmin_log)
-            else:
-                vmin = image.min()
-        else:
-            vmin = vmin_user
-        if vmax_user is None:
-            if log_scale:
-                vmax = min(image.max(), self._vmax_log)
-            else:
-                vmax = image.max()
-        else:
-            vmax = vmax_user
-        if log_scale:
-            norm = LogNorm(vmin=vmin, vmax=vmax)
-        else:
-            norm = Normalize(vmin=vmin, vmax=vmax)
-        return norm
