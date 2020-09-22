@@ -38,8 +38,6 @@ Updated and improved version of the Sparse Lens Inversion Technique (`SLIT <http
 
 The documentation is available on `readthedocs.org <http://slitronomy.readthedocs.org/>`_ (currently in development).
 
-IMPORTANT : the current (beta) version of SLItronomy only works with the branch ``dev_slit-bis`` on `this fork <https://github.com/aymgal/lenstronomy/tree/dev_slit-bis>`_  of lenstronomy. In some rare cases (e.g. travis-ci builds) you may have issues with the latest stable release of PySAP. If this is the case, please use this `fork of pySAP <https://github.com/aymgal/pysap/tree/dev-aym>`_ switched to branch ``dev-aym``, instead.
-
 
 Installation
 ============
@@ -48,8 +46,16 @@ This package is available through PyPi.
 
 .. code-block:: bash
 
-    $ pip install slitronomy
+    $ pip install slitronomy --user
 
+
+
+Requirements
+============
+
+In addition to standard packages listed in `requirements.txt <https://github.com/aymgal/SLITronomy/tree/master/requirements.txt>`_, lenstronomy needs to be installed to access to python classes for proper initialisation of SLITronomy solvers.
+
+The most straghtforward way to use pixel-based solvers of SLITronomy is directly through lenstronomy (version >=1.6.0), by using the `'SLIT_STARLETS'` light profiles. SLITronomy can also be used as a standalone tool.
 
 Example notebooks
 =================
@@ -65,9 +71,9 @@ An ensemble of example notebooks are located at `thirdparty/notebooks <https://g
 * `Sparse source reconstruction with quasar images <https://github.com/aymgal/SLITronomy/tree/master/thirdparty/notebooks/07_complex_quasar_source.ipynb>`_
 
 
-References
-==========
+Acknowledging or citing SLITronomy 
+==================================
 
-* SLITronomy paper: in prep.
+* SLITronomy paper: Galan et al. (submitted)
 * Sparse Linear Inversion Technique: `Joseph et al. 2019 <https://arxiv.org/abs/1809.09121>`_.
 * lenstronomy modelling software: `Birrer & Amara 2018 <https://arxiv.org/abs/1803.09746v2>`_.
