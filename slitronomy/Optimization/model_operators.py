@@ -75,14 +75,14 @@ class ModelOperators(ModelManager):
         """alias method for inverse wavelet transform"""
         if not hasattr(self, '_n_scales_source'):
             raise ValueError("Wavelet scales have not been set")
-        return self._source_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_source,
+        return self._source_light_profile.function_2d(coeffs=array_2d, n_scales=self._n_scales_source,
                                               n_pixels=array_2d.size)
 
     def Phi_T_s(self, array_2d):
         """alias method for wavelet transform"""
         if not hasattr(self, '_n_scales_source'):
             raise ValueError("Wavelet scales have not been set")
-        return self._source_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_source)
+        return self._source_light_profile.decomposition_2d(image=array_2d, n_scales=self._n_scales_source)
 
     def Phi_l(self, array_2d):
         """alias method for inverse wavelet transform"""
@@ -90,7 +90,7 @@ class ModelOperators(ModelManager):
             raise ValueError("Wavelet operator needs lens light class")
         if not hasattr(self, '_n_scales_lens_light'):
             raise ValueError("Wavelet scales have not been set")
-        return self._lens_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_lens_light,
+        return self._lens_light_profile.function_2d(coeffs=array_2d, n_scales=self._n_scales_lens_light,
                                             n_pixels=array_2d.size)
 
     def Phi_T_l(self, array_2d):
@@ -99,7 +99,7 @@ class ModelOperators(ModelManager):
             raise ValueError("Wavelet operator needs lens light class")
         if not hasattr(self, '_n_scales_lens_light'):
             raise ValueError("Wavelet scales have not been set")
-        return self._lens_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_lens_light)
+        return self._lens_light_profile.decomposition_2d(image=array_2d, n_scales=self._n_scales_lens_light)
 
     @property
     def psf_kernel(self):

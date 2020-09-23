@@ -13,6 +13,7 @@ class ModelManager(object):
 
     def __init__(self, data_class, lensing_operator_class, numerics_class, thread_count=1, random_seed=None):
         self._lensing_op = lensing_operator_class
+        self._numerics_class = numerics_class
         self._ss_factor = numerics_class.grid_supersampling_factor
         self._conv = numerics_class.convolution_class
         if self._conv is not None:
@@ -30,26 +31,30 @@ class ModelManager(object):
 
     def add_source_light(self, source_model_class):
         # takes the first source light profile in the model list
-        self._source_light = source_model_class.func_list[0]
-        if hasattr(self._source_light, 'thread_count'):
-            self._source_light.thread_count = self._thread_count
+        self._source_light_profile = source_model_class.func_list[0]
+        if hasattr(self._source_light_profile, 'thread_count'):
+            self._source_light_profile.thread_count = self._thread_count
         self._no_source_light = False
 
     def add_lens_light(self, lens_light_model_class):
         # takes the first lens light profile in the model list
-        self._lens_light = lens_light_model_class.func_list[0]
-        if hasattr(self._lens_light, 'thread_count'):
-            self._lens_light.thread_count = self._thread_count
+        self._lens_light_profile = lens_light_model_class.func_list[0]
+        if hasattr(self._lens_light_profile, 'thread_count'):
+            self._lens_light_profile.thread_count = self._thread_count
         self._no_lens_light = False
 
     def add_point_source(self):
         self._no_point_source = False
+        self._ps_solver = None
 
     def set_source_wavelet_scales(self, n_scales_source):
         self._n_scales_source = n_scales_source
 
     def set_lens_wavelet_scales(self, n_scales_lens):
         self._n_scales_lens_light = n_scales_lens
+
+    def set_point_source_solver_func(self, point_source_solver_func):
+        self._ps_solver = point_source_solver_func
 
     @property
     def n_scales_source(self):
