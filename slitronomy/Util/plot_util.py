@@ -1,5 +1,6 @@
 __author__ = 'aymgal'
 
+import copy
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -57,7 +58,7 @@ def nice_colorbar_residuals(mappable, res_map, vmin, vmax, position='right', pad
                   invisible=invisible, colorbar_kwargs={'extend': cb_extend})
 
 def log_cmap(cmap_name, vmin, vmax):
-    base_cmap = plt.get_cmap(cmap_name)
+    base_cmap = copy.copy(plt.get_cmap(cmap_name))
     return ReNormColormapAdaptor(base_cmap, mpl.colors.LogNorm(vmin, vmax))
 
 class ReNormColormapAdaptor(mpl.colors.Colormap):

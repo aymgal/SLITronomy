@@ -1,7 +1,9 @@
 __author__ = 'aymgal'
 
-import numpy as np
 import matplotlib.pyplot as plt
+plt.rc('image', interpolation='none', origin='lower')  # setup some defaults
+
+import numpy as np
 from matplotlib.colors import Normalize, LogNorm
 
 from slitronomy.Util import plot_util
@@ -59,7 +61,7 @@ class SolverPlotter(object):
         ax.set_title("imaging data", fontsize=fontsize)
         data = self._solver.M(self._solver.Y)
         norm = self._prepare_color_norm(data, log_scale, vmin_image, vmax_image)
-        im = ax.imshow(data, origin='lower', cmap=cmap_image, norm=norm)
+        im = ax.imshow(data, cmap=cmap_image, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
         # ====== IMAGE MODEL ====== #
@@ -75,7 +77,7 @@ class SolverPlotter(object):
             img_model = self._solver.image_model(unconvolved=unconvolved)
             print("Negative image pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
         norm = self._prepare_color_norm(img_model, log_scale, vmin_image, vmax_image)
-        im = ax.imshow(img_model, origin='lower', cmap=cmap_image, norm=norm)
+        im = ax.imshow(img_model, cmap=cmap_image, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
         # ====== SOURCE MODEL ====== #
@@ -84,7 +86,7 @@ class SolverPlotter(object):
         src_model = self._solver.source_model
         print("Negative source pixels ? {} (min = {:.2e})".format(np.any(src_model < 0), src_model.min()))
         norm = self._prepare_color_norm(src_model, log_scale, vmin_source, vmax_source)
-        im = ax.imshow(src_model, origin='lower', cmap=cmap_source, norm=norm)
+        im = ax.imshow(src_model, cmap=cmap_source, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
         # ====== NORMALIZED RESIDUALS ====== #
@@ -92,8 +94,7 @@ class SolverPlotter(object):
         ax.set_title(r"norm. residuals", fontsize=fontsize)
         residuals_map = self._solver.normalized_residuals_model
         residuals_map_min, residuals_map_max = residuals_map.min(), residuals_map.max()
-        im = ax.imshow(residuals_map, 
-                       origin='lower', cmap=self._cmap_2, vmin=vmin_res, vmax=vmax_res)
+        im = ax.imshow(residuals_map, cmap=self._cmap_2, vmin=vmin_res, vmax=vmax_res)
         text = r"$\chi^2={:.2f}$".format(self._solver.best_fit_reduced_chi2)
         ax.text(0.2, 0.1, text, color='black', fontsize=15, 
                 horizontalalignment='center', verticalalignment='center',
@@ -161,7 +162,7 @@ class SolverPlotter(object):
         #ax.get_xaxis().set_visible(False)
         #ax.get_yaxis().set_visible(False)
         ax.set_title("true source", fontsize=fontsize)
-        im = ax.imshow(source_truth, origin='lower', cmap=cmap, vmin=0)
+        im = ax.imshow(source_truth, cmap=cmap, vmin=0)
         lims = (len(source_truth)/4, 3*len(source_truth)/4)  # zoom a bit on the image
         #ax.set_xlim(*lims)
         #ax.set_ylim(*lims)
@@ -178,7 +179,7 @@ class SolverPlotter(object):
             ax.set_title("model '{}'".format(name), fontsize=fontsize)
             #ax.get_xaxis().set_visible(False)
             #ax.get_yaxis().set_visible(False)
-            im = ax.imshow(source_model, origin='lower', cmap=cmap)
+            im = ax.imshow(source_model, cmap=cmap)
             #ax.set_xlim(*lims)
             #ax.set_ylim(*lims)
             plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
@@ -190,7 +191,7 @@ class SolverPlotter(object):
             ax.set_title("difference", fontsize=fontsize)
             #ax.set_xlim(*lims)
             #ax.set_ylim(*lims)
-            im = ax.imshow(residuals_source, origin='lower', cmap='RdBu_r', vmin=vmin_res, vmax=vmax_res)
+            im = ax.imshow(residuals_source, cmap='RdBu_r', vmin=vmin_res, vmax=vmax_res)
             plot_util.nice_colorbar_residuals(im, residuals_source, vmin_res, vmax_res,
                                                 label=r"f${}_{\rm model}$ - f${}_{\rm truth}$", fontsize=fontsize)
             i += 1
@@ -204,7 +205,7 @@ class SolverPlotter(object):
         ax = axes
         if title is not None:
             ax.set_title(title)
-        im = ax.imshow(image, origin='lower', **kwargs)
+        im = ax.imshow(image, **kwargs)
         plot_util.nice_colorbar(im)
         if show_now:
             plt.show()
