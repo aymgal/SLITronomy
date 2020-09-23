@@ -133,8 +133,8 @@ class SparseSolverBase(ModelOperators):
         if not self._ready(): return
 
         # update lensing operator and noise levels
-        self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
-                            kwargs_special=kwargs_special, init_lens_light_model=init_lens_light_model, init_ps_model=init_ps_model)
+        self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light, kwargs_special=kwargs_special, 
+                            init_lens_light_model=init_lens_light_model, init_ps_model=init_ps_model)
 
         # call solver
         image_model, coeffs_source, coeffs_lens_light, amps_ps \
