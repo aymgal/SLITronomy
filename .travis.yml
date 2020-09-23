@@ -70,13 +70,13 @@ install:
   # - pip install -e git://github.com/aymgal/pysap@dev-aym#egg=pysap
 
   # install the right branch of the fork of lenstronomy
-  - cd $ORIGINAL_PATH
-  - cd ..
-  - cd $PACKAGES_DIR
-  - git clone https://github.com/aymgal/lenstronomy.git
-  - cd lenstronomy
-  - git checkout dev_slit-bis
-  - pip install .
+  # - cd $ORIGINAL_PATH
+  # - cd ..
+  # - cd $PACKAGES_DIR
+  # - git clone https://github.com/aymgal/lenstronomy.git
+  # - cd lenstronomy
+  # - git checkout dev_slit-bis
+  # - pip install .
   # - pip install -e git://github.com/aymgal/lenstronomy@dev_slit-algo#egg=lenstronomy
 
   # finally (!) install SLITronomy

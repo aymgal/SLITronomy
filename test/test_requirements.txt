@@ -18,6 +18,7 @@ pymultinest
 #pypolychord
 nestcheck
 multiprocess>=0.70.8
+lenstronomy>=1.6.0
 
 # for PySAP
 pybind11
