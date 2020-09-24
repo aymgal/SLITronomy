@@ -70,12 +70,6 @@ class SparseSolverSourcePS(SparseSolverSource):
         # initial point source model
         P = self._init_ps_model
 
-        # import matplotlib.pyplot as plt
-        # plt.imshow(np.log10(P), origin='lower')
-        # plt.colorbar()
-        # plt.show()
-        # raise
-
         # initialise weights
         weights = 1.
 
@@ -140,49 +134,16 @@ class SparseSolverSourcePS(SparseSolverSource):
                 ######### ######## end source light ######## ########
 
 
-                # import matplotlib.pyplot as plt
-                # plt.figure()
-                # plt.imshow(np.log10(S), origin='lower')
-                # plt.colorbar()
-                # plt.show()
-                # plt.figure()
-                # plt.imshow(np.log10(P), origin='lower')
-                # plt.colorbar()
-                # plt.show()
-                # plt.figure()
-                # plt.imshow(np.log10(self.Y_eff), origin='lower')
-                # plt.colorbar()
-                # plt.show()
-
-
                 # subtract source light for point source linear amplitude optimization
                 self.subtract_source_from_data(S)
 
                 # solve for point source amplitudes
-                # current_model_no_ps = self.model_analysis(S=S)  # current model without point sources
-                # current_model_no_ps_1d = util.image2array(current_model_no_ps)[self._mask_1d]
-                data_response_external = util.image2array(self.Y_eff)[self._mask_1d]
+                effective_data_1d = util.image2array(self.Y_eff)[self._mask_1d]
                 P, ps_error, ps_cov_param, ps_param = self._ps_solver(kwargs_lens=kwargs_lens, kwargs_ps=kwargs_ps, 
                                                                       kwargs_special=kwargs_special, inv_bool=False,
-                                                                      data_response_external=data_response_external)
-                print("ps_param", ps_param)
-                
-                # plt.figure()
-                # plt.imshow(np.log10(S), origin='lower')
-                # plt.colorbar()
-                # plt.show()
-                # plt.figure()
-                # plt.imshow(np.log10(P), origin='lower')
-                # plt.colorbar()
-                # plt.show()
-                # plt.figure()
-                # plt.imshow(np.log10(self.Y_eff), origin='lower')
-                # plt.colorbar()
-                # plt.show()
-                # raise
+                                                                      data_response_external=effective_data_1d)
 
-                if self._show_steps and i % ma.ceil(self._n_iter_global/2) == 0 and i_s == self._n_iter_source-1:
-                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
+                if self._show_steps and i % ma.ceil(self._n_iter_global/2) == 0 and i_s == self._n_iter_source-1                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
 
             ######### ######## end point source ######## ########
 
