@@ -5,7 +5,8 @@ matplotlib
 future
 astropy
 tensorflow>=2.3.0  # only for SSIM computation
-lenstronomy>=1.6.0
+#lenstronomy>=1.6.0
+-e git://github.com/aymgal/lenstronomy.git@dev-slit-ps#egg=lenstronomy
 
 # for PySAP
 pybind11

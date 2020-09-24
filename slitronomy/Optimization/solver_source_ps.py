@@ -138,12 +138,14 @@ class SparseSolverSourcePS(SparseSolverSource):
                 self.subtract_source_from_data(S)
 
                 # solve for point source amplitudes
+                print("fuck", self._mask_1d)
                 effective_data_1d = util.image2array(self.Y_eff)[self._mask_1d]
                 P, ps_error, ps_cov_param, ps_param = self._ps_solver(kwargs_lens=kwargs_lens, kwargs_ps=kwargs_ps, 
                                                                       kwargs_special=kwargs_special, inv_bool=False,
                                                                       data_response_external=effective_data_1d)
 
-                if self._show_steps and i % ma.ceil(self._n_iter_global/2) == 0 and i_s == self._n_iter_source-1                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
+                if self._show_steps and i % ma.ceil(self._n_iter_global/2) == 0 and i_s == self._n_iter_source-1:
+                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
 
             ######### ######## end point source ######## ########
 
