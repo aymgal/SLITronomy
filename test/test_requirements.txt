@@ -5,6 +5,18 @@ matplotlib
 future
 astropy
 tensorflow>=2.3.0  # only for SSIM computation
+
+# for lenstronomy
+sklearn
+numba>=0.43.1
+mpmath
+schwimmbad
+cosmohammer>=0.6.1
+emcee>=3.0.0
+dynesty
+pymultinest
+nestcheck
+multiprocess>=0.70.8
 #lenstronomy>=1.6.0
 -e git://github.com/aymgal/lenstronomy.git@dev-slit-ps#egg=lenstronomy
 
