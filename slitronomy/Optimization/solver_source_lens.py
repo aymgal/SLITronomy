@@ -17,7 +17,8 @@ class SparseSolverSourceLens(SparseSolverSource):
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class, lens_light_model_class, 
-                 num_iter_global=10, num_iter_source=10, num_iter_lens=1, num_iter_weights=3, **base_kwargs):
+                 num_iter_global=10, num_iter_source=10, num_iter_lens=10, num_iter_weights=2, lens_light_model_map=None,
+                 **base_kwargs):
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
         :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
@@ -37,12 +38,13 @@ class SparseSolverSourceLens(SparseSolverSource):
         if base_kwargs.get('threshold_decrease_type', None) is None:
             base_kwargs['threshold_decrease_type'] = 'linear'
             
-        super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class,
-                                                     num_iter_source=num_iter_source, 
-                                                     num_iter_weights=num_iter_weights, **base_kwargs)
+        super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, 
+                                                     source_model_class, num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, 
+                                                     **base_kwargs)
         self.add_lens_light(lens_light_model_class)
         self._n_iter_global = num_iter_global
         self._n_iter_lens = num_iter_lens
+        self._init_lens_light_model = lens_light_model_map
 
     def _ready(self):
         return not self.no_source_light and not self.no_lens_light

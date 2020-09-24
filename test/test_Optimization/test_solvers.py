@@ -153,7 +153,8 @@ class TestSparseSolverSource(object):
                                                       sparsity_prior_norm=1, force_positivity=True, formulation='synthesis',
                                                       verbose=False, show_steps=False,
                                                       min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='linear', 
-                                                      num_iter_global=self.num_iter_global, num_iter_source=self.num_iter_source, num_iter_lens=self.num_iter_lens, num_iter_weights=self.num_iter_weights)
+                                                      num_iter_global=self.num_iter_global, num_iter_source=self.num_iter_source, 
+                                                      num_iter_lens=self.num_iter_lens, num_iter_weights=self.num_iter_weights)
         self.solver_lens_syn.set_likelihood_mask(self.likelihood_mask)
 
         # # SOLVER SOURCE + PS, with analysis formulation
@@ -166,7 +167,8 @@ class TestSparseSolverSource(object):
                                                          sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                                                          verbose=False, show_steps=False,
                                                          min_threshold=5, threshold_increment_high_freq=1, threshold_decrease_type='exponential', 
-                                                         num_iter_source=self.num_iter_source, num_iter_global=self.num_iter_global, num_iter_weights=self.num_iter_weights)
+                                                         num_iter_source=self.num_iter_source, num_iter_global=self.num_iter_global, 
+                                                         num_iter_weights=self.num_iter_weights)
         self.solver_source_ps_ana.set_likelihood_mask(self.likelihood_mask)
         # TODO: for now it's a dummy test, with no linear amplitude solver for point sources
         def _dummy_ps_linear_solver(kwargs_lens=None, kwargs_source=None, kwargs_lens_light=None, kwargs_ps=None,
@@ -350,7 +352,7 @@ class TestRaise(unittest.TestCase):
         self.source_numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf, supersampling_factor=self.subgrid_res_source)
         self.solver_source_lens = SparseSolverSourceLens(self.data, self.lens_model_class, self.numerics, self.source_numerics,
                                                          self.source_model_class, self.lens_light_model_class,
-                                                         num_iter_source=1, num_iter_lens=1, num_iter_weights=1)
+                                                         num_iter_source=8, num_iter_lens=8, num_iter_weights=2)
         
     def test_raise(self):
         with self.assertRaises(ValueError):

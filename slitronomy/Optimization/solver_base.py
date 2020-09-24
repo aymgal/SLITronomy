@@ -388,6 +388,8 @@ class SparseSolverBase(ModelOperators):
             self._prepare_lens_light(kwargs_lens_light)
 
         # lens light initial model, if any
+        if getattr(self, '_init_lens_light_model', None) is not None:
+            print("SparseSolverBase: warning, initial guess for lens light is being updated")
         self._init_lens_light_model = init_lens_light_model
         
         # point source initial model, if any
