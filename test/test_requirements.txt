@@ -18,7 +18,6 @@ pymultinest
 nestcheck
 multiprocess>=0.70.8
 #lenstronomy>=1.6.0
--e git://github.com/aymgal/lenstronomy.git@dev-slit-ps#egg=lenstronomy
 
 # for PySAP
 pybind11
