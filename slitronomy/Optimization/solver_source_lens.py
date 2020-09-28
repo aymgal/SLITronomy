@@ -93,9 +93,6 @@ class SparseSolverSourceLens(SparseSolverSource):
 
             for i in range(self._n_iter_global):
 
-                # if self._verbose:
-                #     print("threshold at iteration {}: {}".format(i, thresh))
-
                 # get the proximal operators with current threshold and weights
                 prox_g_s = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights_source)
                 prox_g_l = lambda x, y: self.proximal_sparsity_lens(x, threshold=thresh, weights=weights_lens)
@@ -125,8 +122,8 @@ class SparseSolverSourceLens(SparseSolverSource):
 
                     # save current step to track
                     self._tracker.save(S=S, S_next=S_next, 
-                                       print_bool=(i % 30 == 0 and i_s % 30 == 0),
-                                       iteration_text="*** iteration {}-{}-{} ***".format(j, i, i_s))
+                                       print_bool=(i % 10 == 0 and i_s % 10 == 0),
+                                       iteration_text="{:03}-{:03}-{:03}".format(j, i, i_s))
                     
                     # update current estimate of source light and local parameters
                     S = S_next
@@ -165,8 +162,8 @@ class SparseSolverSourceLens(SparseSolverSource):
 
                     # save current step to track
                     self._tracker.save(HG=HG, HG_next=HG_next, 
-                                       print_bool=(i % 30 == 0 and i_l % 30 == 0),
-                                       iteration_text="=== iteration {}-{}-{} ===".format(j, i, i_l))
+                                       print_bool=(i % 10 == 0 and i_l % 10 == 0),
+                                       iteration_text = "{:03}-{:03}-{:03}".format(j, i, i_l))
 
                     # update current estimate of source light and local parameters
                     HG = HG_next

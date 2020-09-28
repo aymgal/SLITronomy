@@ -102,8 +102,8 @@ class SparseSolverSource(SparseSolverBase):
                     alpha_S_next = self.Phi_T_s(S_next)
 
                 # save current step to track
-                self._tracker.save(S=S, S_next=S_next, print_bool=(i % 30 == 0),
-                                   iteration_text="=== iteration {}-{} ===".format(j, i))
+                self._tracker.save(S=S, S_next=S_next, print_bool=(i % 10 == 0),
+                                   iteration_text="=== iteration {:03}-{:03} ===".format(j, i))
 
                 if self._show_steps and (i % ma.ceil(self._n_iter_source/2) == 0):
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i)
