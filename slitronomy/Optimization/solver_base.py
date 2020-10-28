@@ -326,25 +326,25 @@ class SparseSolverBase(ModelOperators):
         return model
 
     def gradient_loss_source(self, array_S):
-        if self._formulation == 'analysis':
+        if self._formulation in ['analysis', 'analysis-exact']:
             return self._gradient_loss_analysis_source(S=array_S)
         elif self._formulation == 'synthesis':
             return self._gradient_loss_synthesis_source(alpha_S=array_S)
 
     def gradient_loss_lens(self, array_HG):
-        if self._formulation == 'analysis':
+        if self._formulation == 'analysis-exact':
             return self._gradient_loss_analysis_lens(HG=array_HG)
         elif self._formulation == 'synthesis':
             return self._gradient_loss_synthesis_lens(alpha_HG=array_HG)
 
     def proximal_sparsity_source(self, array, threshold, weights):
-        if self._formulation == 'analysis':
+        if self._formulation == 'analysis-exact':
             return self._proximal_sparsity_analysis_source(array, threshold, weights)
         elif self._formulation == 'synthesis':
             return self._proximal_sparsity_synthesis_source(array, threshold, weights)
 
     def proximal_sparsity_lens(self, array, threshold, weights):
-        if self._formulation == 'analysis':
+        if self._formulation == 'analysis-exact':
             return self._proximal_sparsity_analysis_lens(array, threshold, weights)
         elif self._formulation == 'synthesis':
             return self._proximal_sparsity_synthesis_lens(array, threshold, weights)
@@ -367,6 +367,8 @@ class SparseSolverBase(ModelOperators):
     def algorithm(self):
         if self._formulation == 'analysis':
             return 'FB'
+        elif self._formulation == 'analysis-exact':
+            return 'PD'
         elif self._formulation == 'synthesis':
             return 'FISTA'
 
