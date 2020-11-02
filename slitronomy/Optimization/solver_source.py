@@ -92,14 +92,14 @@ class SparseSolverSource(SparseSolverBase):
                 # get the proximal operator with current weights, convention is that it takes 2 arguments
                 prox_g = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights)
 
-                if self.algorithm == 'FISTA':
+                if self.algorithm == 'FB':
+                    S_next = algorithms.step_FB(S, grad_f, prox_g, mu)
+                    alpha_S_next = self.Phi_T_s(S_next)
+
+                elif self.algorithm == 'FISTA':
                     alpha_S_next, fista_xi_next, fista_t_next \
                         = algorithms.step_FISTA(alpha_S, fista_xi, fista_t, grad_f, prox_g, mu)
                     S_next = self.Phi_s(alpha_S_next)
-
-                elif self.algorithm == 'FB':
-                    S_next = algorithms.step_FB(S, grad_f, prox_g, mu)
-                    alpha_S_next = self.Phi_T_s(S_next)
 
                 # save current step to track
                 self._tracker.save(S=S, S_next=S_next, print_bool=(i % 10 == 0),

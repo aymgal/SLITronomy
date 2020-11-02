@@ -49,6 +49,35 @@ class SparseSolverSourcePS(SparseSolverSource):
     def _ready(self):
         return not self.no_source_light and not self.no_point_source
 
+    def _build_ps_mask(iter_index, kwargs_ps, kwargs_special):
+        from TDLMCpipeline.Modelling.mask import ImageMask
+
+        mask_shape = self._data_class.data.shape
+        delta_pix = self._data_class.pixel_width
+
+        max_radius = 0.5 # arcsec
+        mask_radius = (self._n_iter_global - iter_index) / max_radius
+        
+        # translate the PS coordinates so origin is lower left
+        ra_ps, dec_ps = kwargs_ps[0]['ra_image'], kwargs_ps[0]['dec_image']
+        ra_ps_pix, dec_ps_pix = self._data_class.map_coord2pix(ra_ps, dec_ps)
+        ra_ps, dec_ps = ra_ps_pix * delta_pix, dec_ps_pix * delta_pix
+
+        #TODO: check implementation of this
+        # if 'delta_x_image' in kwargs_special:
+        #     ra_ps_pix += kwargs_special['delta_x_image']
+        #     dec_ps_pix += kwargs_special['delta_y_image']
+
+        mask_kwargs = {
+            'mask_type': 'circle',
+            'center_list': list(zip(ra_ps, dec_ps)),
+            'radius_list': [mask_radius]*len(ra_ps_pix),
+            'inverted_list': [True]*len(ra_ps_pix),
+            'operation_list': ['inter']*(len(ra_ps_pix)-1),
+        }
+        mask_class = ImageMask(mask_shape=mask_shape, delta_pix=delta_pix, **mask_kwargs)
+        return mask_class.get_mask(show_details=False)
+
     def _solve(self, kwargs_lens, kwargs_ps, kwargs_special):
         """
         implements the SLIT algorithm with point source support
@@ -90,6 +119,9 @@ class SparseSolverSourcePS(SparseSolverSource):
 
                 # subtract point sources from data
                 self.subtract_point_source_from_data(P)
+
+                # # update mask regions centered on point sources
+                # ps_mask = self._build_ps_mask(i, kwargs_ps, kwargs_special)
 
                 # estimate initial threshold after subtraction of point sources
                 thresh_init = self._estimate_threshold_source(self.Y_eff)
@@ -140,8 +172,8 @@ class SparseSolverSourcePS(SparseSolverSource):
                 # solve for point source amplitudes
                 effective_data_1d = util.image2array(self.Y_eff)[self._mask_1d]
                 P, ps_error, ps_cov_param, ps_param = self._ps_solver(kwargs_lens=kwargs_lens, kwargs_ps=kwargs_ps, 
-                                                                     kwargs_special=kwargs_special, inv_bool=False,
-                                                                     data_response_external=effective_data_1d)
+                                                                      kwargs_special=kwargs_special, inv_bool=False,
+                                                                      data_response_external=effective_data_1d)
 
                 if self._show_steps and i % ma.ceil(self._n_iter_global/2) == 0 and i_s == self._n_iter_source-1:
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)

@@ -29,6 +29,9 @@ class ModelManager(object):
         self._mask_1d = util.image2array(self._mask)
         self.random_seed = random_seed
 
+        # # TEMP: for PS mask generations
+        # self._data_class = data_class
+
     def add_source_light(self, source_model_class):
         # takes the first source light profile in the model list
         self._source_light_profile = source_model_class.func_list[0]
@@ -55,6 +58,9 @@ class ModelManager(object):
 
     def set_point_source_solver_func(self, point_source_solver_func):
         self._ps_solver = point_source_solver_func
+
+    def set_point_source_error_func(self, point_source_error_func):
+        self._ps_error = point_source_error_func
 
     @property
     def n_scales_source(self):
@@ -128,4 +134,4 @@ class ModelManager(object):
         self._num_pix = num_pix_x
         self._num_pix_source = int(num_pix_x * subgrid_res_source)
         self._image_data = np.copy(data_class.data)
-        self._image_data_eff = np.copy(self._image_data)
+        self._image_data_eff = np.copy(data_class.data)

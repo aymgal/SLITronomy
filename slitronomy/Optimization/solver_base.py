@@ -8,6 +8,7 @@ import numpy as np
 from slitronomy.Optimization.model_operators import ModelOperators
 from slitronomy.Lensing.lensing_operator import LensingOperator
 from slitronomy.Optimization.noise_levels import NoiseLevels
+# from slitronomy.Optimization.data_mask import DataMask
 from slitronomy.Util.solver_plotter import SolverPlotter
 from slitronomy.Util.solver_tracker import SolverTracker
 from slitronomy.Util import util
@@ -28,7 +29,7 @@ class SparseSolverBase(ModelOperators):
                  lens_light_mask=None, source_interpolation='bilinear',
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='exponential',
-                 fixed_spectral_norm_source=0.98, include_regridding_error=False,
+                 fixed_spectral_norm_source=0.98, include_regridding_error=False, include_point_source_error=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  external_likelihood_penalty=False, random_seed=None,
                  verbose=False, show_steps=False, thread_count=1):
@@ -89,7 +90,11 @@ class SparseSolverBase(ModelOperators):
         
         # engine that computes noise levels in image / source plane, in wavelets space
         self.noise = NoiseLevels(data_class, subgrid_res_source=source_grid_class.supersampling_factor,
-                                 include_regridding_error=include_regridding_error)
+                                 include_regridding_error=include_regridding_error,
+                                 include_point_source_error=include_point_source_error)
+
+        #TODO: engine that manages the mask
+        # self.mask = DataMask()
 
         # threshold level k_min (in units of the noise)
         self._k_min = min_threshold
@@ -119,8 +124,6 @@ class SparseSolverBase(ModelOperators):
 
     def set_likelihood_mask(self, mask=None):
         self._set_likelihood_mask(mask)
-        # fill masked pixels with background noise
-        self.fill_masked_data(self.noise.background_rms)
 
     def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None,
               init_lens_light_model=None, init_ps_model=None):
@@ -133,7 +136,8 @@ class SparseSolverBase(ModelOperators):
         if not self._ready(): return
 
         # update lensing operator and noise levels
-        self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light, kwargs_special=kwargs_special, 
+        self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light, 
+                            kwargs_ps=kwargs_ps, kwargs_special=kwargs_special, 
                             init_lens_light_model=init_lens_light_model, init_ps_model=init_ps_model)
 
         # call solver
@@ -288,10 +292,7 @@ class SparseSolverBase(ModelOperators):
         """ returns ( HFS + HG + P - Y ) / sigma """
         model = self.model_analysis(S=S, HG=HG, P=P)
         error = model - self.effective_image_data
-        if hasattr(self, '_ps_error'):
-            sigma = self.noise.effective_noise_map + self._ps_error
-        else:
-            sigma = self.noise.effective_noise_map
+        sigma = self.noise.effective_noise_map
         return self.M(error / sigma)
 
     def reduced_chi2(self, S=None, HG=None, P=None):
@@ -370,20 +371,28 @@ class SparseSolverBase(ModelOperators):
         elif self._formulation == 'synthesis':
             return 'FISTA'
 
-    def prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
+    def prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None,
                        kwargs_special=None, init_lens_light_model=None, init_ps_model=None):
         """
         Update state of the solver : operators, noise levels, ...
         The order of the following updates matters!
         """
+        # fill masked pixels with background noise
+        self.fill_masked_data(self.noise.background_rms)
+
         _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
         if self.noise.include_regridding_error is True:
             magnification_map = self.lensingOperator.magnification_map(kwargs_lens)
             self.noise.update_regridding_error(magnification_map)
 
+        if self.noise.include_point_source_error is True and self.no_point_source is False:
+            ps_error_map = self._ps_error(kwargs_lens, kwargs_ps, kwargs_special=kwargs_special)
+            self.noise.update_point_source_error(ps_error_map)
+
         self._prepare_source(kwargs_source)
-        if not self.no_lens_light:
+
+        if self.no_lens_light is False:
             # TODO: support upsampling/downsampling operator for image plane noise levels
             self._prepare_lens_light(kwargs_lens_light)
 
@@ -407,7 +416,7 @@ class SparseSolverBase(ModelOperators):
         self.set_source_wavelet_scales(n_scales_new)
         # update spectral norm of operators
         self.update_spectral_norm_source()
-        # update wavelets noise levels in source plane
+        # update wavelet noise levels in source plane
         self.update_source_noise_levels()
 
     def _prepare_lens_light(self, kwargs_lens_light):
@@ -426,7 +435,7 @@ class SparseSolverBase(ModelOperators):
         if n_scales_old is None or n_scales_new != n_scales_old:
             # update spectral norm of operators
             self.update_spectral_norm_lens()
-            # update wavelets noise levels in image plane
+            # update wavelet noise levels in image plane
             self.update_image_noise_levels()
 
     def update_source_noise_levels(self):
