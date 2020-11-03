@@ -162,7 +162,7 @@ class SparseSolverSource(SparseSolverBase):
         or
             g = lambda * |Phi^T S|_1
         """
-        n_scales = self._n_scales_source
+        n_scales = self.noise.levels_source.shape[0]
         level_const = threshold * np.ones(n_scales)
         level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
         level_pixels = weights * self.noise.levels_source
@@ -171,7 +171,8 @@ class SparseSolverSource(SparseSolverBase):
 
         # apply proximal operator
         step = 1  # because threshold is already expressed in data units
-        alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, level_const=level_const, level_pixels=level_pixels,
+        alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, 
+                                                          level_const=level_const, level_pixels=level_pixels,
                                                           l_norm=self._sparsity_prior_norm)
         S_proxed = self.Phi_s(alpha_S_proxed)
 
@@ -189,14 +190,15 @@ class SparseSolverSource(SparseSolverBase):
         or
             g = lambda * |alpha_S|_1
         """
-        n_scales = self._n_scales_source
+        n_scales = self.noise.levels_source.shape[0]
         level_const = threshold * np.ones(n_scales)
         level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
         level_pixels = weights * self.noise.levels_source
 
         # apply proximal operator
         step = 1  # because threshold is already expressed in data units
-        alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, level_const=level_const, level_pixels=level_pixels,
+        alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, 
+                                                          level_const=level_const, level_pixels=level_pixels,
                                                           l_norm=self._sparsity_prior_norm)
 
         #TODO: positivity applied in starlets space ?

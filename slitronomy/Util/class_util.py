@@ -3,7 +3,7 @@ __author__ = 'aymgal'
 import numpy as np
 
 
-_support_profiles = ['SLIT_STARLETS', 'SLIT_STARLETS_GEN2']
+_support_profiles = ['SLIT_STARLETS', 'SLIT_STARLETS_GEN2', 'SLIT_STARLETS_HYBRID']
 
 
 def create_solver_class(data_class, psf_class, image_numerics_class, source_numerics_class, 
