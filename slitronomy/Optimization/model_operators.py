@@ -71,18 +71,25 @@ class ModelOperators(ModelManager):
         res = util.Upsample(image_2d, factor=self._ss_factor)
         return res
 
-    def Phi_s(self, array_2d):
+    def Phi_s(self, array_2d, k=None):
         """alias method for inverse wavelet transform"""
         if not hasattr(self, '_n_scales_source'):
             raise ValueError("Wavelet scales have not been set")
-        return self._source_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_source,
-                                              n_pixels=array_2d.size)
+        if self._source_light.is_hybrid:
+            return self._source_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_source,
+                                                  n_pixels=array_2d.size, k=k)
+        else:
+            return self._source_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_source,
+                                                  n_pixels=array_2d.size)
 
-    def Phi_T_s(self, array_2d):
+    def Phi_T_s(self, array_2d, k=None):
         """alias method for wavelet transform"""
         if not hasattr(self, '_n_scales_source'):
             raise ValueError("Wavelet scales have not been set")
-        return self._source_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_source)
+        if self._source_light.is_hybrid:
+            return self._source_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_source, k=k)
+        else:
+            return self._source_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_source)
 
     def Phi_l(self, array_2d):
         """alias method for inverse wavelet transform"""

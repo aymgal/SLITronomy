@@ -54,6 +54,19 @@ class SparseSolverSource(SparseSolverBase):
         """
         implements the SLIT algorithm
         """
+
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.imshow(self.noise.levels_source[0][0], origin='lower', cmap='gist_stern')
+        plt.show()
+        plt.figure()
+        plt.imshow(self.noise.levels_source[0][-1], origin='lower', cmap='gist_stern')
+        plt.show()
+        # plt.figure()
+        # plt.imshow(self.noise.levels_source[1][0], origin='lower')
+        # plt.show()
+        raise
+
         # set the gradient step: 0 < mu < 2/spectral_norm
         mu = 1. / self.spectral_norm_source
 
@@ -99,7 +112,7 @@ class SparseSolverSource(SparseSolverBase):
 
                 elif self.algorithm == 'FB':
                     S_next = algorithms.step_FB(S, grad_f, prox_g, mu)
-                    alpha_S_next = self.Phi_T_s(S_next)
+                    alpha_S_next = self.Phi_T_s(S_next, k=0)
 
                 # save current step to track
                 self._tracker.save(S=S, S_next=S_next, print_bool=(i % 30 == 0),
@@ -127,7 +140,8 @@ class SparseSolverSource(SparseSolverBase):
 
         # all optimized coefficients (flattened)
         alpha_S_final = self.Phi_T_s(self.project_on_original_grid_source(S))
-        coeffs_S_1d = util.cube2array(alpha_S_final)
+        #coeffs_S_1d = util.cube2array(alpha_S_final)
+        coeffs_S_1d = np.array([1.])
 
         if self._show_steps:
             self._plotter.plot_final(self._source_model)
@@ -162,25 +176,52 @@ class SparseSolverSource(SparseSolverBase):
         or
             g = lambda * |Phi^T S|_1
         """
-        n_scales = self.noise.levels_source.shape[0]
-        level_const = threshold * np.ones(n_scales)
-        level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
-        level_pixels = weights * self.noise.levels_source
+        noise_levels = self.noise.levels_source
+        n_sparsity_prox = len(noise_levels)
 
-        alpha_S = self.Phi_T_s(S)
+        S_proxed = np.copy(S)
 
-        # apply proximal operator
-        step = 1  # because threshold is already expressed in data units
-        alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, 
-                                                          level_const=level_const, level_pixels=level_pixels,
-                                                          l_norm=self._sparsity_prior_norm)
-        S_proxed = self.Phi_s(alpha_S_proxed)
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.title("start")
+        # plt.imshow(S_proxed, origin='lower')
+        # plt.show()
+        
+        for k in range(n_sparsity_prox):
+            noise_levels_k = noise_levels[k]
+            n_scales = noise_levels_k.shape[0]
+            level_const = threshold * np.ones(n_scales)
+            level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
+            level_pixels = weights * noise_levels_k
+
+            alpha_S = self.Phi_T_s(S_proxed, k=k)
+
+            # apply proximal operator
+            step = 1  # because threshold is already expressed in data units
+            alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, 
+                                                              level_const=level_const, level_pixels=level_pixels,
+                                                              l_norm=self._sparsity_prior_norm)
+            # S_proxed = self.Phi_s(alpha_S_proxed, k=k)
+            # plt.figure()
+            # plt.title(f"proxed {k}")
+            # plt.imshow(S_proxed, origin='lower')
+            # plt.show()
 
         if self._force_positivity:
             S_proxed = proximals.prox_positivity(S_proxed)
 
+        # plt.figure()
+        # plt.title(f"proxed pos")
+        # plt.imshow(S_proxed, origin='lower')
+        # plt.show()
+
         # finally, set to 0 every pixel that is outside the 'support' in source plane
         S_proxed = self.apply_source_plane_mask(S_proxed)
+
+        # plt.figure()
+        # plt.title(f"masked")
+        # plt.imshow(S_proxed, origin='lower')
+        # plt.show()
         return S_proxed
 
     def _proximal_sparsity_synthesis_source(self, alpha_S, threshold, weights):

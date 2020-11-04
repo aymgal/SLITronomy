@@ -267,7 +267,11 @@ class SparseSolverBase(ModelOperators):
     def regularization(self, S=None, HG=None, P=None):
         """ returns p = lambda * || W_S ø alpha_S ||_0,1 + lambda * || W_HG ø alpha_HG ||_0,1 """
         if S is not None:
-            reg_S = self._regularization(S, self.Phi_T_s, self.M_s, self.noise.levels_source)
+            reg_S_list = []
+            for k in range(len(self.noise.levels_source)):
+                reg_S_ = self._regularization(S, self.Phi_T_s, self.M_s, self.noise.levels_source, k=k)
+                reg_S_list.append(reg_S_)
+            reg_S = np.sum(reg_S_list)
         else:
             reg_S = 0
         if HG is not None:
@@ -276,11 +280,14 @@ class SparseSolverBase(ModelOperators):
             reg_HG = 0
         return reg_S + reg_HG
 
-    def _regularization(self, image, transform, mask_func, noise_levels):
-        lambda_ = np.copy(noise_levels)
+    def _regularization(self, image, transform, mask_func, noise_levels, k=None):
+        if k is None:
+            lambda_ = np.copy(noise_levels[:-1, :, :])  # discard coarse scale
+        else:
+            lambda_ = np.copy(noise_levels[k][:-1, :, :])  # discard coarse scale
         lambda_[0, :, :]  *= (self._k_min + self._increm_high_freq)
-        lambda_[1:, :, :] *= self._k_min
-        alpha_image = mask_func(transform(image))
+        lambda_[1:-1, :, :] *= self._k_min  # discard coarse scale
+        alpha_image = mask_func(transform(image, k=k))[:-1, :, :]  # discard coarse scale
         norm_alpha = np.linalg.norm((lambda_ * alpha_image).flatten(), ord=self._sparsity_prior_norm)
         return norm_alpha
 
@@ -435,8 +442,8 @@ class SparseSolverBase(ModelOperators):
     def update_image_noise_levels(self):
         self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
 
-    def _update_weights(self, alpha_S, alpha_HG=None, threshold=None):
-        lambda_S = np.copy(self.noise.levels_source)
+    def _update_weights(self, alpha_S, alpha_HG=None, threshold=None, dict_idx=0):
+        lambda_S = np.copy(self.noise.levels_source[dict_idx])
         if threshold is None:
             threshold = self._k_min
         lambda_S[1:, :, :] *= threshold
@@ -451,7 +458,7 @@ class SparseSolverBase(ModelOperators):
             weights_HG = None
         return weights_S, weights_HG
 
-    def _estimate_threshold_source(self, data, fraction=0.9):
+    def _estimate_threshold_source(self, data, fraction=0.9, dict_idx=0):
         """
         estimate maximum threshold, in units of noise, used for thresholding wavelets
         coefficients during optimization
@@ -470,9 +477,9 @@ class SparseSolverBase(ModelOperators):
         """
         if self._threshold_decrease_type == 'none':
             return self._k_min
-        noise_no_coarse = self.noise.levels_source[:-1, :, :]
+        noise_no_coarse = self.noise.levels_source[dict_idx][:-1, :, :]
         # compute threshold wrt to the source component
-        coeffs = self.Phi_T_s(self.F_T(self.R_T(self.H_T(data))))
+        coeffs = self.Phi_T_s(self.F_T(self.R_T(self.H_T(data))), k=dict_idx)
         coeffs_no_coarse = coeffs[:-1, :, :]
         coeffs_norm = self.M_s(coeffs_no_coarse / noise_no_coarse)
         coeffs_norm[noise_no_coarse == 0] = 0

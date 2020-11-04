@@ -96,22 +96,36 @@ class NoiseLevels(object):
         dirac = util.dirac_impulse(num_pix_source)
         dirac_coeffs = wavelet_transform_source(dirac)
 
-        # \Delta_s^2 in  Equation (16) of Joseph+19)
-        dirac_coeffs2 = dirac_coeffs**2
+        # depending on if the wavelet dictionary is hybrid or not
+        if isinstance(dirac_coeffs, list):
+            n_wavelets = len(dirac_coeffs)
+        else:
+            n_wavelets = 1
 
-        n_scale, n_pix1, npix2 = dirac_coeffs2.shape
-        noise_levels = np.zeros((n_scale, n_pix1, npix2))
-        for scale_idx in range(n_scale):
-            # starlet transform of dirac impulse at a given scale
-            dirac_scale2 = dirac_coeffs2[scale_idx, :, :]
-            # Equation (16) of Joseph+19
-            levels2 = signal.fftconvolve(dirac_scale2, noise_source2, mode='same')
-            levels = np.sqrt(np.abs(levels2))
+        noise_levels_list = []
+        for k in range(n_wavelets):
+            # \Delta_s^2 in  Equation (16) of Joseph+19)
+            if isinstance(dirac_coeffs, list):
+                dirac_coeffs2 = dirac_coeffs[k]**2
+            else:
+                dirac_coeffs2 = dirac_coeffs**2
 
-            # save noise at each pixel for this scale
-            noise_levels[scale_idx, :, :] = levels
-        self._noise_levels_src = noise_levels
+            n_scale, n_pix1, npix2 = dirac_coeffs2.shape
+            noise_levels = np.zeros((n_scale, n_pix1, npix2))
+            for scale_idx in range(n_scale):
+                # starlet transform of dirac impulse at a given scale
+                dirac_scale2 = dirac_coeffs2[scale_idx, :, :]
+                # Equation (16) of Joseph+19
+                levels2 = signal.fftconvolve(dirac_scale2, noise_source2, mode='same')
+                levels = np.sqrt(np.abs(levels2))
 
+                # save noise at each pixel for this scale
+                noise_levels[scale_idx, :, :] = levels
+
+            noise_levels_list.append(noise_levels)
+
+        self._noise_levels_src = noise_levels_list
+        
     def update_image_levels(self, num_pix_image, wavelet_transform_image):
         # starlet transform of a dirac impulse in image plane
         dirac = util.dirac_impulse(num_pix_image)
