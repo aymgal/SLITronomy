@@ -28,7 +28,7 @@ class SparseSolverBase(ModelOperators):
                  lens_light_mask=None, source_interpolation='bilinear',
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='exponential',
-                 fixed_spectral_norm_source=0.98, include_regridding_error=False,
+                 fixed_spectral_norm_source=None, include_regridding_error=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  external_likelihood_penalty=False, random_seed=None,
                  verbose=False, show_steps=False, thread_count=1):
@@ -54,7 +54,7 @@ class SparseSolverBase(ModelOperators):
         :param threshold_decrease_type: strategy for decreasing the threshold level at each iteration. Can be 'none' (no decrease, directly sets to min_threshold), 'linear' or 'exponential'.
         Defaults to None, which is 'exponential' for the source-only solver, 'linear' for the source-lens solver.
         :param fixed_spectral_norm_source: if None, update the spectral norm for the source operator, for optimal gradient descent step size.
-        Defaults to 0.98, which is a conservative value typical of most lens models.
+        Defaults to 0.98 if None, which is a conservative value typical of most lens models.
         :param sparsity_prior_norm: prior l-norm (0 or 1). If 1, l1-norm and soft-thresholding are applied.
         If 0, it is l0-norm and hard-thresholding. Defaults to 1.
         :param force_positivity: if True, apply positivity constraint to the source flux.
@@ -268,8 +268,8 @@ class SparseSolverBase(ModelOperators):
         """ returns p = lambda * || W_S ø alpha_S ||_0,1 + lambda * || W_HG ø alpha_HG ||_0,1 """
         if S is not None:
             reg_S_list = []
-            for k in range(len(self.noise.levels_source)):
-                reg_S_ = self._regularization(S, self.Phi_T_s, self.M_s, self.noise.levels_source, k=k)
+            for k in range(self.num_wavelet_dicts_source):
+                reg_S_ = self._regularization(S, self.Phi_T_s, self.M_s, self.noise.levels_source(k=k), k=k)
                 reg_S_list.append(reg_S_)
             reg_S = np.sum(reg_S_list)
         else:
@@ -281,10 +281,7 @@ class SparseSolverBase(ModelOperators):
         return reg_S + reg_HG
 
     def _regularization(self, image, transform, mask_func, noise_levels, k=None):
-        if k is None:
-            lambda_ = np.copy(noise_levels[:-1, :, :])  # discard coarse scale
-        else:
-            lambda_ = np.copy(noise_levels[k][:-1, :, :])  # discard coarse scale
+        lambda_ = np.copy(noise_levels[:-1, :, :])  # discard coarse scale
         lambda_[0, :, :]  *= (self._k_min + self._increm_high_freq)
         lambda_[1:-1, :, :] *= self._k_min  # discard coarse scale
         alpha_image = mask_func(transform(image, k=k))[:-1, :, :]  # discard coarse scale
@@ -344,17 +341,17 @@ class SparseSolverBase(ModelOperators):
         elif self._formulation == 'synthesis':
             return self._gradient_loss_synthesis_lens(alpha_HG=array_HG)
 
-    def proximal_sparsity_source(self, array, threshold, weights):
+    def proximal_source(self, threshold, weights):
         if self._formulation == 'analysis':
-            return self._proximal_sparsity_analysis_source(array, threshold, weights)
+            return self._proximal_analysis_source(threshold, weights)
         elif self._formulation == 'synthesis':
-            return self._proximal_sparsity_synthesis_source(array, threshold, weights)
+            return self._proximal_synthesis_source(threshold, weights)
 
-    def proximal_sparsity_lens(self, array, threshold, weights):
+    def proximal_lens(self, array, threshold, weights):
         if self._formulation == 'analysis':
-            return self._proximal_sparsity_analysis_lens(array, threshold, weights)
+            return self._proximal_analysis_lens(array, threshold, weights)
         elif self._formulation == 'synthesis':
-            return self._proximal_sparsity_synthesis_lens(array, threshold, weights)
+            return self._proximal_synthesis_lens(array, threshold, weights)
 
     def subtract_source_from_data(self, S):
         """Update "effective" data by subtracting the input source light estimation"""
@@ -442,14 +439,16 @@ class SparseSolverBase(ModelOperators):
     def update_image_noise_levels(self):
         self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
 
-    def _update_weights(self, alpha_S, alpha_HG=None, threshold=None, dict_idx=0):
-        lambda_S = np.copy(self.noise.levels_source[dict_idx])
+    def _update_weights(self, S, HG=None, threshold=None, wavelet_index=0):
+        alpha_S = self.Phi_T_s(S, k=wavelet_index)
+        lambda_S = np.copy(self.noise.levels_source(k=wavelet_index))
         if threshold is None:
             threshold = self._k_min
         lambda_S[1:, :, :] *= threshold
         lambda_S[0, :, :] *= (threshold + self._increm_high_freq)
         weights_S  = 1. / ( 1 + np.exp(10 * (alpha_S - lambda_S)) )  # fixed Eq. (C.1)
-        if alpha_HG is not None:
+        if HG is not None:
+            alpha_HG = self.Phi_T_l(HG)
             lambda_HG = np.copy(self.noise.levels_image)
             lambda_HG[1:, :, :] *= threshold
             lambda_HG[0, :, :] *= (threshold + self._increm_high_freq)
@@ -458,7 +457,7 @@ class SparseSolverBase(ModelOperators):
             weights_HG = None
         return weights_S, weights_HG
 
-    def _estimate_threshold_source(self, data, fraction=0.9, dict_idx=0):
+    def _estimate_threshold_source(self, data, fraction=0.9, wavelet_index=0):
         """
         estimate maximum threshold, in units of noise, used for thresholding wavelets
         coefficients during optimization
@@ -477,9 +476,9 @@ class SparseSolverBase(ModelOperators):
         """
         if self._threshold_decrease_type == 'none':
             return self._k_min
-        noise_no_coarse = self.noise.levels_source[dict_idx][:-1, :, :]
+        noise_no_coarse = self.noise.levels_source(k=wavelet_index)[:-1, :, :]
         # compute threshold wrt to the source component
-        coeffs = self.Phi_T_s(self.F_T(self.R_T(self.H_T(data))), k=dict_idx)
+        coeffs = self.Phi_T_s(self.F_T(self.R_T(self.H_T(data))), k=wavelet_index)
         coeffs_no_coarse = coeffs[:-1, :, :]
         coeffs_norm = self.M_s(coeffs_no_coarse / noise_no_coarse)
         coeffs_norm[noise_no_coarse == 0] = 0

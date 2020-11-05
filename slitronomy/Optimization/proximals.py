@@ -18,7 +18,7 @@ def prox_sparsity_wavelets(coeffs_input, step, level_const=None, level_pixels=No
     coeffs = np.copy(coeffs_input)
     n_scales = coeffs.shape[0]
 
-    # apply threshold operation to all starlet scales except the coarsest
+    # apply threshold operation to all starlet scales except the last one (assumed to be the coarsest)
     for s in range(n_scales-1):
         thresh = step
         if level_const is not None:
@@ -32,8 +32,11 @@ def prox_sparsity_wavelets(coeffs_input, step, level_const=None, level_pixels=No
 
     return coeffs
 
-
-def prox_positivity(image_input):
+def prox_positivity(image_input, step):
     image = np.copy(image_input)
     image[image < 0] = 0.
     return image
+
+def prox_mask(image_input, step, mask=None):
+    return image_input * mask
+    

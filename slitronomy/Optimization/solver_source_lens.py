@@ -95,8 +95,8 @@ class SparseSolverSourceLens(SparseSolverSource):
                 #     print("threshold at iteration {}: {}".format(i, thresh))
 
                 # get the proximal operators with current threshold and weights
-                prox_g_s = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights_source)
-                prox_g_l = lambda x, y: self.proximal_sparsity_lens(x, threshold=thresh, weights=weights_lens)
+                prox_g_s = lambda x, y: self.proximal_source(x, threshold=thresh, weights=weights_source)
+                prox_g_l = lambda x, y: self.proximal_lens(x, threshold=thresh, weights=weights_lens)
 
                 ######### Loop over source light at fixed weights ########
 
@@ -239,7 +239,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         grad  = - self.Phi_T_l(error)
         return grad
 
-    def _proximal_sparsity_analysis_lens(self, HG, threshold, weights):
+    def _proximal_analysis_lens(self, HG, threshold, weights):
         """
         returns the proximal operator of the regularisation term
             g = lambda * |Phi^T HG|_0
@@ -264,7 +264,7 @@ class SparseSolverSourceLens(SparseSolverSource):
 
         return HG_proxed
 
-    def _proximal_sparsity_synthesis_lens(self, alpha_HG, threshold, weights):
+    def _proximal_synthesis_lens(self, alpha_HG, threshold, weights):
         """
         returns the proximal operator of the regularisation term
             g = lambda * |alpha_HG|_0

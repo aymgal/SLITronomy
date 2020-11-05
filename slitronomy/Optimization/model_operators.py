@@ -15,6 +15,8 @@ class ModelOperators(ModelManager):
                  fixed_spectral_norm_source=None, thread_count=1, random_seed=None):
         super(ModelOperators, self).__init__(data_class, lensing_operator_class, numerics_class,
                                              thread_count=thread_count, random_seed=random_seed)
+        if fixed_spectral_norm_source is None:
+            fixed_spectral_norm_source = 0.98
         self._fixed_spectral_norm_source = fixed_spectral_norm_source
 
     @property
@@ -75,7 +77,7 @@ class ModelOperators(ModelManager):
         """alias method for inverse wavelet transform"""
         if not hasattr(self, '_n_scales_source'):
             raise ValueError("Wavelet scales have not been set")
-        if self._source_light.is_hybrid:
+        if self.hybrid_wavelets_source:
             return self._source_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_source,
                                                   n_pixels=array_2d.size, k=k)
         else:
@@ -86,7 +88,7 @@ class ModelOperators(ModelManager):
         """alias method for wavelet transform"""
         if not hasattr(self, '_n_scales_source'):
             raise ValueError("Wavelet scales have not been set")
-        if self._source_light.is_hybrid:
+        if self.hybrid_wavelets_source:
             return self._source_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_source, k=k)
         else:
             return self._source_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_source)

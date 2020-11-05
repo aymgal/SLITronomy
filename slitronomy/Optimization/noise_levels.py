@@ -51,11 +51,13 @@ class NoiseLevels(object):
         """Add quadratically the regridding error map, if any"""
         return np.sqrt(self.noise_map**2 + self.regridding_error_map**2)
 
-    @property
-    def levels_source(self):
+    def levels_source(self, k=None):
         if not hasattr(self, '_noise_levels_src'):
             raise ValueError("Source plane noise levels have not been computed")
-        return self._noise_levels_src
+        if k is None:
+            return self._noise_levels_src
+        else:
+            return self._noise_levels_src[k]
 
     @property
     def levels_image(self):

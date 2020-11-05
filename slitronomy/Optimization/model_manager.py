@@ -111,6 +111,18 @@ class ModelManager(object):
     def num_pix_source(self):
         return self._lensing_op.sourcePlane.num_pix
 
+    @property
+    def hybrid_wavelets_source(self):
+        if self.no_source_light:
+            raise ValueError("Source profile has not been set")
+        return self._source_light.is_hybrid
+
+    @property
+    def num_wavelet_dicts_source(self):
+        if self.no_source_light:
+            raise ValueError("Source profile has not been set")
+        return self._source_light.num_wavelet_dicts
+
     def _set_likelihood_mask(self, mask):
         self._mask = mask
         self._mask_1d = util.image2array(mask)

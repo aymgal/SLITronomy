@@ -5,6 +5,7 @@ __author__ = 'aymgal'
 import copy
 import numpy as np
 import math as ma
+from functools import partial
 
 from slitronomy.Optimization.solver_base import SparseSolverBase
 from slitronomy.Optimization import algorithms
@@ -54,19 +55,6 @@ class SparseSolverSource(SparseSolverBase):
         """
         implements the SLIT algorithm
         """
-
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.imshow(self.noise.levels_source[0][0], origin='lower', cmap='gist_stern')
-        plt.show()
-        plt.figure()
-        plt.imshow(self.noise.levels_source[0][-1], origin='lower', cmap='gist_stern')
-        plt.show()
-        # plt.figure()
-        # plt.imshow(self.noise.levels_source[1][0], origin='lower')
-        # plt.show()
-        raise
-
         # set the gradient step: 0 < mu < 2/spectral_norm
         mu = 1. / self.spectral_norm_source
 
@@ -103,7 +91,7 @@ class SparseSolverSource(SparseSolverBase):
             for i in range(self._n_iter_source):
 
                 # get the proximal operator with current weights, convention is that it takes 2 arguments
-                prox_g = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights)
+                prox_g = self.proximal_source(threshold=thresh, weights=weights)
 
                 if self.algorithm == 'FISTA':
                     alpha_S_next, fista_xi_next, fista_t_next \
@@ -112,7 +100,6 @@ class SparseSolverSource(SparseSolverBase):
 
                 elif self.algorithm == 'FB':
                     S_next = algorithms.step_FB(S, grad_f, prox_g, mu)
-                    alpha_S_next = self.Phi_T_s(S_next, k=0)
 
                 # save current step to track
                 self._tracker.save(S=S, S_next=S_next, print_bool=(i % 30 == 0),
@@ -122,26 +109,26 @@ class SparseSolverSource(SparseSolverBase):
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i)
 
                 # update current estimate of source light and local parameters
-                S = S_next
-                alpha_S = alpha_S_next
                 if self.algorithm == 'FISTA':
+                    alpha_S = alpha_S_next
                     fista_xi, fista_t = fista_xi_next, fista_t_next
+                elif self.algorithm == 'FB':
+                    S = S_next
 
                 # update adaptive threshold
                 thresh = self._update_threshold(thresh, thresh_init, self._n_iter_source)
 
             # update weights if necessary
             if self._n_iter_weights > 1:
-                weights, _ = self._update_weights(alpha_S, threshold=self._k_min)
+                weights, _ = self._update_weights(S, threshold=self._k_min, wavelet_index=0)
 
         # store results
         self._tracker.finalize()
         self._source_model = S
 
         # all optimized coefficients (flattened)
-        alpha_S_final = self.Phi_T_s(self.project_on_original_grid_source(S))
-        #coeffs_S_1d = util.cube2array(alpha_S_final)
-        coeffs_S_1d = np.array([1.])
+        alpha_S_final = self.Phi_T_s(self.project_on_original_grid_source(S), k=0)
+        coeffs_S_1d = util.cube2array(alpha_S_final)
 
         if self._show_steps:
             self._plotter.plot_final(self._source_model)
@@ -169,62 +156,51 @@ class SparseSolverSource(SparseSolverBase):
         grad  = - self.Phi_T_s(self.F_T(self.R_T(self.H_T(error))))
         return grad
 
-    def _proximal_sparsity_analysis_source(self, S, threshold, weights):
+    def _proximal_analysis_source(self, threshold, weights, wavelet_index=0):
         """
         returns the proximal operator of the regularisation term
-            g = lambda * |Phi^T S|_0
+            g = lambda * |Phi^T S|_0 + i_{>=0}(S)
         or
-            g = lambda * |Phi^T S|_1
+            g = lambda * |Phi^T S|_1 + i_{>=0}(S)
         """
-        noise_levels = self.noise.levels_source
-        n_sparsity_prox = len(noise_levels)
+        prox_list = []
 
-        S_proxed = np.copy(S)
-
-        # import matplotlib.pyplot as plt
-        # plt.figure()
-        # plt.title("start")
-        # plt.imshow(S_proxed, origin='lower')
-        # plt.show()
-        
-        for k in range(n_sparsity_prox):
-            noise_levels_k = noise_levels[k]
-            n_scales = noise_levels_k.shape[0]
+        for k in range(self.num_wavelet_dicts_source):
+            noise_levels = self.noise.levels_source(k=k)
+            n_scales = noise_levels.shape[0]
             level_const = threshold * np.ones(n_scales)
             level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
-            level_pixels = weights * noise_levels_k
+            if k == wavelet_index:
+                # reweighting acting only on starlet, not other atoms of the dictionnary 
+                level_pixels = weights * noise_levels
+            else:
+                level_pixels = np.ones_like(noise_levels)
 
-            alpha_S = self.Phi_T_s(S_proxed, k=k)
+            def prox_sparsity_analysis(S, step):
+                # go to transformed space
+                alpha_S = self.Phi_T_s(S, k=k)
+                # apply proximal operator
+                step_eff = 1  # because threshold is already expressed in data units
+                alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step_eff, 
+                                                                  level_const=level_const, 
+                                                                  level_pixels=level_pixels,
+                                                                  l_norm=self._sparsity_prior_norm)
+                # back to direct space
+                S_proxed = self.Phi_s(alpha_S_proxed, k=k)
+                return S_proxed
 
-            # apply proximal operator
-            step = 1  # because threshold is already expressed in data units
-            alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, 
-                                                              level_const=level_const, level_pixels=level_pixels,
-                                                              l_norm=self._sparsity_prior_norm)
-            # S_proxed = self.Phi_s(alpha_S_proxed, k=k)
-            # plt.figure()
-            # plt.title(f"proxed {k}")
-            # plt.imshow(S_proxed, origin='lower')
-            # plt.show()
-
-        if self._force_positivity:
-            S_proxed = proximals.prox_positivity(S_proxed)
-
-        # plt.figure()
-        # plt.title(f"proxed pos")
-        # plt.imshow(S_proxed, origin='lower')
-        # plt.show()
+            prox_list.append(prox_sparsity_analysis)
+        
+        # positivity constraint
+        prox_list.append(proximals.prox_positivity)
 
         # finally, set to 0 every pixel that is outside the 'support' in source plane
-        S_proxed = self.apply_source_plane_mask(S_proxed)
+        mask = self.lensingOperator.sourcePlane.effective_mask
+        prox_list.append(partial(proximals.prox_mask, mask=mask))
 
-        # plt.figure()
-        # plt.title(f"masked")
-        # plt.imshow(S_proxed, origin='lower')
-        # plt.show()
-        return S_proxed
+        return prox_list
 
-    def _proximal_sparsity_synthesis_source(self, alpha_S, threshold, weights):
+    def _proximal_synthesis_source(self, alpha_S, threshold, weights):
         """
         returns the proximal operator of the regularisation term
             g = lambda * |alpha_S|_0
