@@ -32,15 +32,16 @@ class SparseSolverSource(SparseSolverBase):
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
         """
         # remove settings not related to this solver
-        _ = base_kwargs.pop('num_iter_lens', None)
-        _ = base_kwargs.pop('num_iter_global', None)
+        base_kwargs_c = copy.deepcopy(base_kwargs)
+        _ = base_kwargs_c.pop('num_iter_lens', None)
+        _ = base_kwargs_c.pop('num_iter_global', None)
 
         # define default threshold decrease strategy
-        if base_kwargs.get('threshold_decrease_type', None) is None:
-            base_kwargs['threshold_decrease_type'] = 'exponential'
+        if base_kwargs_c.get('threshold_decrease_type', None) is None:
+            base_kwargs_c['threshold_decrease_type'] = 'exponential'
 
         super(SparseSolverSource, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class,
-                                                 **base_kwargs)
+                                                 **base_kwargs_c)
         self.add_source_light(source_model_class)
         self._n_iter_source = num_iter_source
         if self._sparsity_prior_norm == 1:
@@ -166,12 +167,13 @@ class SparseSolverSource(SparseSolverBase):
         prox_list = []
 
         for k in range(self.num_wavelet_dicts_source):
+
             noise_levels = self.noise.levels_source(k=k)
             n_scales = noise_levels.shape[0]
             level_const = threshold * np.ones(n_scales)
-            level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
+            level_const[0] += self._increm_high_freq  # increment threshold for first decomposition scale
             if k == wavelet_index:
-                # reweighting acting only on starlet, not other atoms of the dictionnary 
+                # reweighting acting only on the selected wavelet (relevant for multiple sparsity constraints) 
                 level_pixels = weights * noise_levels
             else:
                 level_pixels = np.ones_like(noise_levels)

@@ -34,12 +34,13 @@ class SparseSolverSourceLens(SparseSolverSource):
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'linear'.
         """
         # define default threshold decrease strategy
-        if base_kwargs.get('threshold_decrease_type', None) is None:
-            base_kwargs['threshold_decrease_type'] = 'linear'
+        base_kwargs_c = copy.deepcopy(base_kwargs)
+        if base_kwargs_c.get('threshold_decrease_type', None) is None:
+            base_kwargs_c['threshold_decrease_type'] = 'linear'
             
         super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class,
                                                      num_iter_source=num_iter_source, 
-                                                     num_iter_weights=num_iter_weights, **base_kwargs)
+                                                     num_iter_weights=num_iter_weights, **base_kwargs_c)
         self.add_lens_light(lens_light_model_class)
         self._n_iter_global = num_iter_global
         self._n_iter_lens = num_iter_lens
