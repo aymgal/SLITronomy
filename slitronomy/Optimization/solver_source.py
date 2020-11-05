@@ -157,7 +157,7 @@ class SparseSolverSource(SparseSolverBase):
         grad  = - self.Phi_T_s(self.F_T(self.R_T(self.H_T(error))))
         return grad
 
-    def _proximal_analysis_source(self, threshold, weights, wavelet_index=0):
+    def _proximal_analysis_source(self, threshold, weights, reweight_index=0):
         """
         returns the proximal operator of the regularisation term
             g = lambda * |Phi^T S|_0 + i_{>=0}(S)
@@ -172,7 +172,7 @@ class SparseSolverSource(SparseSolverBase):
             n_scales = noise_levels.shape[0]
             level_const = threshold * np.ones(n_scales)
             level_const[0] += self._increm_high_freq  # increment threshold for first decomposition scale
-            if k == wavelet_index:
+            if k == reweight_index:
                 # reweighting acting only on the selected wavelet (relevant for multiple sparsity constraints) 
                 level_pixels = weights * noise_levels
             else:
