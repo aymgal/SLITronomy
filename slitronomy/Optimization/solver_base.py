@@ -402,6 +402,11 @@ class SparseSolverBase(ModelOperators):
         """
         # update number of decomposition scales
         n_scales_new = kwargs_source[0]['n_scales']
+        if n_scales_new == -1:
+            num_pix_source = self.lensingOperator.sourcePlane.num_pix
+            n_scales_new = int(np.log2(num_pix_source))
+            if self._verbose:
+                print("Set number of source scales to maximal value J={}".format(n_scales_new))
         self.set_source_wavelet_scales(n_scales_new)
         # update spectral norm of operators
         self.update_spectral_norm_source()
@@ -419,6 +424,11 @@ class SparseSolverBase(ModelOperators):
         # get n_scales for lens light before update
         n_scales_old = self.n_scales_lens_light
         n_scales_new = kwargs_lens_light[0]['n_scales']
+        if n_scales_new == -1:
+            num_pix_image = self.lensingOperator.imagePlane.num_pix
+            n_scales_new = int(np.log2(num_pix_image))
+            if self._verbose:
+                print("Set number of lens light scales to maximal value J={}".format(n_scales_new))
         # update number of decomposition scales
         self.set_lens_wavelet_scales(n_scales_new)
         if n_scales_old is None or n_scales_new != n_scales_old:
