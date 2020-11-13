@@ -203,6 +203,10 @@ class TestSparseSolverSource(object):
         # assert loss > 0
 
         # reduced residuals map
+        res = self.solver_source_ana.residuals(S=S)
+        assert res.shape == self.image_sim.shape
+
+        # reduced residuals map
         red_res = self.solver_source_ana.normalized_residuals(S=S)
         assert red_res.shape == self.image_sim.shape
 
