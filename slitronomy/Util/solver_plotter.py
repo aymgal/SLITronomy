@@ -113,7 +113,7 @@ class SolverPlotter(object):
             vmin_res, vmax_res = vmin_res*scale, vmax_res*scale
             im = ax.imshow(residuals_map, 
                            origin='lower', cmap=self._cmap_2, vmin=vmin_res, vmax=vmax_res)
-            text = r"${\rm MSE}="+r"{:.2f}$".format(self._solver.best_fit_mean_squared_error)
+            text = r"${\rm MSE}="+r"{:.2e}$".format(self._solver.best_fit_mean_squared_error)
             ax.text(0.2, 0.1, text, color='black', fontsize=15, 
                     horizontalalignment='center', verticalalignment='center',
                     transform=ax.transAxes, bbox={'color': 'white', 'alpha': 0.8})
