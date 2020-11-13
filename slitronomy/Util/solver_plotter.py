@@ -93,29 +93,29 @@ class SolverPlotter(object):
         # when data SNR is very high, *normalised* residuals is not the right quantity to look at
         # so we set a (very empirical) threshold on where to plot normalised or plain residuals
         bkg_rms = self._solver.noise.background_rms
-        plot_normalised = np.std(residuals_map) < 10 * bkg_rms
+        plot_normalised = (np.std(residuals_map) < 10 * bkg_rms)
         if plot_normalised:
             ax.set_title(r"norm. residuals", fontsize=fontsize)
             im = ax.imshow(residuals_map, 
                            origin='lower', cmap=self._cmap_2, vmin=vmin_res, vmax=vmax_res)
             text = r"$\chi^2={:.2f}$".format(self._solver.best_fit_reduced_chi2)
-            ax.text(0.2, 0.1, text, color='black', fontsize=15, 
-                    horizontalalignment='center', verticalalignment='center',
+            ax.text(0.05, 0.05, text, color='black', fontsize=15, 
+                    horizontalalignment='left', verticalalignment='bottom',
                     transform=ax.transAxes, bbox={'color': 'white', 'alpha': 0.8})
             plot_util.nice_colorbar_residuals(im, residuals_map, vmin_res, vmax_res, 
                                               label=r"(f${}_{\rm model}$ - f${}_{\rm data}$)/$\sigma$", 
                                               fontsize=fontsize)
         else:
-            # otherwise we plot plain residuals, and display MSE instead of reduced chi2
+            # otherwise we plot (non-normalised) residuals, and display MSE instead of reduced chi2
             residuals_map = self._solver.residuals_model
             ax.set_title(r"residuals", fontsize=fontsize)
             scale = np.std(residuals_map)
             vmin_res, vmax_res = vmin_res*scale, vmax_res*scale
             im = ax.imshow(residuals_map, 
                            origin='lower', cmap=self._cmap_2, vmin=vmin_res, vmax=vmax_res)
-            text = r"${\rm MSE}="+r"{:.2e}$".format(self._solver.best_fit_mean_squared_error)
-            ax.text(0.2, 0.1, text, color='black', fontsize=15, 
-                    horizontalalignment='center', verticalalignment='center',
+            text = r"MSE$=${:.2e}".format(self._solver.best_fit_mean_squared_error)
+            ax.text(0.05, 0.05, text, color='black', fontsize=15, 
+                    horizontalalignment='left', verticalalignment='bottom',
                     transform=ax.transAxes, bbox={'color': 'white', 'alpha': 0.8})
             plot_util.nice_colorbar_residuals(im, residuals_map, vmin_res, vmax_res, 
                                               label=r"f${}_{\rm model}$ - f${}_{\rm data}$", 
