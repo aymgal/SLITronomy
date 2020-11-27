@@ -121,6 +121,9 @@ class SparseSolverSource(SparseSolverBase):
             if self._n_iter_weights > 1:
                 weights, _ = self._update_weights(alpha_S, threshold=self._k_min)
 
+        # reset effective data to original data
+        self.reset_data()
+
         # store results
         self._tracker.finalize()
         self._source_model = S

@@ -69,9 +69,6 @@ class SolverPlotter(object):
         if not self._solver.no_lens_light:
             ax.set_title("lens light model", fontsize=fontsize)
             img_model = self._solver.lens_light_model
-        # elif not self._solver.no_point_source:
-        #     ax.set_title("point source model")
-        #     img_model = self._solver.point_source_model
         else:
             ax.set_title("image model", fontsize=fontsize)
             img_model = self._solver.image_model(unconvolved=unconvolved)

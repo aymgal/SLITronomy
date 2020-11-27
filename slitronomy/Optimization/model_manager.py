@@ -11,7 +11,8 @@ class ModelManager(object):
 
     """Utility class for initializing model operators and managing model components"""
 
-    def __init__(self, data_class, lensing_operator_class, numerics_class, thread_count=1, random_seed=None):
+    def __init__(self, data_class, lensing_operator_class, numerics_class, 
+                 thread_count=1, random_seed=None):
         self._lensing_op = lensing_operator_class
         self._numerics_class = numerics_class
         self._ss_factor = numerics_class.grid_supersampling_factor
@@ -82,13 +83,21 @@ class ModelManager(object):
         """cancel any previous call to self.subtract_from_data()"""
         self._image_data_eff = np.copy(self._image_data)
 
-    def fill_masked_data(self, background_rms):
-        """Replace masked pixels with background noise"""
+    def fill_masked_data(self, background_rms, ps_error_map=None):
+        """Replace masked pixels with background noise
+        This affects the ORIGINAL imaging data as well!
+        """
         if self.random_seed is not None:
             np.random.seed(self.random_seed)
         noise = background_rms * np.random.randn(*self._image_data.shape)
-        self._image_data[self._mask == 0] = noise[self._mask == 0]
-        self._image_data_eff[self._mask == 0] = noise[self._mask == 0]
+        indices = (self._mask == 0)
+        self._image_data[indices] = noise[indices]
+        self._image_data_eff[indices] = noise[indices]
+        # TODO: improve this (pass a ps_mask?)
+        # at point source locations, we boost the noise
+        #indices = (self._mask == 0 & ps_error_map > 3*background_rms)
+        #self._image_data[indices] = ps_error_map[indices]
+        #self._image_data_eff[indices] = ps_error_map[indices]
 
     @property
     def image_data(self):

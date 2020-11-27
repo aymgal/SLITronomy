@@ -58,7 +58,7 @@ class NoiseLevels(object):
         if not self.include_point_source_error:
             return np.zeros_like(self.noise_map)
         if not hasattr(self, '_ps_error_map'):
-            raise ValueError("Regridding error map has not be updated with magnification map")
+            raise ValueError("Point source error map has not been passed to solver")
         return self._ps_error_map
 
     @property

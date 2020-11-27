@@ -26,7 +26,7 @@ class SparseSolverBase(ModelOperators):
     # E.g. the method project_on_original_grid_source should be attached to some new "SourceModel" class, not to the solver.
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class,
-                 lens_light_mask=None, source_interpolation='bilinear',
+                 lens_light_mask=None, source_interpolation='bilinear', 
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='exponential',
                  fixed_spectral_norm_source=0.98, include_regridding_error=False, include_point_source_error=False,
@@ -126,7 +126,7 @@ class SparseSolverBase(ModelOperators):
         self._set_likelihood_mask(mask)
 
     def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None,
-              init_lens_light_model=None, init_ps_model=None):
+              init_lens_light_model=None, init_ps_model=None, ps_error_map=None):
         """
         main method to call from outside the class, calling self._solve()
 
@@ -138,7 +138,8 @@ class SparseSolverBase(ModelOperators):
         # update lensing operator and noise levels
         self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light, 
                             kwargs_ps=kwargs_ps, kwargs_special=kwargs_special, 
-                            init_lens_light_model=init_lens_light_model, init_ps_model=init_ps_model)
+                            init_lens_light_model=init_lens_light_model, init_ps_model=init_ps_model,
+                            ps_error_map=ps_error_map)
 
         # call solver
         image_model, coeffs_source, coeffs_lens_light, amps_ps \
@@ -184,42 +185,27 @@ class SparseSolverBase(ModelOperators):
 
     @property
     def source_model(self):
-        if not hasattr(self, '_source_model'):
-            raise ValueError("You must run the optimization before accessing the source estimate")
         return self._source_model
 
     @property
     def lens_light_model(self):
-        if not hasattr(self, '_lens_light_model') and not self.no_lens_light:
-            raise ValueError("You must run the optimization before accessing the lens estimate")
         if self.no_lens_light:
-            return None
+            return np.zeros_like(self.image_data)
         return self._lens_light_model
 
     @property
     def point_source_model(self):
-        if not hasattr(self, '_ps_model') and not self.no_point_source:
-            raise ValueError("You must run the optimization before accessing the point source estimate")
         if self.no_point_source:
-            return None
+            return np.zeros_like(self.image_data)
         return self._ps_model
-
+        
     def image_model(self, unconvolved=False):
-        if self.no_lens_light and self.no_point_source:
-            S = self.source_model
-            if unconvolved:
-                return self.F(S)
-            return self.H(self.R(self.F(S)))
-        elif not self.no_point_source:
-            S, P = self.source_model, self.point_source_model
-            if unconvolved:
-                raise ValueError("Deconvolution is only supported for source light")
-            return self.H(self.R(self.F(S))) + P
-        else:
-            S, HG = self.source_model, self.lens_light_model
-            if unconvolved:
-                raise ValueError("Deconvolution is only supported for source light")
-            return self.H(self.R(self.F(S))) + HG
+        if unconvolved and self.no_lens_light is False:
+            raise ValueError("Deconvolution is only supported for source model")
+        S, HG, P = self.source_model, self.lens_light_model, self.point_source_model
+        if unconvolved:
+            return self.F(S)
+        return self.H(self.R(self.F(S))) + HG + P
 
     @property
     def normalized_residuals_model(self):
@@ -291,7 +277,8 @@ class SparseSolverBase(ModelOperators):
     def normalized_residuals(self, S=None, HG=None, P=None):
         """ returns ( HFS + HG + P - Y ) / sigma """
         model = self.model_analysis(S=S, HG=HG, P=P)
-        error = model - self.effective_image_data
+        data = self.effective_image_data
+        error = model - data
         sigma = self.noise.effective_noise_map
         return self.M(error / sigma)
 
@@ -372,39 +359,28 @@ class SparseSolverBase(ModelOperators):
             return 'FISTA'
 
     def prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None,
-                       kwargs_special=None, init_lens_light_model=None, init_ps_model=None):
+                       kwargs_special=None, init_lens_light_model=None, init_ps_model=None,
+                       ps_error_map=None):
         """
         Update state of the solver : operators, noise levels, ...
-        The order of the following updates matters!
+        The order of the steps matters!
         """
-        # fill masked pixels with background noise
-        self.fill_masked_data(self.noise.background_rms)
-
+        # update lensing operator with lens model
         _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
+        # initialiase noise terms
         if self.noise.include_regridding_error is True:
             magnification_map = self.lensingOperator.magnification_map(kwargs_lens)
             self.noise.update_regridding_error(magnification_map)
-
-        if self.noise.include_point_source_error is True and self.no_point_source is False:
-            ps_error_map = self._ps_error(kwargs_lens, kwargs_ps, kwargs_special=kwargs_special)
+        if self.noise.include_point_source_error is True:
             self.noise.update_point_source_error(ps_error_map)
 
-        self._prepare_source(kwargs_source)
-
-        if self.no_lens_light is False:
-            # TODO: support upsampling/downsampling operator for image plane noise levels
-            self._prepare_lens_light(kwargs_lens_light)
-
-        # lens light initial model, if any
-        if getattr(self, '_init_lens_light_model', None) is not None:
-            print("SparseSolverBase: warning, initial guess for lens light is being updated")
-        self._init_lens_light_model = init_lens_light_model
+        # fill masked pixels with background noise
+        self.fill_masked_data(self.noise.background_rms, ps_error_map=self.noise.ps_error_map)
         
-        # point source initial model, if any
-        if not self.no_point_source and init_ps_model is None:
-            raise ValueError("A rough point source model is required to optimize point source amplitudes")
-        self._init_ps_model = init_ps_model
+        self._prepare_source(kwargs_source)
+        self._prepare_lens_light(kwargs_lens_light, init_lens_light_model)
+        self._prepare_point_source(init_ps_model)
 
     def _prepare_source(self, kwargs_source):
         """
@@ -419,7 +395,7 @@ class SparseSolverBase(ModelOperators):
         # update wavelet noise levels in source plane
         self.update_source_noise_levels()
 
-    def _prepare_lens_light(self, kwargs_lens_light):
+    def _prepare_lens_light(self, kwargs_lens_light, init_lens_light_model):
         """
         updates lens light number of decomposition scales, spectral norm and noise levels
         related to the operator Phi_T_l( . )
@@ -427,6 +403,9 @@ class SparseSolverBase(ModelOperators):
         Spectral norm and noise levels related to the Phi_T_l operator
         are not updated if the number of decomposition scales has not changed
         """
+        # TODO: support upsampling/downsampling operator for image plane noise levels
+        if self.no_lens_light is True:
+            return
         # get n_scales for lens light before update
         n_scales_old = self.n_scales_lens_light
         n_scales_new = kwargs_lens_light[0]['n_scales']
@@ -437,6 +416,16 @@ class SparseSolverBase(ModelOperators):
             self.update_spectral_norm_lens()
             # update wavelet noise levels in image plane
             self.update_image_noise_levels()
+        # lens light initial model, if any
+        if getattr(self, '_init_lens_light_model', None) is not None:
+            print("SparseSolverBase: warning, initial guess for lens light is being updated")
+        self._init_lens_light_model = init_lens_light_model
+
+    def _prepare_point_source(self, init_ps_model):
+        if self.no_point_source is False and init_ps_model is None:
+            raise ValueError("A rough point source model is required to optimize point source amplitudes")
+        else:
+            self._init_ps_model = init_ps_model
 
     def update_source_noise_levels(self):
         self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
