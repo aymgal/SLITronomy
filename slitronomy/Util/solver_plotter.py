@@ -37,7 +37,7 @@ class SolverPlotter(object):
         title = "final reconstruction"
         return self.quick_imshow(image, title=title, show_now=self._show_now, cmap=self._cmap_misc)
 
-    def plot_results(self, log_scale=False, vmin_image=None, vmax_image=None, 
+    def plot_results(self, log_scale=False, vmin_image=None, vmax_image=None, normalised_res=True,
                      vmin_source=None, vmax_source=None, vmin_res=-6, vmax_res=6,
                      cmap_image=None, cmap_source=None, fontsize=12, with_history=True, unconvolved=False):
         if cmap_image is None:
@@ -89,12 +89,8 @@ class SolverPlotter(object):
 
         # ====== NORMALIZED RESIDUALS ====== #
         ax = axes[0, 3]
-        residuals_map = self._solver.normalized_residuals_model
-        # when data SNR is very high, *normalised* residuals is not the right quantity to look at
-        # so we set a (very empirical) threshold on where to plot normalised or plain residuals
-        bkg_rms = self._solver.noise.background_rms
-        plot_normalised = (np.std(residuals_map) < 10 * bkg_rms)
-        if plot_normalised:
+        if normalised_res:
+            residuals_map = self._solver.normalized_residuals_model
             ax.set_title(r"norm. residuals", fontsize=fontsize)
             im = ax.imshow(residuals_map, 
                            origin='lower', cmap=self._cmap_2, vmin=vmin_res, vmax=vmax_res)
@@ -175,8 +171,9 @@ class SolverPlotter(object):
                                          fontsize=12):
         """given a true source, plot residuals of a list of source model"""
         n_model = len(source_model_list)
-        fig, axes = plt.subplots(1, 1+2*n_model, figsize=((1+2*n_model)*4.5, 3))
-        ax = axes[0]
+        fig, axes = plt.subplots(1+n_model, 2, figsize=(9, (1+n_model)*3.5))
+        axes[0, 1].axis('off')
+        ax = axes[0, 0]
         #ax.get_xaxis().set_visible(False)
         #ax.get_yaxis().set_visible(False)
         ax.set_title("true source", fontsize=fontsize)
@@ -190,9 +187,9 @@ class SolverPlotter(object):
         for source_model, name in zip(source_model_list, name_list):
             print("min/max for source model '{}': {}/{}".format(name, source_model.min(), source_model.max()))
 
-            residuals_source = source_truth - source_model
+            residuals_source = source_model - source_truth
 
-            ax = axes[i]
+            ax = axes[i, 0]
             ax.set_title("model '{}'".format(name), fontsize=fontsize)
             #ax.get_xaxis().set_visible(False)
             #ax.get_yaxis().set_visible(False)
@@ -200,9 +197,8 @@ class SolverPlotter(object):
             #ax.set_xlim(*lims)
             #ax.set_ylim(*lims)
             plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
-            i += 1
             
-            ax = axes[i]
+            ax = axes[i, 1]
             #ax.get_xaxis().set_visible(False)
             #ax.get_yaxis().set_visible(False)
             ax.set_title("difference", fontsize=fontsize)
@@ -211,9 +207,10 @@ class SolverPlotter(object):
             im = ax.imshow(residuals_source, origin='lower', cmap='RdBu_r', vmin=vmin_res, vmax=vmax_res)
             plot_util.nice_colorbar_residuals(im, residuals_source, vmin_res, vmax_res,
                                                 label=r"f${}_{\rm model}$ - f${}_{\rm truth}$", fontsize=fontsize)
-            i += 1
             
             print("SDR for model '{}' = {:.3f}".format(name, metrics_util.SDR(source_truth, source_model)))
+            i += 1
+
         return fig
 
     @staticmethod
