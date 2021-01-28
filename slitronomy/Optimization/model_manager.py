@@ -25,6 +25,7 @@ class ModelManager(object):
         self._no_source_light = True
         self._no_lens_light = True
         self._no_point_source = True
+        self._ps_fixed = True
         self._thread_count = thread_count
         self._mask = np.ones_like(data_class.data)
         self._mask_1d = util.image2array(self._mask)
@@ -47,9 +48,10 @@ class ModelManager(object):
             self._lens_light_profile.thread_count = self._thread_count
         self._no_lens_light = False
 
-    def add_point_source(self):
+    def add_point_source(self, fix_model=False):
         self._no_point_source = False
         self._ps_solver = None
+        self._ps_fixed = fix_model
 
     def set_source_wavelet_scales(self, n_scales_source):
         self._n_scales_source = n_scales_source
@@ -122,6 +124,10 @@ class ModelManager(object):
     @property
     def no_point_source(self):
         return self._no_point_source
+
+    @property
+    def fixed_point_source_model(self):
+        return self._ps_fixed
 
     @property
     def num_pix_image(self):
