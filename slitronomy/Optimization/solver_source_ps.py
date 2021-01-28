@@ -88,11 +88,8 @@ class SparseSolverSourcePS(SparseSolverSource):
                 # subtract point sources from data
                 #self.subtract_point_source_from_data(P)
 
-                # # update mask regions centered on point sources
-                # ps_mask = self._build_ps_mask(i, kwargs_ps, kwargs_special)
-
                 # estimate initial threshold after subtraction of point sources
-                thresh_init = self._estimate_threshold_source(self.Y_eff)
+                thresh_init = self._estimate_threshold_source(self.Y_eff, exclude_mask=self.noise._ps_mask)
                 thresh = thresh_init
 
                 # get the gradient of the cost function, which is f = || Y - (HFS+P) ||^2_2
@@ -104,6 +101,8 @@ class SparseSolverSourcePS(SparseSolverSource):
                     fista_t  = 1.
 
                 for i_s in range(self._n_iter_source):
+
+                    # print(j, i, i_s, thresh)
         
                     # get the proximal operator with current weights, convention is that it takes 2 arguments
                     prox_g = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights)
@@ -203,3 +202,5 @@ class SparseSolverSourcePS(SparseSolverSource):
         error = self.Y_eff - model
         grad  = - self.F_T(self.R_T(self.H_T(error)))
         return grad
+
+    

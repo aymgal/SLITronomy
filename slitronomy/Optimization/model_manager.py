@@ -31,8 +31,8 @@ class ModelManager(object):
         self._mask_1d = util.image2array(self._mask)
         self.random_seed = random_seed
 
-        # # TEMP: for PS mask generations
-        # self._data_class = data_class
+        # TEMP: for PS mask generations
+        self._data_class = data_class
 
     def add_source_light(self, source_model_class):
         # takes the first source light profile in the model list
@@ -85,7 +85,7 @@ class ModelManager(object):
         """cancel any previous call to self.subtract_from_data()"""
         self._image_data_eff = np.copy(self._image_data)
 
-    def fill_masked_data(self, background_rms, ps_error_map=None):
+    def fill_masked_data(self, background_rms):
         """Replace masked pixels with background noise
         This affects the ORIGINAL imaging data as well!
         """
@@ -95,11 +95,21 @@ class ModelManager(object):
         indices = (self._mask == 0)
         self._image_data[indices] = noise[indices]
         self._image_data_eff[indices] = noise[indices]
+
         # TODO: improve this (pass a ps_mask?)
         # at point source locations, we boost the noise
         #indices = (self._mask == 0 & ps_error_map > 3*background_rms)
         #self._image_data[indices] = ps_error_map[indices]
         #self._image_data_eff[indices] = ps_error_map[indices]
+
+        #self._image_data[ps_mask == 0] = background_rms
+        #self._image_data_eff[ps_mask == 0] = background_rms
+
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.imshow(self._image_data_eff, cmap='gist_stern')
+        # plt.colorbar()
+        # plt.show()
 
     @property
     def image_data(self):

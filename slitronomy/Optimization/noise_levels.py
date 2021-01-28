@@ -62,6 +62,12 @@ class NoiseLevels(object):
         return self._ps_error_map
 
     @property
+    def ps_error_map_boost(self):
+        ps_noise_boost = np.zeros_like(self._ps_mask)
+        ps_noise_boost[self._ps_mask == 0] = 1
+        return ps_noise_boost
+
+    @property
     def levels_source(self):
         if not hasattr(self, '_noise_levels_src'):
             raise ValueError("Source plane noise levels have not been computed")
@@ -82,7 +88,7 @@ class NoiseLevels(object):
             psf_T = psf_kernel.T
 
         # map noise values to source plane
-        noise_map = self.effective_noise_map  #self.noise_map
+        noise_map = self.effective_noise_map #self.noise_map
         noise_diag = noise_map * np.sqrt(np.sum(psf_T**2))
         noise_diag_up = upscale_transform(noise_diag)
         noise_source = image2source_transform(noise_diag_up)
@@ -147,3 +153,6 @@ class NoiseLevels(object):
 
     def update_point_source_error(self, ps_error_map):
         self._ps_error_map = ps_error_map
+
+    def update_point_source_mask(self, ps_mask):
+        self._ps_mask = ps_mask

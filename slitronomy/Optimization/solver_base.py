@@ -291,7 +291,7 @@ class SparseSolverBase(ModelOperators):
         model = self.model_analysis(S=S, HG=HG, P=P)
         data = self.effective_image_data
         error = model - data
-        sigma = self.noise.effective_noise_map
+        sigma = self.noise.effective_noise_map # + self.noise.ps_error_map_boost
         return self.M(error / sigma)
 
     def reduced_chi2(self, S=None, HG=None, P=None):
@@ -393,8 +393,14 @@ class SparseSolverBase(ModelOperators):
         if self.noise.include_point_source_error is True:
             self.noise.update_point_source_error(ps_error_map)
 
+
+        # WIP !
+        if not self.no_point_source:
+            ps_mask = self._build_ps_mask(kwargs_ps, kwargs_special)
+            self.noise.update_point_source_mask(ps_mask)
+
         # fill masked pixels with background noise
-        self.fill_masked_data(self.noise.background_rms, ps_error_map=self.noise.ps_error_map)
+        self.fill_masked_data(self.noise.background_rms)
         
         self._prepare_source(kwargs_source)
         self._prepare_lens_light(kwargs_lens_light, init_lens_light_model)
@@ -446,6 +452,36 @@ class SparseSolverBase(ModelOperators):
             self._init_ps_model = init_ps_model
             self._init_ps_amp = init_ps_amp
 
+    def _build_ps_mask(self, kwargs_ps, kwargs_special, radius=0.2):
+        from TDLMCpipeline.Modelling.mask import ImageMask
+
+        mask_shape = self._data_class.data.shape
+        delta_pix = self._data_class.pixel_width
+                
+        ra_ps, dec_ps = kwargs_ps[0]['ra_image'], kwargs_ps[0]['dec_image']
+        if 'delta_x_image' in kwargs_special:
+            delta_x, delta_y = kwargs_special['delta_x_image'], kwargs_special['delta_y_image']
+            delta_x_new = np.zeros(len(ra_ps))
+            delta_x_new[0:len(delta_x)] = delta_x[:]
+            delta_y_new = np.zeros(len(dec_ps))
+            delta_y_new[0:len(delta_y)] = delta_y[:]
+            ra_ps  = ra_ps  + delta_x_new
+            dec_ps = dec_ps + delta_y_new
+
+        # translate the PS coordinates so origin is lower left
+        ra_ps_pix, dec_ps_pix = self._data_class.map_coord2pix(ra_ps, dec_ps)
+        ra_ps_lowerleft, dec_ps_lowerleft = ra_ps_pix * delta_pix, dec_ps_pix * delta_pix
+
+        mask_kwargs = {
+            'mask_type': 'circle',
+            'center_list': list(zip(dec_ps_lowerleft, ra_ps_lowerleft)),
+            'radius_list': [radius]*len(dec_ps_lowerleft),
+            'inverted_list': [True]*len(dec_ps_lowerleft),
+            'operation_list': ['inter']*(len(dec_ps_lowerleft)-1),
+        }
+        mask_class = ImageMask(mask_shape=mask_shape, delta_pix=delta_pix, **mask_kwargs)
+        return mask_class.get_mask(show_details=False)
+
     def update_source_noise_levels(self):
         self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
                                         self.Phi_T_s, self.F_T, self.R_T,
@@ -470,7 +506,7 @@ class SparseSolverBase(ModelOperators):
             weights_HG = None
         return weights_S, weights_HG
 
-    def _estimate_threshold_source(self, data, fraction=0.9):
+    def _estimate_threshold_source(self, data, fraction=0.9, exclude_mask=None):
         """
         estimate maximum threshold, in units of noise, used for thresholding wavelets
         coefficients during optimization
@@ -481,6 +517,8 @@ class SparseSolverBase(ModelOperators):
             Imaging data.
         fraction : float, optional
             From 0 to 1, fraction of the maximum value of the image in transformed space, normalized by noise, that is returned as a threshold.
+        exclude_mask : array_like
+            Binary mask to exclude (where == 1) some pixels from being included in the threshold estime (e.g. high residuals at point source locations)
         
         Returns
         -------
@@ -489,13 +527,41 @@ class SparseSolverBase(ModelOperators):
         """
         if self._threshold_decrease_type == 'none':
             return self._k_min
+        if exclude_mask is None:
+            exclude_mask = np.ones_like(data)
+
+        # get pre-computed noise esimate in source plane
         noise_no_coarse = self.noise.levels_source[:-1, :, :]
-        # compute threshold wrt to the source component
-        coeffs = self.Phi_T_s(self.F_T(self.R_T(self.H_T(data))))
+
+        # # ray-trace mask to source plane, and duplicate for each starlet scales
+        # mask_source = self.F_T(self.R_T(exclude_mask))
+        # mask_source = np.stack([mask_source]*len(noise_no_coarse), axis=0)
+
+        # compute coefficients of the source component
+        data_  = data * exclude_mask
+        coeffs = self.Phi_T_s(self.F_T(self.R_T(self.H_T(data_))))
         coeffs_no_coarse = coeffs[:-1, :, :]
         coeffs_norm = self.M_s(coeffs_no_coarse / noise_no_coarse)
-        coeffs_norm[noise_no_coarse == 0] = 0
-        return fraction * np.max(coeffs_norm)  # returns a fraction of max value, so only the highest coeffs is able to enter the solution
+
+        # indices to consider
+        # indices = np.where((noise_no_coarse != 0) & (mask_source == 0))
+        indices = np.where(noise_no_coarse != 0)
+        max_value = np.max(coeffs_norm[indices])
+
+        # fraction of max value, so only the highest coeffs is able to enter the solution
+        threshold = fraction * max_value
+
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.imshow(data_, cmap='gist_stern')
+        # plt.colorbar()
+        # plt.show()
+        # plt.figure()
+        # plt.imshow(coeffs_norm[0], cmap='gist_stern')
+        # plt.colorbar()
+        # plt.show()
+
+        return threshold
 
     def _estimate_threshold_MOM(self, data_minus_HFS, data_minus_HG=None):
         """
