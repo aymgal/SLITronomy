@@ -74,6 +74,6 @@ An ensemble of example notebooks are located at `thirdparty/notebooks <https://g
 Acknowledging SLITronomy 
 ========================
 
-* SLITronomy paper: Galan et al. (submitted)
+* SLITronomy: `Galan et al. 2020 <https://arxiv.org/abs/2012.02802>`_.
 * Sparse Linear Inversion Technique: `Joseph et al. 2019 <https://arxiv.org/abs/1809.09121>`_.
 * lenstronomy modelling software: `Birrer & Amara 2018 <https://arxiv.org/abs/1803.09746v2>`_.

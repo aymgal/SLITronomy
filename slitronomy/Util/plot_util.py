@@ -61,6 +61,7 @@ def log_cmap(cmap_name, vmin, vmax):
     base_cmap = copy.copy(plt.get_cmap(cmap_name))
     return ReNormColormapAdaptor(base_cmap, mpl.colors.LogNorm(vmin, vmax))
 
+
 class ReNormColormapAdaptor(mpl.colors.Colormap):
     """
     Colormap adaptor that uses another Normalize instance

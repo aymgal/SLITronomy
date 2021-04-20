@@ -221,10 +221,17 @@ class SparseSolverBase(ModelOperators):
 
     @property
     def normalized_residuals_model(self):
-        """ returns || HFS + HG + P - Y ||^2_2 / sigma^2 """
+        """ returns ( HFS + HG + P - Y ) / sigma """
         return self.normalized_residuals(S=self.source_model, 
                                          HG=self.lens_light_model, 
                                          P=self.point_source_model)
+
+    @property
+    def residuals_model(self):
+        """ returns ( HFS + HG + P - Y ) """
+        return self.residuals(S=self.source_model, 
+                              HG=self.lens_light_model, 
+                              P=self.point_source_model)
 
     def generate_initial_source(self):
         num_pix = self.num_pix_source
@@ -257,7 +264,15 @@ class SparseSolverBase(ModelOperators):
 
     @property
     def best_fit_reduced_chi2(self):
-        return self.reduced_chi2(S=self.source_model, HG=self.lens_light_model, P=self.point_source_model)
+        return self.reduced_chi2(S=self.source_model,
+                                 HG=self.lens_light_model, 
+                                 P=self.point_source_model)
+
+    @property
+    def best_fit_mean_squared_error(self):
+        return self.mean_squared_error(S=self.source_model, 
+                                       HG=self.lens_light_model, 
+                                       P=self.point_source_model)
 
     def loss(self, S=None, HG=None, P=None):
         """ returns f = || Y - HFS - HG - P ||^2_2 """
@@ -286,18 +301,26 @@ class SparseSolverBase(ModelOperators):
         norm_alpha = np.linalg.norm((lambda_ * alpha_image).flatten(), ord=self._sparsity_prior_norm)
         return norm_alpha
 
+    def residuals(self, S=None, HG=None, P=None):
+        model = self.model_analysis(S=S, HG=HG, P=P)
+        return model - self.effective_image_data
+
     def normalized_residuals(self, S=None, HG=None, P=None):
         """ returns ( HFS + HG + P - Y ) / sigma """
         model = self.model_analysis(S=S, HG=HG, P=P)
         data = self.effective_image_data
         error = model - data
-        sigma = self.noise.effective_noise_map # + self.noise.ps_error_map_boost
+        sigma = self.noise.effective_noise_map # + self.noise.ps_error_map_boost  # TODO
         return self.M(error / sigma)
 
     def reduced_chi2(self, S=None, HG=None, P=None):
         red_res = self.normalized_residuals(S=S, HG=HG, P=P)
         chi2 = np.sum(red_res**2)
         return chi2 / self.num_data_points
+
+    def mean_squared_error(self, S=None, HG=None, P=None):
+        res = self.residuals(S=S, HG=HG, P=P)
+        return np.sum(res**2) / self.num_data_points
 
     @staticmethod
     def norm_diff(S1, S2):
@@ -413,6 +436,11 @@ class SparseSolverBase(ModelOperators):
         """
         # update number of decomposition scales
         n_scales_new = kwargs_source[0]['n_scales']
+        if n_scales_new == -1:
+            num_pix_source = self.lensingOperator.sourcePlane.num_pix
+            n_scales_new = int(np.log2(num_pix_source))
+            if self._verbose:
+                print("Set number of source scales to maximal value J={}".format(n_scales_new))
         self.set_source_wavelet_scales(n_scales_new)
         # update spectral norm of operators
         self.update_spectral_norm_source()
@@ -433,6 +461,11 @@ class SparseSolverBase(ModelOperators):
         # get n_scales for lens light before update
         n_scales_old = self.n_scales_lens_light
         n_scales_new = kwargs_lens_light[0]['n_scales']
+        if n_scales_new == -1:
+            num_pix_image = self.lensingOperator.imagePlane.num_pix
+            n_scales_new = int(np.log2(num_pix_image))
+            if self._verbose:
+                print("Set number of lens light scales to maximal value J={}".format(n_scales_new))
         # update number of decomposition scales
         self.set_lens_wavelet_scales(n_scales_new)
         if n_scales_old is None or n_scales_new != n_scales_old:
