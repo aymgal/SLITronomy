@@ -27,8 +27,8 @@ class ModelManager(object):
         self._no_point_source = True
         self._ps_fixed = True
         self._thread_count = thread_count
-        self._mask = np.ones_like(data_class.data)
-        self._mask_1d = util.image2array(self._mask)
+        # self._mask = np.ones_like(data_class.data)
+        # self._mask_1d = util.image2array(self._mask)
         self.random_seed = random_seed
 
         # TEMP: for PS mask generations
@@ -85,7 +85,7 @@ class ModelManager(object):
         """cancel any previous call to self.subtract_from_data()"""
         self._image_data_eff = np.copy(self._image_data)
 
-    def fill_masked_data(self, background_rms):
+    def fill_masked_data(self, background_rms, ps_mask=None, init_ps_model=None):
         """Replace masked pixels with background noise
         This affects the ORIGINAL imaging data as well!
         """
@@ -96,20 +96,26 @@ class ModelManager(object):
         self._image_data[indices] = noise[indices]
         self._image_data_eff[indices] = noise[indices]
 
-        # TODO: improve this (pass a ps_mask?)
-        # at point source locations, we boost the noise
-        #indices = (self._mask == 0 & ps_error_map > 3*background_rms)
-        #self._image_data[indices] = ps_error_map[indices]
-        #self._image_data_eff[indices] = ps_error_map[indices]
-
-        #self._image_data[ps_mask == 0] = background_rms
-        #self._image_data_eff[ps_mask == 0] = background_rms
-
         # import matplotlib.pyplot as plt
         # plt.figure()
-        # plt.imshow(self._image_data_eff, cmap='gist_stern')
+        # plt.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
         # plt.colorbar()
         # plt.show()
+
+        # WIP
+        if ps_mask is not None:
+            # compute the median value of the data with point source removed
+            # from pixel valus inside the point source regions
+            med = np.nanmedian((self._image_data_eff - init_ps_model)[ps_mask == 0])
+            self._image_data[ps_mask == 0] = med + init_ps_model[ps_mask == 0]
+            self._image_data_eff[ps_mask == 0] = med + init_ps_model[ps_mask == 0]
+
+        # plt.figure()
+        # plt.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
+        # plt.colorbar()
+        # plt.show()
+
+        # raise
 
     @property
     def image_data(self):

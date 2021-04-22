@@ -130,10 +130,8 @@ class SolverPlotter(object):
             ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i], 
                     label='loss({})'.format(names[i]))
         ax.set_xlabel("iterations", fontsize=fontsize)
-        ax.set_ylabel(r"$||{\rm Y} - {\rm HFS}||_2^2\ /\ 2$", fontsize=fontsize)
-        if n_comp > 1:
-            ax.set_ylabel(r"$||{\rm Y} - {\rm G_H} - {\rm HFS}||_2^2\ /\ 2$", fontsize=fontsize)
-            ax.legend(loc='upper right')
+        ax.set_ylabel(r"$||{\rm \tilde{Y}} - {\rm Y}||_2^2\ /\ 2$", fontsize=fontsize)
+        ax.legend(loc='upper right')
 
         ax = axes[1, 1]
         ax.set_title("regularization", fontsize=fontsize)

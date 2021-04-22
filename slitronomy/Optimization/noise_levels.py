@@ -37,13 +37,13 @@ class NoiseLevels(object):
         return self._background_rms
 
     @property
-    def noise_map(self):
-        return self._noise_map_data
+    def effective_noise_map(self):
+        """Add quadratically the regridding error map and point source error map"""
+        return np.sqrt(self.noise_map**2 + self.regridding_error_map**2 + self.ps_error_map**2)
 
     @property
-    def effective_noise_map(self):
-        """Add quadratically the regridding error map, if any"""
-        return np.sqrt(self.noise_map**2 + self.regridding_error_map**2 + self.ps_error_map**2)
+    def noise_map(self):
+        return self._noise_map_data
 
     @property
     def regridding_error_map(self):
@@ -60,12 +60,6 @@ class NoiseLevels(object):
         if not hasattr(self, '_ps_error_map'):
             raise ValueError("Point source error map has not been passed to solver")
         return self._ps_error_map
-
-    @property
-    def ps_error_map_boost(self):
-        ps_noise_boost = np.zeros_like(self._ps_mask)
-        ps_noise_boost[self._ps_mask == 0] = 1
-        return ps_noise_boost
 
     @property
     def levels_source(self):
@@ -88,7 +82,12 @@ class NoiseLevels(object):
             psf_T = psf_kernel.T
 
         # map noise values to source plane
-        noise_map = self.effective_noise_map #self.noise_map
+
+        # WIP
+        # here we don't use the 'effective' noise map (that includes regridding and point source errors)
+        # so that the wavelet thresholding is only measured based on the 'original' data noise
+        noise_map = self.noise_map  #self.effective_noise_map
+
         noise_diag = noise_map * np.sqrt(np.sum(psf_T**2))
         noise_diag_up = upscale_transform(noise_diag)
         noise_source = image2source_transform(noise_diag_up)

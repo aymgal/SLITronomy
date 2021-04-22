@@ -310,7 +310,7 @@ class SparseSolverBase(ModelOperators):
         model = self.model_analysis(S=S, HG=HG, P=P)
         data = self.effective_image_data
         error = model - data
-        sigma = self.noise.effective_noise_map # + self.noise.ps_error_map_boost  # TODO
+        sigma = self.noise.effective_noise_map
         return self.M(error / sigma)
 
     def reduced_chi2(self, S=None, HG=None, P=None):
@@ -419,11 +419,11 @@ class SparseSolverBase(ModelOperators):
 
         # WIP !
         if not self.no_point_source:
-            ps_mask = self._build_ps_mask(kwargs_ps, kwargs_special)
+            ps_mask = self._build_ps_mask(kwargs_ps, kwargs_special, radius=0.2)
             self.noise.update_point_source_mask(ps_mask)
 
         # fill masked pixels with background noise
-        self.fill_masked_data(self.noise.background_rms)
+        self.fill_masked_data(self.noise.background_rms, ps_mask=ps_mask, init_ps_model=init_ps_model)
         
         self._prepare_source(kwargs_source)
         self._prepare_lens_light(kwargs_lens_light, init_lens_light_model)
@@ -485,7 +485,7 @@ class SparseSolverBase(ModelOperators):
             self._init_ps_model = init_ps_model
             self._init_ps_amp = init_ps_amp
 
-    def _build_ps_mask(self, kwargs_ps, kwargs_special, radius=0.2):
+    def _build_ps_mask(self, kwargs_ps, kwargs_special, radius=0.15):
         from TDLMCpipeline.Modelling.mask import ImageMask
 
         mask_shape = self._data_class.data.shape
@@ -551,7 +551,7 @@ class SparseSolverBase(ModelOperators):
         fraction : float, optional
             From 0 to 1, fraction of the maximum value of the image in transformed space, normalized by noise, that is returned as a threshold.
         exclude_mask : array_like
-            Binary mask to exclude (where == 1) some pixels from being included in the threshold estime (e.g. high residuals at point source locations)
+            Binary mask to exclude (where == 1) some pixels from being included in the threshold estimate (e.g. high residuals at point source locations)
         
         Returns
         -------
