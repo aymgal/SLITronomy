@@ -60,9 +60,9 @@ class SolverPlotter(object):
         # ====== IMAGING DATA ====== #
         ax = axes[0, 0]
         ax.set_title("imaging data", fontsize=fontsize)
-        data = self._solver.M(self._solver.Y)
-        norm = self._prepare_color_norm(data, log_scale, vmin_image, vmax_image)
-        im = ax.imshow(data, cmap=cmap_image, norm=norm)
+        masked_data = self._solver.M(self._solver.Y)
+        norm = self._prepare_color_norm(masked_data, log_scale, vmin_image, vmax_image)
+        im = ax.imshow(masked_data, cmap=cmap_image, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
         # ====== IMAGE MODEL ====== #

@@ -22,15 +22,22 @@ class ModelOperators(ModelManager):
         """
         Original imaging data.
         """
-        return self._image_data
+        return self.image_data
 
     @property
     def Y_eff(self):
         """
-        "Effective" imaging data.
+        Original imaging data.
+        """
+        return self.effective_image_data
+
+    @property
+    def Y_p(self):
+        """
+        Partial imaging data.
         This can be the entire imaging data, or an updated version of it with a component subtracted
         """
-        return self._image_data_eff
+        return self.partial_image_data
 
     def M(self, image_2d):
         """Apply image plane mask"""

@@ -12,6 +12,7 @@ from slitronomy.Optimization.noise_levels import NoiseLevels
 from slitronomy.Util.solver_plotter import SolverPlotter
 from slitronomy.Util.solver_tracker import SolverTracker
 from slitronomy.Util import util
+from slitronomy.Util import mask_util
 
 
 class SparseSolverBase(ModelOperators):
@@ -30,6 +31,7 @@ class SparseSolverBase(ModelOperators):
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='exponential',
                  fixed_spectral_norm_source=0.98, include_regridding_error=False, include_point_source_error=False,
+                 flatten_point_source_residuals=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  external_likelihood_penalty=False, random_seed=None,
                  verbose=False, show_steps=False, thread_count=1):
@@ -93,8 +95,12 @@ class SparseSolverBase(ModelOperators):
                                  include_regridding_error=include_regridding_error,
                                  include_point_source_error=include_point_source_error)
 
+        
+        # WIP
         #TODO: engine that manages the mask
         # self.mask = DataMask()
+        self._flat_ps_residuals = flatten_point_source_residuals
+
 
         # threshold level k_min (in units of the noise)
         self._k_min = min_threshold
@@ -307,11 +313,9 @@ class SparseSolverBase(ModelOperators):
 
     def normalized_residuals(self, S=None, HG=None, P=None):
         """ returns ( HFS + HG + P - Y ) / sigma """
-        model = self.model_analysis(S=S, HG=HG, P=P)
-        data = self.effective_image_data
-        error = model - data
+        residuals = self.residuals(S=S, HG=HG, P=P)
         sigma = self.noise.effective_noise_map
-        return self.M(error / sigma)
+        return self.M(residuals / sigma)
 
     def reduced_chi2(self, S=None, HG=None, P=None):
         red_res = self.normalized_residuals(S=S, HG=HG, P=P)
@@ -418,12 +422,17 @@ class SparseSolverBase(ModelOperators):
 
 
         # WIP !
-        if not self.no_point_source:
-            ps_mask = self._build_ps_mask(kwargs_ps, kwargs_special, radius=0.2)
-            self.noise.update_point_source_mask(ps_mask)
+        if not self.no_point_source and self._flat_ps_residuals is True:
+            ps_mask = mask_util.build_point_source_mask(self._data_class, 
+                                                        kwargs_ps, kwargs_special, 
+                                                        radius=0.2)
+        else:
+            ps_mask = None
+        self._set_point_source_mask(ps_mask)
 
         # fill masked pixels with background noise
-        self.fill_masked_data(self.noise.background_rms, ps_mask=ps_mask, init_ps_model=init_ps_model)
+        self.fill_masked_data(self.noise.background_rms, ps_mask=ps_mask, 
+                              init_ps_model=init_ps_model)
         
         self._prepare_source(kwargs_source)
         self._prepare_lens_light(kwargs_lens_light, init_lens_light_model)
@@ -485,35 +494,7 @@ class SparseSolverBase(ModelOperators):
             self._init_ps_model = init_ps_model
             self._init_ps_amp = init_ps_amp
 
-    def _build_ps_mask(self, kwargs_ps, kwargs_special, radius=0.15):
-        from TDLMCpipeline.Modelling.mask import ImageMask
-
-        mask_shape = self._data_class.data.shape
-        delta_pix = self._data_class.pixel_width
-                
-        ra_ps, dec_ps = kwargs_ps[0]['ra_image'], kwargs_ps[0]['dec_image']
-        if 'delta_x_image' in kwargs_special:
-            delta_x, delta_y = kwargs_special['delta_x_image'], kwargs_special['delta_y_image']
-            delta_x_new = np.zeros(len(ra_ps))
-            delta_x_new[0:len(delta_x)] = delta_x[:]
-            delta_y_new = np.zeros(len(dec_ps))
-            delta_y_new[0:len(delta_y)] = delta_y[:]
-            ra_ps  = ra_ps  + delta_x_new
-            dec_ps = dec_ps + delta_y_new
-
-        # translate the PS coordinates so origin is lower left
-        ra_ps_pix, dec_ps_pix = self._data_class.map_coord2pix(ra_ps, dec_ps)
-        ra_ps_lowerleft, dec_ps_lowerleft = ra_ps_pix * delta_pix, dec_ps_pix * delta_pix
-
-        mask_kwargs = {
-            'mask_type': 'circle',
-            'center_list': list(zip(dec_ps_lowerleft, ra_ps_lowerleft)),
-            'radius_list': [radius]*len(dec_ps_lowerleft),
-            'inverted_list': [True]*len(dec_ps_lowerleft),
-            'operation_list': ['inter']*(len(dec_ps_lowerleft)-1),
-        }
-        mask_class = ImageMask(mask_shape=mask_shape, delta_pix=delta_pix, **mask_kwargs)
-        return mask_class.get_mask(show_details=False)
+    
 
     def update_source_noise_levels(self):
         self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,

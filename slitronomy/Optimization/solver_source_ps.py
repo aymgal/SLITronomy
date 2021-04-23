@@ -89,8 +89,7 @@ class SparseSolverSourcePS(SparseSolverSource):
                 #self.subtract_point_source_from_data(P)
 
                 # estimate initial threshold after subtraction of point sources
-                thresh_init = self._estimate_threshold_source(self.Y_eff - P, exclude_mask=self.noise._ps_mask)
-                print("INIT THRES", thresh_init)
+                thresh_init = self._estimate_threshold_source(self.Y_p - P, exclude_mask=self._ps_mask)
                 thresh = thresh_init
 
                 # get the gradient of the cost function, which is f = || Y - (HFS+P) ||^2_2
@@ -146,12 +145,12 @@ class SparseSolverSourcePS(SparseSolverSource):
                     self.subtract_source_from_data(S)
 
                     # solve for point source amplitudes
-                    data_response = util.image2array(self.Y_eff)[self._mask_1d]
+                    data_response = util.image2array(self.Y_p)[self._mask_1d]
                     P, ps_error, ps_cov_param, ps_param = self._ps_solver(kwargs_lens=kwargs_lens, kwargs_ps=kwargs_ps, 
                                                                           kwargs_special=kwargs_special, inv_bool=False,
                                                                           data_response_external=data_response)
 
-                    self.reset_data()
+                    self.reset_partial_data()
 
                 if self._show_steps and i % ma.ceil(self._n_iter_global/2) == 0 and i_s == self._n_iter_source-1:
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
@@ -165,7 +164,7 @@ class SparseSolverSourcePS(SparseSolverSource):
         ######### ######## end weights ######## ########
 
         # reset effective data to original data
-        self.reset_data()
+        self.reset_partial_data()
 
         # store results
         self._tracker.finalize()
@@ -200,7 +199,7 @@ class SparseSolverSourcePS(SparseSolverSource):
         else:
             P_ = P
         model = self.model_analysis(S, HG=None, P=P_)
-        error = self.Y_eff - model
+        error = self.Y_p - model
         grad  = - self.F_T(self.R_T(self.H_T(error)))
         return grad
 

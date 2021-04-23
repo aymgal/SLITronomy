@@ -83,7 +83,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         for j in range(self._n_iter_weights):
 
             # estimate initial threshold
-            model = self.Y_eff if j == 0 else self.model_analysis(S=S, HG=HG)
+            model = self.Y_p if j == 0 else self.model_analysis(S=S, HG=HG)
             thresh_init = self._estimate_threshold_MOM(model)  # first estimation from data itself
             thresh = thresh_init
             # some hidden variables carried along the loop for threshold update
@@ -198,8 +198,8 @@ class SparseSolverSourceLens(SparseSolverSource):
 
         ######### ######## end weights ######## ########
 
-        # reset effective data to original data
-        self.reset_data()
+        # reset data to original data
+        self.reset_partial_data()
 
         # store results
         self._tracker.finalize()
@@ -224,7 +224,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         with respect to HG
         """
         model = self.model_analysis(S=None, HG=HG)
-        error = self.Y_eff - model
+        error = self.Y_p - model
         grad  = - error
         return grad
 
@@ -234,7 +234,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         with respect to alpha_HG
         """
         model = self.model_synthesis(alpha_S=None, alpha_HG=alpha_HG)
-        error = self.Y_eff - model
+        error = self.Y_p - model
         grad  = - self.Phi_T_l(error)
         return grad
 

@@ -123,8 +123,8 @@ class SparseSolverSource(SparseSolverBase):
             if self._n_iter_weights > 1:
                 weights, _ = self._update_weights(alpha_S, threshold=self._k_min)
 
-        # reset effective data to original data
-        self.reset_data()
+        # reset data to original data
+        self.reset_partial_data()
 
         # store results
         self._tracker.finalize()
@@ -145,8 +145,8 @@ class SparseSolverSource(SparseSolverBase):
         returns the gradient of f = || Y' - HFS ||^2_2, where Y' = Y - HG
         with respect to S
         """
-        model = self.model_analysis(S, HG=None)
-        error = self.Y_eff - model
+        Y = self.model_analysis(S, HG=None)
+        error = self.Y_p - Y
         grad  = - self.F_T(self.R_T(self.H_T(error)))
         return grad
 
@@ -155,8 +155,8 @@ class SparseSolverSource(SparseSolverBase):
         returns the gradient of f = || Y' - H F Phi alpha_S ||^2_2, where Y' = Y - Phi_l alpha_HG
         with respect to alpha_S
         """
-        model = self.model_synthesis(alpha_S, alpha_HG=None)
-        error = self.Y_eff - model
+        Y = self.model_synthesis(alpha_S, alpha_HG=None)
+        error = self.Y_p - Y
         grad  = - self.Phi_T_s(self.F_T(self.R_T(self.H_T(error))))
         return grad
 

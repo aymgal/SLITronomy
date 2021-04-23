@@ -39,7 +39,15 @@ class NoiseLevels(object):
     @property
     def effective_noise_map(self):
         """Add quadratically the regridding error map and point source error map"""
-        return np.sqrt(self.noise_map**2 + self.regridding_error_map**2 + self.ps_error_map**2)
+        if self.include_regridding_error:
+            regrid_error_map = self.regridding_error_map
+        else:
+            regrid_error_map = np.zeros_like(self.noise_map)
+        if self.include_point_source_error:
+            ps_error_map = self.point_source_error_map
+        else:
+            ps_error_map = np.zeros_like(self.noise_map)
+        return np.sqrt(self.noise_map**2 + regrid_error_map**2 + ps_error_map**2)
 
     @property
     def noise_map(self):
@@ -47,19 +55,20 @@ class NoiseLevels(object):
 
     @property
     def regridding_error_map(self):
-        if not self.include_regridding_error:
-            return np.zeros_like(self.noise_map)
         if not hasattr(self, '_regridding_error_map'):
             raise ValueError("Regridding error map has not be updated with magnification map")
         return self._regridding_error_map
 
     @property
-    def ps_error_map(self):
-        if not self.include_point_source_error:
-            return np.zeros_like(self.noise_map)
+    def point_source_error_map(self):
         if not hasattr(self, '_ps_error_map'):
             raise ValueError("Point source error map has not been passed to solver")
         return self._ps_error_map
+
+    def re_estimate_noise_map(self, data, exposure_map):
+        # TODO
+        # if data changed, re-estimate the gaussian + poisson noise variance
+        pass
 
     @property
     def levels_source(self):
@@ -152,6 +161,3 @@ class NoiseLevels(object):
 
     def update_point_source_error(self, ps_error_map):
         self._ps_error_map = ps_error_map
-
-    def update_point_source_mask(self, ps_mask):
-        self._ps_mask = ps_mask

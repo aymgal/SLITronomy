@@ -235,6 +235,7 @@ def generate_initial_guess_simple(num_pix, transform, background_rms, seed=None)
     alpha_X = transform(X)
     return X, alpha_X
 
+
 def linear_decrease(curr_value, init_value, min_value, num_iter, num_iter_at_min_value):
     """Computes a linearly decreasing value, for a given loop index, starting at a specified value.
     
