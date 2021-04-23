@@ -8,7 +8,6 @@ import numpy as np
 from slitronomy.Optimization.model_operators import ModelOperators
 from slitronomy.Lensing.lensing_operator import LensingOperator
 from slitronomy.Optimization.noise_levels import NoiseLevels
-# from slitronomy.Optimization.data_mask import DataMask
 from slitronomy.Util.solver_plotter import SolverPlotter
 from slitronomy.Util.solver_tracker import SolverTracker
 from slitronomy.Util import util
@@ -31,7 +30,6 @@ class SparseSolverBase(ModelOperators):
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='exponential',
                  fixed_spectral_norm_source=0.98, include_regridding_error=False, include_point_source_error=False,
-                 flatten_point_source_residuals=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  external_likelihood_penalty=False, random_seed=None,
                  verbose=False, show_steps=False, thread_count=1):
@@ -94,13 +92,6 @@ class SparseSolverBase(ModelOperators):
         self.noise = NoiseLevels(data_class, subgrid_res_source=source_grid_class.supersampling_factor,
                                  include_regridding_error=include_regridding_error,
                                  include_point_source_error=include_point_source_error)
-
-        
-        # WIP
-        #TODO: engine that manages the mask
-        # self.mask = DataMask()
-        self._flat_ps_residuals = flatten_point_source_residuals
-
 
         # threshold level k_min (in units of the noise)
         self._k_min = min_threshold
@@ -419,23 +410,20 @@ class SparseSolverBase(ModelOperators):
             self.noise.update_regridding_error(magnification_map)
         if self.noise.include_point_source_error is True:
             self.noise.update_point_source_error(ps_error_map)
-
-
-        # WIP !
-        if not self.no_point_source and self._flat_ps_residuals is True:
-            ps_mask_list = mask_util.build_point_source_mask(self._data_class, 
-                                                            kwargs_ps, kwargs_special, 
-                                                            radius=0.2, split_masks=True)
-        else:
-            ps_mask_list = None
-        self._set_point_source_mask(ps_mask_list)
+        
+        # setup and initialize the point source components
+        self._prepare_point_source(kwargs_ps, kwargs_special, init_ps_model, init_ps_amp)
 
         # fill masked pixels with background noise
         self.fill_masked_data(self.noise.background_rms, init_ps_model=init_ps_model)
-        
+
+        # WIP
+        self.noise.re_estimate_noise_map(self.effective_image_data, init_ps_model=init_ps_model)
+
+        # setup and initialize the rest of the components of the models
+        # (that might depend on the update noise map above)
         self._prepare_source(kwargs_source)
         self._prepare_lens_light(kwargs_lens_light, init_lens_light_model)
-        self._prepare_point_source(init_ps_model, init_ps_amp)
 
     def _prepare_source(self, kwargs_source):
         """
@@ -486,14 +474,19 @@ class SparseSolverBase(ModelOperators):
             print("SparseSolverBase: warning, initial guess for lens light is being updated")
         self._init_lens_light_model = init_lens_light_model
 
-    def _prepare_point_source(self, init_ps_model, init_ps_amp):
-        if self.no_point_source is False and init_ps_model is None:
-            raise ValueError("A rough point source model is required to optimize point source amplitudes")
-        else:
-            self._init_ps_model = init_ps_model
-            self._init_ps_amp = init_ps_amp
-
-    
+    def _prepare_point_source(self, kwargs_ps, kwargs_special, init_ps_model, init_ps_amp):
+        if self.no_point_source is True:
+            return
+        elif init_ps_model is None:
+            raise ValueError("A rough point source model is required")
+        self._init_ps_model = init_ps_model
+        self._init_ps_amp = init_ps_amp
+        # WIP !
+        if self._ps_filter_residuals is True:
+            ps_mask_list = mask_util.build_point_source_mask(self._data_class, 
+                                                            kwargs_ps, kwargs_special, 
+                                                            radius=self._ps_radius_regions)
+            self._set_point_source_mask(ps_mask_list)
 
     def update_source_noise_levels(self):
         self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
@@ -547,10 +540,6 @@ class SparseSolverBase(ModelOperators):
         # get pre-computed noise esimate in source plane
         noise_no_coarse = self.noise.levels_source[:-1, :, :]
 
-        # # ray-trace mask to source plane, and duplicate for each starlet scales
-        # mask_source = self.F_T(self.R_T(exclude_mask))
-        # mask_source = np.stack([mask_source]*len(noise_no_coarse), axis=0)
-
         # compute coefficients of the source component
         data_  = data * exclude_mask
         coeffs = self.Phi_T_s(self.F_T(self.R_T(self.H_T(data_))))
@@ -558,23 +547,11 @@ class SparseSolverBase(ModelOperators):
         coeffs_norm = self.M_s(coeffs_no_coarse / noise_no_coarse)
 
         # indices to consider
-        # indices = np.where((noise_no_coarse != 0) & (mask_source == 0))
         indices = np.where(noise_no_coarse != 0)
         max_value = np.max(coeffs_norm[indices])
 
         # fraction of max value, so only the highest coeffs is able to enter the solution
         threshold = fraction * max_value
-
-        # import matplotlib.pyplot as plt
-        # plt.figure()
-        # plt.imshow(data_, cmap='gist_stern')
-        # plt.colorbar()
-        # plt.show()
-        # plt.figure()
-        # plt.imshow(coeffs_norm[0], cmap='gist_stern')
-        # plt.colorbar()
-        # plt.show()
-
         return threshold
 
     def _estimate_threshold_MOM(self, data_minus_HFS, data_minus_HG=None):

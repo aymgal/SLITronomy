@@ -24,6 +24,8 @@ class NoiseLevels(object):
         """
         # background noise
         self._background_rms = data_class.background_rms
+        # exposure map / time
+        self._exposure_map = data_class.exposure_map
         # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
         self._noise_map_data = np.sqrt(data_class.C_D)
         self.include_regridding_error = include_regridding_error
@@ -65,10 +67,25 @@ class NoiseLevels(object):
             raise ValueError("Point source error map has not been passed to solver")
         return self._ps_error_map
 
-    def re_estimate_noise_map(self, data, exposure_map):
-        # TODO
-        # if data changed, re-estimate the gaussian + poisson noise variance
-        pass
+    def re_estimate_noise_map(self, data, init_ps_model):
+        # import matplotlib.pyplot as plt
+        # fig, axes = plt.subplots(1, 2, figsize=(8, 3.5))
+        # ax = axes[0]
+        # ax.set_title("before filtering")
+        # im = ax.imshow(self.noise_map, cmap='gist_stern')
+        # fig.colorbar(im, ax=ax)
+
+        data_pos = np.zeros_like(data)
+        data_pos[data >= 0] = (data - init_ps_model)[data >= 0]
+        sigma = data_pos / self._exposure_map + self.background_rms ** 2
+        self._noise_map_data = np.sqrt(sigma) 
+        # WARNING: create another field to backup the original noise map (which would be consistent with the original data)
+
+        # ax = axes[1]
+        # ax.set_title("after filtering")
+        # im = ax.imshow(self.noise_map, cmap='gist_stern')
+        # fig.colorbar(im, ax=ax)
+        # plt.show()
 
     @property
     def levels_source(self):
