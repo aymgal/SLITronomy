@@ -18,7 +18,7 @@ class ModelOperators(ModelManager):
         self._fixed_spectral_norm_source = fixed_spectral_norm_source
 
     @property
-    def Y(self):
+    def Y_tilde(self):
         """
         Original imaging data.
         """
@@ -27,7 +27,7 @@ class ModelOperators(ModelManager):
     @property
     def Y_eff(self):
         """
-        Original imaging data.
+        Original imaging data, but possibly pre-processed for masked regions.
         """
         return self.effective_image_data
 
