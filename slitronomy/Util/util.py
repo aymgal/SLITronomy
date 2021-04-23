@@ -385,6 +385,7 @@ def Downsample(image, factor=1):
     else:
         raise ValueError("scaling with factor %s is not possible with grid size %s, %s" %(f, nx, ny))
 
+
 def Upsample(image, factor=1):
     if factor == 1:
         return image
@@ -397,3 +398,9 @@ def Upsample(image, factor=1):
     x_, y_ = (x/f).astype(int), (y/f).astype(int)
     upimage[x, y] = image[x_, y_] / f**2
     return upimage
+
+
+def simple_starlet_transorm(array, num_scales):
+    import pysparse
+    coeffs = pysparse.MRStarlet().transform(array, num_scales)
+    return np.asarray(coeffs)

@@ -46,10 +46,12 @@ class ModelManager(object):
             self._lens_light_profile.thread_count = self._thread_count
         self._no_lens_light = False
 
-    def add_point_source(self, fix_model=False):
+    def add_point_source(self, fix_model, filter_res, radius_regions, min_scale_regions):
         self._no_point_source = False
-        self._ps_solver = None
         self._ps_fixed = fix_model
+        self._ps_filter_residuals = filter_res
+        self._ps_radius_regions = radius_regions
+        self._ps_min_scale_regions = min_scale_regions
 
     def set_source_wavelet_scales(self, n_scales_source):
         self._n_scales_source = n_scales_source
@@ -97,26 +99,26 @@ class ModelManager(object):
         self._image_data_eff[masked_pixels] = noise[masked_pixels]
 
         # import matplotlib.pyplot as plt
-        # plt.figure()
-        # plt.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
-        # plt.colorbar()
-        # plt.show()
+        # fig, axes = plt.subplots(1, 2, figsize=(8, 3.5))
+        # ax = axes[0]
+        # ax.set_title("before filtering")
+        # im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
+        # fig.colorbar(im, ax=ax)
 
-        # WIP
-        ps_mask_list = self.point_source_mask()
-        if ps_mask_list is not None:
-            # compute the median value of the data with point source removed
-            # from pixel valus inside the point source regions
-            for ps_mask in ps_mask_list:
-                ps_pixels = np.where(ps_mask == 0)
-                data_minus_ps = self._image_data_eff - init_ps_model
-                med = np.nanmedian(data_minus_ps[ps_pixels])
-                print(med)
-                self._image_data_eff[ps_pixels] = med + init_ps_model[ps_pixels]
+        # WIP: fill PS pixels with partial starlets reconstruction (remove high freq)
+        ps_mask = self.point_source_mask(split=False)
+        if ps_mask is not None:
+            ps_pixels = np.where(ps_mask == 0)
+            data_minus_ps = self._image_data_eff - init_ps_model
+            n_scales = int(np.log2(len(data_minus_ps)))
+            starlet_coeffs = util.simple_starlet_transorm(data_minus_ps, n_scales)
+            filtered = np.sum(starlet_coeffs[self._ps_min_scale_regions:], axis=0)
+            self._image_data_eff[ps_pixels] = filtered[ps_pixels] + init_ps_model[ps_pixels]
 
-        # plt.figure()
-        # plt.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
-        # plt.colorbar()
+        # ax = axes[1]
+        # ax.set_title("after filtering")
+        # im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
+        # fig.colorbar(im, ax=ax)
         # plt.show()
 
         self.reset_partial_data()
@@ -167,12 +169,10 @@ class ModelManager(object):
     def num_pix_source(self):
         return self._lensing_op.sourcePlane.num_pix
 
-    def point_source_mask(self, split_masks=True):
+    def point_source_mask(self, split=True):
         if not hasattr(self, '_ps_mask_list'):
-            raise ValueError("The point source mask list has not been set")
-        elif self._ps_mask_list is None:
             return None
-        if split_masks is True:
+        if split is True:
             return self._ps_mask_list
         else:
             if len(self._ps_mask_list) == 1:

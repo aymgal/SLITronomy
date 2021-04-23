@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 
 def build_point_source_mask(data_class, kwargs_ps, kwargs_special,
-                            radius=0.15, split_masks=False):
+                            radius=0.02, split_regions=True):
     """
     Based on point source positions, construct a pixel mask with masked pixels
     in circular regions of a given radius centered on point sources.
@@ -26,7 +26,7 @@ def build_point_source_mask(data_class, kwargs_ps, kwargs_special,
     ra_ps_pix, dec_ps_pix = data_class.map_coord2pix(ra_ps, dec_ps)
     ra_ps_lowerleft, dec_ps_lowerleft = ra_ps_pix * delta_pix, dec_ps_pix * delta_pix
 
-    if split_masks is False:
+    if split_regions is False:
         mask_kwargs = {
             'mask_type': 'circle',
             'center_list': list(zip(dec_ps_lowerleft, ra_ps_lowerleft)),

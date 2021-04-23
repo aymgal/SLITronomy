@@ -15,8 +15,12 @@ class SparseSolverSourcePS(SparseSolverSource):
 
     """Implements the original SLIT algorithm with point source support"""
 
-    def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class,
-                 num_iter_source=10, num_iter_global=10, num_iter_weights=3, fix_point_source_model=False, **base_kwargs):
+    def __init__(self, data_class, lens_model_class, image_numerics_class, 
+                 source_numerics_class, source_model_class,
+                 num_iter_source=10, num_iter_global=10, num_iter_weights=3, 
+                 fix_point_source_model=True, filter_point_source_residuals=False,
+                 min_scale_point_source_residuals=2, radius_point_source_regions=0.2,
+                 **base_kwargs):
 
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
@@ -29,6 +33,12 @@ class SparseSolverSourcePS(SparseSolverSource):
         :param num_iter_source: number of iterations for sparse optimization of the source light. 
         :param num_iter_global: number of iterations to alternate between source and point source optimisation. 
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
+        :param fix_point_source_model: if True, does not invert for linear amplitude of point sources during optimization
+        Default: True.
+        :param filter_point_source_residuals: if True, filter pixels in regions around point sources. Default: False.
+        :param min_scale_point_source_residuals: if filter_point_source_residuals is True, minimum starlet scale arcs
+        to be included in point source regions.
+        :param radius_point_source_regions: if filter_point_source_residuals is True, radius (arcsec) of point source regions to consider.
         :param base_kwargs: keyword arguments for SparseSolverBase.
         
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
@@ -43,7 +53,8 @@ class SparseSolverSourcePS(SparseSolverSource):
         super(SparseSolverSourcePS, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class,
                                                    num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, 
                                                    **base_kwargs)
-        self.add_point_source(fix_model=fix_point_source_model)
+        self.add_point_source(fix_point_source_model, filter_point_source_residuals,
+                              radius_point_source_regions, min_scale_point_source_residuals)
         self._n_iter_global = num_iter_global
 
     def _ready(self):
@@ -85,11 +96,8 @@ class SparseSolverSourcePS(SparseSolverSource):
 
                 ######### Loop over source light at fixed weights ########
 
-                # subtract point sources from data
-                #self.subtract_point_source_from_data(P)
-
                 # estimate initial threshold after subtraction of point sources
-                exclude_mask = self.point_source_mask(split_masks=False)
+                exclude_mask = self.point_source_mask(split=False)
                 thresh_init = self._estimate_threshold_source(self.Y_p - P, exclude_mask=exclude_mask)
                 thresh = thresh_init
 
