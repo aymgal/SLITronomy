@@ -81,8 +81,6 @@ class SparseSolverSource(SparseSolverBase):
             thresh_init = self._estimate_threshold_source(self.Y)
             thresh = thresh_init
 
-            print("thresh_init", thresh_init)
-
             # initial hidden variables
             if j == 0 and self.algorithm == 'FISTA':
                 fista_xi = np.copy(alpha_S)

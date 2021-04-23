@@ -89,7 +89,8 @@ class SparseSolverSourcePS(SparseSolverSource):
                 #self.subtract_point_source_from_data(P)
 
                 # estimate initial threshold after subtraction of point sources
-                thresh_init = self._estimate_threshold_source(self.Y_p - P, exclude_mask=self._ps_mask)
+                exclude_mask = self.point_source_mask(split_masks=False)
+                thresh_init = self._estimate_threshold_source(self.Y_p - P, exclude_mask=exclude_mask)
                 thresh = thresh_init
 
                 # get the gradient of the cost function, which is f = || Y - (HFS+P) ||^2_2

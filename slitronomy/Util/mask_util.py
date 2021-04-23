@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def build_point_source_mask(data_class, kwargs_ps, kwargs_special, radius=0.15):
+def build_point_source_mask(data_class, kwargs_ps, kwargs_special,
+                            radius=0.15, split_masks=False):
     """
     Based on point source positions, construct a pixel mask with masked pixels
     in circular regions of a given radius centered on point sources.
@@ -25,15 +26,28 @@ def build_point_source_mask(data_class, kwargs_ps, kwargs_special, radius=0.15):
     ra_ps_pix, dec_ps_pix = data_class.map_coord2pix(ra_ps, dec_ps)
     ra_ps_lowerleft, dec_ps_lowerleft = ra_ps_pix * delta_pix, dec_ps_pix * delta_pix
 
-    mask_kwargs = {
-        'mask_type': 'circle',
-        'center_list': list(zip(dec_ps_lowerleft, ra_ps_lowerleft)),
-        'radius_list': [radius]*len(dec_ps_lowerleft),
-        'inverted_list': [True]*len(dec_ps_lowerleft),
-        'operation_list': ['inter']*(len(dec_ps_lowerleft)-1),
-    }
-    mask_class = ImageMask(mask_shape=mask_shape, delta_pix=delta_pix, **mask_kwargs)
-    return mask_class.get_mask(show_details=False)
+    if split_masks is False:
+        mask_kwargs = {
+            'mask_type': 'circle',
+            'center_list': list(zip(dec_ps_lowerleft, ra_ps_lowerleft)),
+            'radius_list': [radius]*len(dec_ps_lowerleft),
+            'inverted_list': [True]*len(dec_ps_lowerleft),
+            'operation_list': ['inter']*(len(dec_ps_lowerleft)-1),
+        }
+        mask_class = ImageMask(mask_shape=mask_shape, delta_pix=delta_pix, **mask_kwargs)
+        mask_list = [mask_class.get_mask()]
+    else:
+        mask_list = []
+        for ra, dec in zip(dec_ps_lowerleft, ra_ps_lowerleft):
+            mask_kwargs = {
+                'mask_type': 'circle',
+                'center_list': [(ra, dec)],
+                'radius_list': [radius],
+                'inverted_list': [True],
+            }
+            mask_class = ImageMask(mask_shape=mask_shape, delta_pix=delta_pix, **mask_kwargs)
+            mask_list.append(mask_class.get_mask())
+    return mask_list
 
 
 class ImageMask(object):
@@ -238,11 +252,13 @@ class ImageMask(object):
                 ax = axes[i]
                 ax.imshow(mask_list[i], cmap='gray', vmin=0, vmax=1, origin='lower')
                 ax.set_title("Mask {}".format(i+1))
-                ax.axis('off')
+                ax.get_xaxis().set_visible(False)
+                ax.get_yaxis().set_visible(False)
             ax = axes[-1]
         ax.imshow(mask, cmap='gray', vmin=0, vmax=1,origin='lower')
         ax.set_title("Final mask")
-        ax.axis('off')
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
         plt.show()
 
     def combine_masks(self, mask1, mask2, operation='inter'):

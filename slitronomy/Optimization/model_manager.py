@@ -103,20 +103,21 @@ class ModelManager(object):
         # plt.show()
 
         # WIP
-        if ps_mask is not None:
+        ps_mask_list = self.point_source_mask()
+        if ps_mask_list is not None:
             # compute the median value of the data with point source removed
             # from pixel valus inside the point source regions
-            ps_pixels = np.where(ps_mask == 0)
-            data_minus_ps = self._image_data_eff - init_ps_model
-            med = np.nanmedian(data_minus_ps[ps_pixels])
-            self._image_data_eff[ps_pixels] = med + init_ps_model[ps_pixels]
+            for ps_mask in ps_mask_list:
+                ps_pixels = np.where(ps_mask == 0)
+                data_minus_ps = self._image_data_eff - init_ps_model
+                med = np.nanmedian(data_minus_ps[ps_pixels])
+                print(med)
+                self._image_data_eff[ps_pixels] = med + init_ps_model[ps_pixels]
 
         # plt.figure()
         # plt.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
         # plt.colorbar()
         # plt.show()
-
-        # raise
 
         self.reset_partial_data()
 
@@ -166,13 +167,27 @@ class ModelManager(object):
     def num_pix_source(self):
         return self._lensing_op.sourcePlane.num_pix
 
+    def point_source_mask(self, split_masks=True):
+        if not hasattr(self, '_ps_mask_list'):
+            raise ValueError("The point source mask list has not been set")
+        elif self._ps_mask_list is None:
+            return None
+        if split_masks is True:
+            return self._ps_mask_list
+        else:
+            if len(self._ps_mask_list) == 1:
+                return self._ps_mask_list[0]
+            else:
+                ps_mask_union = np.prod(self._ps_mask_list, axis=0)
+                return ps_mask_union
+
+    def _set_point_source_mask(self, mask_list):
+        self._ps_mask_list = mask_list
+
     def _set_likelihood_mask(self, mask):
         self._mask = mask
         self._mask_1d = util.image2array(mask)
         self._lensing_op.set_likelihood_mask(mask)
-
-    def _set_point_source_mask(self, mask):
-        self._ps_mask = mask
 
     def _prepare_data(self, data_class, subgrid_res_source):
         num_pix_x, num_pix_y = data_class.num_pixel_axes

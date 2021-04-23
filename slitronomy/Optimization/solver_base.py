@@ -423,16 +423,15 @@ class SparseSolverBase(ModelOperators):
 
         # WIP !
         if not self.no_point_source and self._flat_ps_residuals is True:
-            ps_mask = mask_util.build_point_source_mask(self._data_class, 
-                                                        kwargs_ps, kwargs_special, 
-                                                        radius=0.2)
+            ps_mask_list = mask_util.build_point_source_mask(self._data_class, 
+                                                            kwargs_ps, kwargs_special, 
+                                                            radius=0.2, split_masks=True)
         else:
-            ps_mask = None
-        self._set_point_source_mask(ps_mask)
+            ps_mask_list = None
+        self._set_point_source_mask(ps_mask_list)
 
         # fill masked pixels with background noise
-        self.fill_masked_data(self.noise.background_rms, ps_mask=ps_mask, 
-                              init_ps_model=init_ps_model)
+        self.fill_masked_data(self.noise.background_rms, init_ps_model=init_ps_model)
         
         self._prepare_source(kwargs_source)
         self._prepare_lens_light(kwargs_lens_light, init_lens_light_model)
@@ -541,6 +540,7 @@ class SparseSolverBase(ModelOperators):
         """
         if self._threshold_decrease_type == 'none':
             return self._k_min
+
         if exclude_mask is None:
             exclude_mask = np.ones_like(data)
 
