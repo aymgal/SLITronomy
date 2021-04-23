@@ -418,7 +418,9 @@ class SparseSolverBase(ModelOperators):
         self.fill_masked_data(self.noise.background_rms, init_ps_model=init_ps_model)
 
         # WIP
-        self.noise.re_estimate_noise_map(self.effective_image_data, init_ps_model=init_ps_model)
+        if not self.no_point_source:
+            # update the noise map used for thresholding
+            self.noise.re_estimate_noise_map(self.effective_image_data, init_ps_model=init_ps_model)
 
         # setup and initialize the rest of the components of the models
         # (that might depend on the update noise map above)
