@@ -92,7 +92,8 @@ class ModelManager(object):
 
         if self.random_seed is not None:
             np.random.seed(self.random_seed)
-        noise = background_rms * np.random.randn(*self._image_data.shape)
+        
+        noise = background_rms * np.random.randn(*self._image_data_eff.shape)
         masked_pixels = np.where(self._mask == 0)
         self._image_data_eff[masked_pixels] = noise[masked_pixels]
 
@@ -191,8 +192,6 @@ class ModelManager(object):
         num_pix_x, num_pix_y = self._data_class.num_pixel_axes
         if num_pix_x != num_pix_y:
             raise ValueError("Only square images are supported")
-        self._num_pix = num_pix_x
-        self._num_pix_source = int(num_pix_x * self._lensing_op.source_subgrid_resolution)
         self._image_data = np.copy(self._data_class.data)
         self._image_data_eff = np.copy(self._image_data)
         self.reset_partial_data()
