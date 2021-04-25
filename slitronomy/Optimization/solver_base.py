@@ -408,11 +408,13 @@ class SparseSolverBase(ModelOperators):
         if self.noise.include_regridding_error is True:
             magnification_map = self.lensingOperator.magnification_map(kwargs_lens)
             self.noise.update_regridding_error(magnification_map)
+
         if self.noise.include_point_source_error is True:
             self.noise.update_point_source_error(ps_error_map)
         
         # setup and initialize the point source components
-        self._prepare_point_source(kwargs_ps, kwargs_special, init_ps_model, init_ps_amp)
+        if self.no_point_source is False:
+            self._prepare_point_source(kwargs_ps, kwargs_special, init_ps_model, init_ps_amp)
 
         # fill masked pixels with background noise
         self.fill_masked_data(self.noise.background_rms, init_ps_model=init_ps_model)
@@ -425,7 +427,8 @@ class SparseSolverBase(ModelOperators):
         # setup and initialize the rest of the components of the models
         # (that might depend on the update noise map above)
         self._prepare_source(kwargs_source)
-        self._prepare_lens_light(kwargs_lens_light, init_lens_light_model)
+        if self.no_lens_light is False:
+            self._prepare_lens_light(kwargs_lens_light, init_lens_light_model)
 
     def _prepare_source(self, kwargs_source):
         """
@@ -454,8 +457,6 @@ class SparseSolverBase(ModelOperators):
         are not updated if the number of decomposition scales has not changed
         """
         # TODO: support upsampling/downsampling operator for image plane noise levels
-        if self.no_lens_light is True:
-            return
         # get n_scales for lens light before update
         n_scales_old = self.n_scales_lens_light
         n_scales_new = kwargs_lens_light[0]['n_scales']
@@ -477,17 +478,31 @@ class SparseSolverBase(ModelOperators):
         self._init_lens_light_model = init_lens_light_model
 
     def _prepare_point_source(self, kwargs_ps, kwargs_special, init_ps_model, init_ps_amp):
-        if self.no_point_source is True:
-            return
-        elif init_ps_model is None:
+        if init_ps_model is None:
             raise ValueError("A rough point source model is required")
         self._init_ps_model = init_ps_model
         self._init_ps_amp = init_ps_amp
         # WIP !
         if self._ps_filter_residuals is True:
-            ps_mask_list = mask_util.build_point_source_mask(self._data_class, 
-                                                            kwargs_ps, kwargs_special, 
-                                                            radius=self._ps_radius_regions)
+            mask_shape = self.image_data.shape
+            delta_pix = self._data_class.pixel_width  # TODO: improve access
+                    
+            ra_ps, dec_ps = kwargs_ps[0]['ra_image'], kwargs_ps[0]['dec_image']
+            if 'delta_x_image' in kwargs_special:
+                delta_x, delta_y = kwargs_special['delta_x_image'], kwargs_special['delta_y_image']
+                delta_x_new = np.zeros(len(ra_ps))
+                delta_x_new[0:len(delta_x)] = delta_x[:]
+                delta_y_new = np.zeros(len(dec_ps))
+                delta_y_new[0:len(delta_y)] = delta_y[:]
+                ra_ps  = ra_ps  + delta_x_new
+                dec_ps = dec_ps + delta_y_new
+
+            # translate the PS coordinates so origin is lower left
+            ra_ps_pix, dec_ps_pix = self._data_class.map_coord2pix(ra_ps, dec_ps)
+            ra_ps_lowerleft, dec_ps_lowerleft = ra_ps_pix * delta_pix, dec_ps_pix * delta_pix
+            ps_mask_list = mask_util.build_point_source_mask(mask_shape, delta_pix,
+                                                             ra_ps_lowerleft, dec_ps_lowerleft,
+                                                             self._ps_radius_regions)
             self._set_point_source_mask(ps_mask_list)
 
     def update_source_noise_levels(self):

@@ -13,24 +13,22 @@ class ModelManager(object):
 
     def __init__(self, data_class, lensing_operator_class, numerics_class, 
                  thread_count=1, random_seed=None):
+        self._data_class = data_class
         self._lensing_op = lensing_operator_class
         self._numerics_class = numerics_class
-        self._ss_factor = numerics_class.grid_supersampling_factor
-        self._conv = numerics_class.convolution_class
+        self._ss_factor = self._numerics_class.grid_supersampling_factor
+        self._conv = self._numerics_class.convolution_class
         if self._conv is not None:
             self._conv_transpose = self._conv.copy_transpose()
         else:
             self._conv_transpose = None
-        self._prepare_data(data_class, self._lensing_op.source_subgrid_resolution)
         self._no_source_light = True
         self._no_lens_light = True
         self._no_point_source = True
         self._ps_fixed = True
         self._thread_count = thread_count
         self.random_seed = random_seed
-
-        # TEMP: for PS mask generations
-        self._data_class = data_class
+        self._prepare_data()
 
     def add_source_light(self, source_model_class):
         # takes the first source light profile in the model list
@@ -189,12 +187,12 @@ class ModelManager(object):
         self._mask_1d = util.image2array(mask)
         self._lensing_op.set_likelihood_mask(mask)
 
-    def _prepare_data(self, data_class, subgrid_res_source):
-        num_pix_x, num_pix_y = data_class.num_pixel_axes
+    def _prepare_data(self):
+        num_pix_x, num_pix_y = self._data_class.num_pixel_axes
         if num_pix_x != num_pix_y:
             raise ValueError("Only square images are supported")
         self._num_pix = num_pix_x
-        self._num_pix_source = int(num_pix_x * subgrid_res_source)
-        self._image_data = np.copy(data_class.data)
-        self._image_data_eff = np.copy(data_class.data)
+        self._num_pix_source = int(num_pix_x * self._lensing_op.source_subgrid_resolution)
+        self._image_data = np.copy(self._data_class.data)
+        self._image_data_eff = np.copy(self._image_data)
         self.reset_partial_data()

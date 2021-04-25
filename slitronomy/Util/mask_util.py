@@ -2,46 +2,29 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def build_point_source_mask(data_class, kwargs_ps, kwargs_special,
-                            radius=0.02, split_regions=True):
+def build_point_source_mask(mask_shape, delta_pix, dec_list, ra_list, radius, 
+                            split_masks=True):
     """
     Based on point source positions, construct a pixel mask with masked pixels
     in circular regions of a given radius centered on point sources.
     Arguments are lenstronomy-defined variables.
     """
-    mask_shape = data_class.data.shape
-    delta_pix = data_class.pixel_width
-            
-    ra_ps, dec_ps = kwargs_ps[0]['ra_image'], kwargs_ps[0]['dec_image']
-    if 'delta_x_image' in kwargs_special:
-        delta_x, delta_y = kwargs_special['delta_x_image'], kwargs_special['delta_y_image']
-        delta_x_new = np.zeros(len(ra_ps))
-        delta_x_new[0:len(delta_x)] = delta_x[:]
-        delta_y_new = np.zeros(len(dec_ps))
-        delta_y_new[0:len(delta_y)] = delta_y[:]
-        ra_ps  = ra_ps  + delta_x_new
-        dec_ps = dec_ps + delta_y_new
-
-    # translate the PS coordinates so origin is lower left
-    ra_ps_pix, dec_ps_pix = data_class.map_coord2pix(ra_ps, dec_ps)
-    ra_ps_lowerleft, dec_ps_lowerleft = ra_ps_pix * delta_pix, dec_ps_pix * delta_pix
-
-    if split_regions is False:
+    if split_masks is False:
         mask_kwargs = {
             'mask_type': 'circle',
-            'center_list': list(zip(dec_ps_lowerleft, ra_ps_lowerleft)),
-            'radius_list': [radius]*len(dec_ps_lowerleft),
-            'inverted_list': [True]*len(dec_ps_lowerleft),
-            'operation_list': ['inter']*(len(dec_ps_lowerleft)-1),
+            'center_list': list(zip(dec_list, ra_list)),
+            'radius_list': [radius]*len(dec_list),
+            'inverted_list': [True]*len(dec_list),
+            'operation_list': ['inter']*(len(dec_list)-1),
         }
         mask_class = ImageMask(mask_shape=mask_shape, delta_pix=delta_pix, **mask_kwargs)
         mask_list = [mask_class.get_mask()]
     else:
         mask_list = []
-        for ra, dec in zip(dec_ps_lowerleft, ra_ps_lowerleft):
+        for ra, dec in zip(dec_list, ra_list):
             mask_kwargs = {
                 'mask_type': 'circle',
-                'center_list': [(ra, dec)],
+                'center_list': [(dec, ra)],
                 'radius_list': [radius],
                 'inverted_list': [True],
             }
