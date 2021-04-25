@@ -92,7 +92,7 @@ class ModelManager(object):
 
         if self.random_seed is not None:
             np.random.seed(self.random_seed)
-        
+
         noise = background_rms * np.random.randn(*self._image_data_eff.shape)
         masked_pixels = np.where(self._mask == 0)
         self._image_data_eff[masked_pixels] = noise[masked_pixels]
@@ -159,6 +159,13 @@ class ModelManager(object):
     @property
     def fixed_point_source_model(self):
         return self._ps_fixed
+
+    @property
+    def data_pixel_width(self):
+        return self._data_class.pixel_width
+
+    def data_coord2pix(self, ra, dec):
+        return self._data_class.map_coord2pix(ra, dec)
 
     @property
     def num_pix_image(self):

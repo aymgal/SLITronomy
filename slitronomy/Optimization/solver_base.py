@@ -22,8 +22,9 @@ class SparseSolverBase(ModelOperators):
     #TODO: raises an error when number of decomposition scales is not consistent with image size
     # (also when reducing source plane size, re-check consistency)
 
-    #TODO: create classes for lens and source models.
+    #TODO: create classes for lens, source and point source models.
     # E.g. the method project_on_original_grid_source should be attached to some new "SourceModel" class, not to the solver.
+    # or _get_ps_coordinates should be in a point source class.
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class,
                  lens_light_mask=None, source_interpolation='bilinear', 
@@ -485,25 +486,29 @@ class SparseSolverBase(ModelOperators):
         # WIP !
         if self._ps_filter_residuals is True:
             mask_shape = self.image_data.shape
-            delta_pix = self._data_class.pixel_width  # TODO: improve access
-                    
-            ra_ps, dec_ps = kwargs_ps[0]['ra_image'], kwargs_ps[0]['dec_image']
-            if 'delta_x_image' in kwargs_special:
-                delta_x, delta_y = kwargs_special['delta_x_image'], kwargs_special['delta_y_image']
-                delta_x_new = np.zeros(len(ra_ps))
-                delta_x_new[0:len(delta_x)] = delta_x[:]
-                delta_y_new = np.zeros(len(dec_ps))
-                delta_y_new[0:len(delta_y)] = delta_y[:]
-                ra_ps  = ra_ps  + delta_x_new
-                dec_ps = dec_ps + delta_y_new
-
+            delta_pix = self.data_pixel_width
+            ra_ps_list, dec_ps_list = self._get_ps_coordinates(kwargs_ps, kwargs_special)
             # translate the PS coordinates so origin is lower left
-            ra_ps_pix, dec_ps_pix = self._data_class.map_coord2pix(ra_ps, dec_ps)
+            ra_ps_pix, dec_ps_pix = self.data_coord2pix(ra_ps_list, dec_ps_list)
             ra_ps_lowerleft, dec_ps_lowerleft = ra_ps_pix * delta_pix, dec_ps_pix * delta_pix
+            # construct the mask with 0s in point source regions, 1s elsewhere
             ps_mask_list = mask_util.build_point_source_mask(mask_shape, delta_pix,
                                                              ra_ps_lowerleft, dec_ps_lowerleft,
                                                              self._ps_radius_regions)
             self._set_point_source_mask(ps_mask_list)
+
+    @staticmethod
+    def _get_ps_coordinates(kwargs_ps, kwargs_special):
+        ra_ps, dec_ps = kwargs_ps[0]['ra_image'], kwargs_ps[0]['dec_image']
+        if 'delta_x_image' in kwargs_special:
+            delta_x, delta_y = kwargs_special['delta_x_image'], kwargs_special['delta_y_image']
+            delta_x_new = np.zeros(len(ra_ps))
+            delta_x_new[0:len(delta_x)] = delta_x[:]
+            delta_y_new = np.zeros(len(dec_ps))
+            delta_y_new[0:len(delta_y)] = delta_y[:]
+            ra_ps  = ra_ps  + delta_x_new
+            dec_ps = dec_ps + delta_y_new
+        return ra_ps, dec_ps
 
     def update_source_noise_levels(self):
         self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
