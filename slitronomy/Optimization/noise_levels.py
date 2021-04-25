@@ -67,25 +67,31 @@ class NoiseLevels(object):
             raise ValueError("Point source error map has not been passed to solver")
         return self._ps_error_map
 
-    def re_estimate_noise_map(self, data, init_ps_model):
+    def re_estimate_noise_map(self, data, mask, init_ps_model):
+        if init_ps_model is None:
+            return  # no need to do anything 
+
         # import matplotlib.pyplot as plt
         # fig, axes = plt.subplots(1, 2, figsize=(8, 3.5))
         # ax = axes[0]
-        # ax.set_title("before filtering")
+        # ax.set_title("original noise map")
         # im = ax.imshow(self.noise_map, cmap='gist_stern')
         # fig.colorbar(im, ax=ax)
 
-        data_pos = np.zeros_like(data)
-        data_pos[data >= 0] = (data - init_ps_model)[data >= 0]
+        data_pos = np.copy(data)
+        data_pos[mask == 1] = (data - init_ps_model)[mask == 1]
+        data_pos[data < 0] = 0.
         sigma = data_pos / self._exposure_map + self.background_rms ** 2
         self._noise_map_data = np.sqrt(sigma) 
         # WARNING: create another field to backup the original noise map (which would be consistent with the original data)
 
         # ax = axes[1]
-        # ax.set_title("after filtering")
+        # ax.set_title("new noise map")
         # im = ax.imshow(self.noise_map, cmap='gist_stern')
         # fig.colorbar(im, ax=ax)
         # plt.show()
+
+        # raise
 
     @property
     def levels_source(self):

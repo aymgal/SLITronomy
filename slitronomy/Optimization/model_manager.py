@@ -97,16 +97,17 @@ class ModelManager(object):
         masked_pixels = np.where(self._mask == 0)
         self._image_data_eff[masked_pixels] = noise[masked_pixels]
 
-        # import matplotlib.pyplot as plt
-        # fig, axes = plt.subplots(1, 2, figsize=(8, 3.5))
-        # ax = axes[0]
-        # ax.set_title("before filtering")
-        # im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
-        # fig.colorbar(im, ax=ax)
-
         # WIP: fill PS pixels with partial starlets reconstruction (remove high freq)
         ps_mask = self.point_source_mask(split=False)
+
         if ps_mask is not None:
+            # import matplotlib.pyplot as plt
+            # fig, axes = plt.subplots(1, 2, figsize=(8, 3.5))
+            # ax = axes[0]
+            # ax.set_title("before filtering")
+            # im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
+            # fig.colorbar(im, ax=ax)
+
             ps_pixels = np.where(ps_mask == 0)
             data_minus_ps = self._image_data_eff - init_ps_model
             n_scales = int(np.log2(len(data_minus_ps)))
@@ -114,11 +115,11 @@ class ModelManager(object):
             filtered = np.sum(starlet_coeffs[self._ps_min_scale_regions:], axis=0)
             self._image_data_eff[ps_pixels] = filtered[ps_pixels] + init_ps_model[ps_pixels]
 
-        # ax = axes[1]
-        # ax.set_title("after filtering")
-        # im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
-        # fig.colorbar(im, ax=ax)
-        # plt.show()
+            # ax = axes[1]
+            # ax.set_title("after filtering")
+            # im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
+            # fig.colorbar(im, ax=ax)
+            # plt.show()
 
         self.reset_partial_data()
 
@@ -174,6 +175,12 @@ class ModelManager(object):
     @property
     def num_pix_source(self):
         return self._lensing_op.sourcePlane.num_pix
+
+    @property
+    def likelihood_mask(self):
+        if not hasattr(self, '_mask'):
+            return None
+        return self._mask
 
     def point_source_mask(self, split=True):
         if not hasattr(self, '_ps_mask_list'):
