@@ -400,7 +400,7 @@ def Upsample(image, factor=1):
     return upimage
 
 
-def simple_starlet_transorm(array, num_scales):
+def starlet_transorm(array, num_scales):
     import pysparse
     coeffs = pysparse.MRStarlet().transform(array, num_scales)
     return np.asarray(coeffs)

@@ -69,29 +69,15 @@ class NoiseLevels(object):
 
     def re_estimate_noise_map(self, data, mask, init_ps_model):
         if init_ps_model is None:
-            return  # no need to do anything 
-
-        # import matplotlib.pyplot as plt
-        # fig, axes = plt.subplots(1, 2, figsize=(8, 3.5))
-        # ax = axes[0]
-        # ax.set_title("original noise map")
-        # im = ax.imshow(self.noise_map, cmap='gist_stern')
-        # fig.colorbar(im, ax=ax)
+            # we do not re-estimate the noise map if no point source model is provided
+            return
 
         data_pos = np.copy(data)
         data_pos[mask == 1] = (data - init_ps_model)[mask == 1]
-        data_pos[data < 0] = 0.
+        data_pos[data_pos < 0] = 0.
         sigma = data_pos / self._exposure_map + self.background_rms ** 2
         self._noise_map_data = np.sqrt(sigma) 
         # WARNING: create another field to backup the original noise map (which would be consistent with the original data)
-
-        # ax = axes[1]
-        # ax.set_title("new noise map")
-        # im = ax.imshow(self.noise_map, cmap='gist_stern')
-        # fig.colorbar(im, ax=ax)
-        # plt.show()
-
-        # raise
 
     @property
     def levels_source(self):
@@ -118,7 +104,8 @@ class NoiseLevels(object):
         # WIP
         # here we don't use the 'effective' noise map (that includes regridding and point source errors)
         # so that the wavelet thresholding is only measured based on the 'original' data noise
-        noise_map = self.noise_map  #self.effective_noise_map
+        noise_map = self.noise_map
+        #noise_map = self.effective_noise_map
 
         noise_diag = noise_map * np.sqrt(np.sum(psf_T**2))
         noise_diag_up = upscale_transform(noise_diag)

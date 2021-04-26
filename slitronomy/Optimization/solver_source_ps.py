@@ -111,8 +111,6 @@ class SparseSolverSourcePS(SparseSolverSource):
 
                 for i_s in range(self._n_iter_source):
 
-                    # print(j, i, i_s, thresh)
-        
                     # get the proximal operator with current weights, convention is that it takes 2 arguments
                     prox_g = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights)
 

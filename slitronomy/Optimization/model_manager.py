@@ -109,11 +109,12 @@ class ModelManager(object):
             # fig.colorbar(im, ax=ax)
 
             ps_pixels = np.where(ps_mask == 0)
-            data_minus_ps = self._image_data_eff - init_ps_model
-            n_scales = int(np.log2(len(data_minus_ps)))
-            starlet_coeffs = util.simple_starlet_transorm(data_minus_ps, n_scales)
-            filtered = np.sum(starlet_coeffs[self._ps_min_scale_regions:], axis=0)
-            self._image_data_eff[ps_pixels] = filtered[ps_pixels] + init_ps_model[ps_pixels]
+            data_m_ps = self._image_data_eff - init_ps_model
+            n_scales = int(np.log2(min(*data_m_ps.shape)))  # maximal number of scales
+            starlet_coeffs = util.starlet_transorm(data_m_ps, n_scales)
+            data_m_ps_filtered = np.sum(starlet_coeffs[self._ps_min_scale_regions:], axis=0)
+            data_m_ps[ps_pixels] = data_m_ps_filtered[ps_pixels]
+            self._image_data_eff[ps_pixels] = (data_m_ps + init_ps_model)[ps_pixels]
 
             # ax = axes[1]
             # ax.set_title("after filtering")
