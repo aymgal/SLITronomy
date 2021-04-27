@@ -1,9 +1,11 @@
 import numpy as np
+from scipy import ndimage
+from skimage import morphology
 import matplotlib.pyplot as plt
 
 
 def get_point_source_mask(mask_shape, delta_pix, dec_list, ra_list, radius, 
-                          fwhm_smoothing=0.2, split_masks=True):
+                          smoothed=False, split_masks=True):
     """
     Based on point source positions, construct a pixel mask with masked pixels
     in circular regions of a given radius centered on point sources.
@@ -29,7 +31,7 @@ def get_point_source_mask(mask_shape, delta_pix, dec_list, ra_list, radius,
                 'inverted_list': [False],
             }
             mask_class = ImageMask(mask_shape, delta_pix, **mask_kwargs)
-            mask_list.append(mask_class.get_mask(fwhm_smoothing=fwhm_smoothing, show_details=False))
+            mask_list.append(mask_class.get_mask(smoothed=smoothed, show_details=False))
 
     return mask_list
 
@@ -92,7 +94,7 @@ class ImageMask(object):
             elif len(inverted_list) > 0 and verbose:
                 print("WARNING : mask-by-mask inversions are not supported on 'margin' masks")
 
-    def get_mask(self, inverted=False, fwhm_smoothing=None, show_details=False, convert_to_bool=False):
+    def get_mask(self, inverted=False, smoothed=False, show_details=False, convert_to_bool=False):
         """
         inverted : if True, invert the whole mask
         show_details : if True, show a plot of the mask, and possibly the steps followed to build it 
@@ -146,25 +148,12 @@ class ImageMask(object):
         if inverted:
             mask = self._invert(mask)
 
-        if fwhm_smoothing is not None and fwhm_smoothing > 0:
-            from scipy import ndimage
-            from skimage import feature, morphology
-            # gaussian filtering
-            sigma = fwhm_smoothing / 2.355 / self._delta_pix
-            mask_edge_s = ndimage.gaussian_filter(mask, sigma, mode='nearest')
+        if smoothed is True:
+            # dilation followed by gaussian filtering with sigma = 1 pixel
+            mask_d = morphology.binary_dilation(mask).astype(float)
+            mask_s = ndimage.gaussian_filter(mask_d, 1, mode='nearest')
             # re-normalize so max is 1
-            mask = mask_edge_s / mask_edge_s.max()
-
-            # import matplotlib.pyplot as plt
-            # fig, axes = plt.subplots(1, 2, figsize=(8, 3.5))
-            # ax = axes[0]
-            # im = ax.imshow(mask_edge_s, cmap='gray')
-            # fig.colorbar(im, ax=ax)
-            # ax = axes[1]
-            # im = ax.imshow(mask, cmap='gray')
-            # fig.colorbar(im, ax=ax)
-            # plt.show()
-            # raise
+            mask = mask_s / mask_s.max()
 
         if show_details:
             self._plot_details(mask, mask_list)

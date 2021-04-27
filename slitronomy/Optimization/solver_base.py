@@ -496,7 +496,7 @@ class SparseSolverBase(ModelOperators):
             ps_mask_list = mask_util.get_point_source_mask(mask_shape, delta_pix,
                                                            ra_ps_lowerleft, dec_ps_lowerleft,
                                                            self._ps_radius_regions,
-                                                           fwhm_smoothing=0.2)
+                                                           smoothed=True)
             self._set_point_source_mask(ps_mask_list)
 
     @staticmethod
