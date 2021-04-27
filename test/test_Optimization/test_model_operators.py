@@ -104,11 +104,11 @@ class TestModelOperators(object):
     def test_subtract_from_data_and_reset(self):
         image_to_subtract = np.eye(self.num_pix, self.num_pix)
         self.model_op.subtract_from_data(image_to_subtract)
-        npt.assert_equal(self.model_op.Y, self.image_data)
-        npt.assert_equal(self.model_op.Y_eff, self.image_data - image_to_subtract)
-        self.model_op.reset_data()
-        npt.assert_equal(self.model_op.Y, self.image_data)
-        npt.assert_equal(self.model_op.Y_eff, self.image_data)
+        npt.assert_equal(self.model_op.Y_tilde, self.image_data)
+        npt.assert_equal(self.model_op.Y_p, self.image_data - image_to_subtract)
+        self.model_op.reset_partial_data()
+        npt.assert_equal(self.model_op.Y_tilde, self.image_data)
+        npt.assert_equal(self.model_op.Y_p, self.image_data)
 
     def test_spectral_norm_source(self):
         self.model_op.set_source_wavelet_scales(self.n_scales_source)
@@ -119,8 +119,8 @@ class TestModelOperators(object):
         npt.assert_almost_equal(self.model_op.spectral_norm_lens, 0.99, decimal=2)
 
     def test_data_terms(self):
-        npt.assert_equal(self.model_op.Y, self.image_data)
-        npt.assert_equal(self.model_op.Y_eff, self.image_data)
+        npt.assert_equal(self.model_op.Y_tilde, self.image_data)
+        npt.assert_equal(self.model_op.Y_p, self.image_data)
 
     def test_convolution(self):
         H_X_s = self.model_op.H(self.X_s)
