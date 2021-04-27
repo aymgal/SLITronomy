@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def build_point_source_mask(mask_shape, delta_pix, dec_list, ra_list, radius, 
-                            split_masks=True):
+def get_point_source_mask(mask_shape, delta_pix, dec_list, ra_list, radius, 
+                          fwhm_smoothing=0.2, split_masks=True):
     """
     Based on point source positions, construct a pixel mask with masked pixels
     in circular regions of a given radius centered on point sources.
@@ -14,7 +14,7 @@ def build_point_source_mask(mask_shape, delta_pix, dec_list, ra_list, radius,
             'mask_type': 'circle',
             'center_list': list(zip(dec_list, ra_list)),
             'radius_list': [radius]*len(dec_list),
-            'inverted_list': [True]*len(dec_list),
+            'inverted_list': [False]*len(dec_list),
             'operation_list': ['inter']*(len(dec_list)-1),
         }
         mask_class = ImageMask(mask_shape=mask_shape, delta_pix=delta_pix, **mask_kwargs)
@@ -26,10 +26,11 @@ def build_point_source_mask(mask_shape, delta_pix, dec_list, ra_list, radius,
                 'mask_type': 'circle',
                 'center_list': [(dec, ra)],
                 'radius_list': [radius],
-                'inverted_list': [True],
+                'inverted_list': [False],
             }
-            mask_class = ImageMask(mask_shape=mask_shape, delta_pix=delta_pix, **mask_kwargs)
-            mask_list.append(mask_class.get_mask())
+            mask_class = ImageMask(mask_shape, delta_pix, **mask_kwargs)
+            mask_list.append(mask_class.get_mask(fwhm_smoothing=fwhm_smoothing, show_details=False))
+
     return mask_list
 
 
@@ -42,7 +43,7 @@ class ImageMask(object):
     Code borrowed from TDLMCpipeline package (credits: A. Galan & M. Millon).
     """
 
-    def __init__(self, mask_shape=(99, 99), delta_pix=1, mask_type='square', 
+    def __init__(self, mask_shape, delta_pix, mask_type='square', 
                  margin=10, radius_list=[], center_list=[], angle_list=[], axis_ratio_list=[], 
                  operation_list=[], inverted_list=[False], verbose=False):
         """
@@ -91,7 +92,7 @@ class ImageMask(object):
             elif len(inverted_list) > 0 and verbose:
                 print("WARNING : mask-by-mask inversions are not supported on 'margin' masks")
 
-    def get_mask(self, inverted=False, show_details=False, convert_to_bool=False):
+    def get_mask(self, inverted=False, fwhm_smoothing=None, show_details=False, convert_to_bool=False):
         """
         inverted : if True, invert the whole mask
         show_details : if True, show a plot of the mask, and possibly the steps followed to build it 
@@ -142,12 +143,35 @@ class ImageMask(object):
         else:
             mask = np.ones(self._mask_shape)
 
+        if inverted:
+            mask = self._invert(mask)
+
+        if fwhm_smoothing is not None and fwhm_smoothing > 0:
+            from scipy import ndimage
+            from skimage import feature, morphology
+            # gaussian filtering
+            sigma = fwhm_smoothing / 2.355 / self._delta_pix
+            mask_edge_s = ndimage.gaussian_filter(mask, sigma, mode='nearest')
+            # re-normalize so max is 1
+            mask = mask_edge_s / mask_edge_s.max()
+
+            # import matplotlib.pyplot as plt
+            # fig, axes = plt.subplots(1, 2, figsize=(8, 3.5))
+            # ax = axes[0]
+            # im = ax.imshow(mask_edge_s, cmap='gray')
+            # fig.colorbar(im, ax=ax)
+            # ax = axes[1]
+            # im = ax.imshow(mask, cmap='gray')
+            # fig.colorbar(im, ax=ax)
+            # plt.show()
+            # raise
+
         if show_details:
             self._plot_details(mask, mask_list)
 
-        mask = self._invert(mask) if inverted else mask
-        if convert_to_bool:
+        if convert_to_bool and not smoothed:
             mask = mask.astype(bool)
+
         return mask
 
     def _fill_list_gaps(self):
@@ -238,7 +262,7 @@ class ImageMask(object):
                 ax.get_xaxis().set_visible(False)
                 ax.get_yaxis().set_visible(False)
             ax = axes[-1]
-        ax.imshow(mask, cmap='gray', vmin=0, vmax=1,origin='lower')
+        ax.imshow(mask, cmap='gray', vmin=0, vmax=1, origin='lower')
         ax.set_title("Final mask")
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)

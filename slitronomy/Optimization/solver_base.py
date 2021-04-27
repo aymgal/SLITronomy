@@ -310,8 +310,8 @@ class SparseSolverBase(ModelOperators):
         return self.M(residuals / sigma)
 
     def reduced_chi2(self, S=None, HG=None, P=None):
-        red_res = self.normalized_residuals(S=S, HG=HG, P=P)
-        chi2 = np.sum(red_res**2)
+        norm_res = self.normalized_residuals(S=S, HG=HG, P=P)
+        chi2 = np.sum(norm_res**2)
         return chi2 / self.num_data_points
 
     def mean_squared_error(self, S=None, HG=None, P=None):
@@ -493,9 +493,10 @@ class SparseSolverBase(ModelOperators):
             ra_ps_pix, dec_ps_pix = self.data_coord2pix(ra_ps_list, dec_ps_list)
             ra_ps_lowerleft, dec_ps_lowerleft = ra_ps_pix * delta_pix, dec_ps_pix * delta_pix
             # construct the mask with 0s in point source regions, 1s elsewhere
-            ps_mask_list = mask_util.build_point_source_mask(mask_shape, delta_pix,
-                                                             ra_ps_lowerleft, dec_ps_lowerleft,
-                                                             self._ps_radius_regions)
+            ps_mask_list = mask_util.get_point_source_mask(mask_shape, delta_pix,
+                                                           ra_ps_lowerleft, dec_ps_lowerleft,
+                                                           self._ps_radius_regions,
+                                                           fwhm_smoothing=0.2)
             self._set_point_source_mask(ps_mask_list)
 
     @staticmethod

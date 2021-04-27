@@ -124,7 +124,7 @@ class SparseSolverSourcePS(SparseSolverSource):
                         alpha_S_next = self.Phi_T_s(S_next)
 
                     # save current step to track
-                    self._tracker.save(S=S, S_next=S_next, 
+                    self._tracker.save(S=S, S_next=S_next, P=P,
                                        print_bool=(i % 10 == 0 and i_s % 10 == 0),
                                        iteration_text="{:03}-{:03}-{:03}".format(j, i, i_s))
 

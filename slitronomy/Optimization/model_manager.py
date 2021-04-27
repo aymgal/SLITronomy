@@ -101,26 +101,31 @@ class ModelManager(object):
         ps_mask = self.point_source_mask(split=False)
 
         if ps_mask is not None:
-            # import matplotlib.pyplot as plt
-            # fig, axes = plt.subplots(1, 2, figsize=(8, 3.5))
-            # ax = axes[0]
-            # ax.set_title("before filtering")
-            # im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
-            # fig.colorbar(im, ax=ax)
+            import matplotlib.pyplot as plt
+            fig, axes = plt.subplots(1, 3, figsize=(12, 3.5))
+            ax = axes[0]
+            ax.set_title("before filtering")
+            im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
+            fig.colorbar(im, ax=ax)
 
-            ps_pixels = np.where(ps_mask == 0)
+            ps_pixels = np.where(ps_mask > 1e-5)
             data_m_ps = self._image_data_eff - init_ps_model
             n_scales = int(np.log2(min(*data_m_ps.shape)))  # maximal number of scales
             starlet_coeffs = util.starlet_transorm(data_m_ps, n_scales)
             data_m_ps_filtered = np.sum(starlet_coeffs[self._ps_min_scale_regions:], axis=0)
-            data_m_ps[ps_pixels] = data_m_ps_filtered[ps_pixels]
-            self._image_data_eff[ps_pixels] = (data_m_ps + init_ps_model)[ps_pixels]
+            data_m_ps_new = data_m_ps_filtered*ps_mask + data_m_ps*(1-ps_mask)
+            self._image_data_eff[ps_pixels] = (data_m_ps_new + init_ps_model)[ps_pixels]
 
-            # ax = axes[1]
-            # ax.set_title("after filtering")
-            # im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
-            # fig.colorbar(im, ax=ax)
-            # plt.show()
+            ax = axes[1]
+            ax.set_title("after filtering")
+            im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
+            fig.colorbar(im, ax=ax)
+
+            ax = axes[2]
+            ax.set_title("regions only")
+            im = ax.imshow(data_m_ps_filtered*ps_mask, cmap='gist_stern')
+            fig.colorbar(im, ax=ax)
+            plt.show()
 
         self.reset_partial_data()
 
@@ -192,7 +197,7 @@ class ModelManager(object):
             if len(self._ps_mask_list) == 1:
                 return self._ps_mask_list[0]
             else:
-                ps_mask_union = np.prod(self._ps_mask_list, axis=0)
+                ps_mask_union = np.sum(self._ps_mask_list, axis=0)
                 return ps_mask_union
 
     def _set_point_source_mask(self, mask_list):
