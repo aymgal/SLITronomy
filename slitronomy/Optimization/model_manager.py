@@ -95,15 +95,17 @@ class ModelManager(object):
         if self.random_seed is not None:
             np.random.seed(self.random_seed)
 
+        # fill masked pixels (excluded from the likelihood) with background noise
         noise = background_rms * np.random.randn(*self._image_data_eff.shape)
         masked_pixels = np.where(self._mask == 0)
         self._image_data_eff[masked_pixels] = noise[masked_pixels]
 
-        # WIP: fill PS pixels with partial starlets reconstruction (remove high freq)
+        # fill point sources with a filtered version of the data
         ps_mask = self.point_source_mask(split=False)
         if ps_mask is not None:
             self._clean_masked_data_ps_residuals(ps_mask, init_ps_model)
 
+        # make sure 'partial' is up-to-date
         self.reset_partial_data()
 
     @property

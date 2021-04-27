@@ -147,7 +147,7 @@ class SparseSolverBase(ModelOperators):
         # concatenate optimized parameters (wavelets coefficients, point source amplitudes)
         all_param = np.concatenate([coeffs_source, coeffs_lens_light, amps_ps])
 
-        #WIP
+        # WIP: allows for an extra term to be returned by the solver
         if self._external_likelihood_penalty:
             if self.no_lens_light:
                 logL_penalty = self.regularization(S=self.source_model)
@@ -420,9 +420,8 @@ class SparseSolverBase(ModelOperators):
         # fill masked pixels with background noise
         self.clean_masked_data(self.noise.background_rms, init_ps_model=init_ps_model)
 
-        # WIP
+        # update the noise map used for thresholding based on 'cleaned' data from point sources
         if self.no_point_source is False and self._ps_filter_residuals is True:
-            # update the noise map used for thresholding
             self.noise.re_estimate_noise_map(self.effective_image_data, self.likelihood_mask,
                                              init_ps_model)
 
@@ -482,9 +481,10 @@ class SparseSolverBase(ModelOperators):
     def _prepare_point_source(self, kwargs_ps, kwargs_special, init_ps_model, init_ps_amp):
         if init_ps_model is None:
             raise ValueError("A rough point source model is required")
+        # initialize point source model (a map of pixels) and individual amplitudes
         self._init_ps_model = init_ps_model
         self._init_ps_amp = init_ps_amp
-        # WIP !
+        # build a mask for point source regions
         if self._ps_filter_residuals is True:
             mask_shape = self.image_data.shape
             delta_pix = self.data_pixel_width

@@ -99,14 +99,11 @@ class NoiseLevels(object):
         else:
             psf_T = psf_kernel.T
 
-        # map noise values to source plane
-
-        # WIP
         # here we don't use the 'effective' noise map (that includes regridding and point source errors)
         # so that the wavelet thresholding is only measured based on the 'original' data noise
         noise_map = self.noise_map
-        #noise_map = self.effective_noise_map
 
+        # map noise values to source plane
         noise_diag = noise_map * np.sqrt(np.sum(psf_T**2))
         noise_diag_up = upscale_transform(noise_diag)
         noise_source = image2source_transform(noise_diag_up)
