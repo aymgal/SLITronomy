@@ -28,13 +28,13 @@ class SolverTracker(object):
             'step_diff': [[], []],
         }
 
-    def save(self, S=None, S_next=None, HG=None, HG_next=None, print_bool=False, iteration_text=None):
+    def save(self, S=None, S_next=None, HG=None, HG_next=None, P=None, print_bool=False, iteration_text=None):
         if not hasattr(self, '_track'):
             raise ValueError("Tracker has not been initialized")
         if S is not None:
-            loss_S = self._solver.loss(S=S_next)
+            loss_S = self._solver.loss(S=S_next, P=P)
             reg_S = self._solver.regularization(S=S_next)
-            red_chi2_S = self._solver.reduced_chi2(S=S_next)
+            red_chi2_S = self._solver.reduced_chi2(S=S_next, P=P)
             step_diff_S = self._solver.norm_diff(S, S_next)
         else:
             loss_S = np.nan
