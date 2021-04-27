@@ -67,17 +67,12 @@ class NoiseLevels(object):
             raise ValueError("Point source error map has not been passed to solver")
         return self._ps_error_map
 
-    def re_estimate_noise_map(self, data, mask, init_ps_model):
-        if init_ps_model is None:
-            # we do not re-estimate the noise map if no point source model is provided
-            return
-
-        data_pos = np.copy(data)
-        data_pos[mask == 1] = (data - init_ps_model)[mask == 1]
+    def re_estimate_noise_map_for_ps(self, data, ps_mask, ps_model):
+        data_pos = (data - ps_model)*ps_mask + data*(1-ps_mask)
         data_pos[data_pos < 0] = 0.
         sigma = data_pos / self._exposure_map + self.background_rms ** 2
         self._noise_map_data = np.sqrt(sigma) 
-        # WARNING: create another field to backup the original noise map (which would be consistent with the original data)
+        # TODO: create another field to backup the original noise map (which would be consistent with the original data)
 
     @property
     def levels_source(self):
@@ -160,10 +155,14 @@ class NoiseLevels(object):
 
     def _initialise_regridding_error(self, data_image, image_pixel_scale, source_pixel_scale):
         _, self._regrid_error_prefac = util.regridding_error_map_squared(mag_map=None, data_image=data_image,
-                                                                         image_pixel_scale=image_pixel_scale, source_pixel_scale=source_pixel_scale)
+                                                                         image_pixel_scale=image_pixel_scale, 
+                                                                         source_pixel_scale=source_pixel_scale)
 
     def update_regridding_error(self, magnification_map):
-        regrid_error_map2, _ = util.regridding_error_map_squared(mag_map=magnification_map, noise_map2_prefactor=self._regrid_error_prefac)
+        if not hasattr(self, '_regrid_error_prefac'):
+            raise ValueError("Regridding error has not been initialised properly")
+        regrid_error_map2, _ = util.regridding_error_map_squared(mag_map=magnification_map, 
+                                                                 noise_map2_prefactor=self._regrid_error_prefac)
         self._regridding_error_map = np.sqrt(regrid_error_map2)
 
     def update_point_source_error(self, ps_error_map):

@@ -184,18 +184,24 @@ class SparseSolverBase(ModelOperators):
 
     @property
     def source_model(self):
+        if not hasattr(self, '_source_model'):
+            raise ValueError("No source model was optimised")
         return self._source_model
 
     @property
     def lens_light_model(self):
         if self.no_lens_light:
             return np.zeros_like(self.image_data)
+        elif not hasattr(self, '_lens_light_model'):
+            raise ValueError("No lens light model was optimised")
         return self._lens_light_model
 
     @property
     def point_source_model(self):
         if self.no_point_source:
             return np.zeros_like(self.image_data)
+        elif not hasattr(self, '_ps_model'):
+            raise ValueError("No point source model was optimised")
         return self._ps_model
         
     def image_model(self, unconvolved=False, source_add=True, lens_light_add=True, point_source_add=True):
@@ -422,8 +428,9 @@ class SparseSolverBase(ModelOperators):
 
         # update the noise map used for thresholding based on 'cleaned' data from point sources
         if self.no_point_source is False and self._ps_filter_residuals is True:
-            self.noise.re_estimate_noise_map(self.effective_image_data, self.likelihood_mask,
-                                             init_ps_model)
+            self.noise.re_estimate_noise_map_for_ps(self.effective_image_data, 
+                                                    self.likelihood_mask,
+                                                    init_ps_model)
 
         # setup and initialize the rest of the components of the models
         # (that might depend on the update noise map above)

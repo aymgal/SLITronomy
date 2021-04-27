@@ -123,9 +123,9 @@ class TestSparseSolverBase(object):
     def test_subtract_lens_from_data(self):
         HG = np.ones((self.num_pix, self.num_pix))
         self.solver.subtract_lens_from_data(HG)
-        npt.assert_equal(self.solver.Y - HG, self.solver.Y_eff)
-        self.solver.reset_data()
-        npt.assert_equal(self.solver.Y, self.solver.Y_eff)
+        npt.assert_equal(self.solver.Y_tilde - HG, self.solver.Y_p)
+        self.solver.reset_partial_data()
+        npt.assert_equal(self.solver.Y_tilde, self.solver.Y_p)
 
 
 class TestRaise(unittest.TestCase):
@@ -185,6 +185,6 @@ class TestRaise(unittest.TestCase):
             image_model = self.solver.image_model()
         with self.assertRaises(ValueError):
             image_model = self.solver.source_model
-
+            
 if __name__ == '__main__':
     pytest.main()

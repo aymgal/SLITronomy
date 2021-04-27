@@ -177,6 +177,8 @@ class ModelManager(object):
                 return self._ps_mask_list[0]
             else:
                 ps_mask_union = np.sum(self._ps_mask_list, axis=0)
+                ps_mask_union[ps_mask_union > 1] = 1
+                ps_mask_union[ps_mask_union < 0] = 0
                 return ps_mask_union
 
     def _set_point_source_mask(self, mask_list):

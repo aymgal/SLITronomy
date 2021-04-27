@@ -104,6 +104,7 @@ class TestModelOperators(object):
     def test_subtract_from_data_and_reset(self):
         image_to_subtract = np.eye(self.num_pix, self.num_pix)
         self.model_op.subtract_from_data(image_to_subtract)
+        npt.assert_equal(self.model_op.Y_tilde, self.model_op.Y_eff)
         npt.assert_equal(self.model_op.Y_tilde, self.image_data)
         npt.assert_equal(self.model_op.Y_p, self.image_data - image_to_subtract)
         self.model_op.reset_partial_data()
