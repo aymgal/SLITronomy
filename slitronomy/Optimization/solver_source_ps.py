@@ -19,8 +19,8 @@ class SparseSolverSourcePS(SparseSolverSource):
                  source_numerics_class, source_model_class,
                  num_iter_source=10, num_iter_global=10, num_iter_weights=3, 
                  fix_point_source_model=True, filter_point_source_residuals=False,
-                 min_scale_point_source_residuals=2, radius_point_source_regions=0.2,
-                 **base_kwargs):
+                 min_scale_point_source_residuals=2, radius_point_source_residuals=0.2,
+                 check_point_source_residuals=False, **base_kwargs):
 
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
@@ -38,7 +38,8 @@ class SparseSolverSourcePS(SparseSolverSource):
         :param filter_point_source_residuals: if True, filter pixels in regions around point sources. Default: False.
         :param min_scale_point_source_residuals: if filter_point_source_residuals is True, minimum starlet scale arcs
         to be included in point source regions.
-        :param radius_point_source_regions: if filter_point_source_residuals is True, radius (arcsec) of point source regions to consider.
+        :param radius_point_source_residuals: if filter_point_source_residuals is True, radius (arcsec) of point source regions to consider.
+        :param check_point_source_residuals: if True, show a plot for checking point source residuals filtering. Default: False.
         :param base_kwargs: keyword arguments for SparseSolverBase.
         
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
@@ -54,7 +55,8 @@ class SparseSolverSourcePS(SparseSolverSource):
                                                    num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, 
                                                    **base_kwargs)
         self.add_point_source(fix_point_source_model, filter_point_source_residuals,
-                              radius_point_source_regions, min_scale_point_source_residuals)
+                              radius_point_source_residuals, min_scale_point_source_residuals,
+                              check_point_source_residuals)
         self._n_iter_global = num_iter_global
 
     def _ready(self):

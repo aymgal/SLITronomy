@@ -44,12 +44,14 @@ class ModelManager(object):
             self._lens_light_profile.thread_count = self._thread_count
         self._no_lens_light = False
 
-    def add_point_source(self, fix_model, filter_res, radius_regions, min_scale_regions):
+    def add_point_source(self, fix_model, filter_res, radius_regions, min_scale_regions,
+                         check_filtering):
         self._no_point_source = False
         self._ps_fixed = fix_model
         self._ps_filter_residuals = filter_res
         self._ps_radius_regions = radius_regions
         self._ps_min_scale_regions = min_scale_regions
+        self._ps_check = check_filtering
 
     def set_source_wavelet_scales(self, n_scales_source):
         self._n_scales_source = n_scales_source
@@ -83,7 +85,7 @@ class ModelManager(object):
         """cancel any previous call to self.subtract_from_data()"""
         self._image_data_part = np.copy(self._image_data_eff)
 
-    def fill_masked_data(self, background_rms, ps_mask=None, init_ps_model=None):
+    def clean_masked_data(self, background_rms, init_ps_model=None):
         """Replace masked pixels with background noise
         This affects the ORIGINAL imaging data as well!
         """
@@ -99,33 +101,8 @@ class ModelManager(object):
 
         # WIP: fill PS pixels with partial starlets reconstruction (remove high freq)
         ps_mask = self.point_source_mask(split=False)
-
         if ps_mask is not None:
-            import matplotlib.pyplot as plt
-            fig, axes = plt.subplots(1, 3, figsize=(12, 3.5))
-            ax = axes[0]
-            ax.set_title("before filtering")
-            im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
-            fig.colorbar(im, ax=ax)
-
-            ps_pixels = np.where(ps_mask > 1e-5)
-            data_m_ps = self._image_data_eff - init_ps_model
-            n_scales = int(np.log2(min(*data_m_ps.shape)))  # maximal number of scales
-            starlet_coeffs = util.starlet_transorm(data_m_ps, n_scales)
-            data_m_ps_filtered = np.sum(starlet_coeffs[self._ps_min_scale_regions:], axis=0)
-            data_m_ps_new = data_m_ps_filtered*ps_mask + data_m_ps*(1-ps_mask)
-            self._image_data_eff[ps_pixels] = (data_m_ps_new + init_ps_model)[ps_pixels]
-
-            ax = axes[1]
-            ax.set_title("after filtering")
-            im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
-            fig.colorbar(im, ax=ax)
-
-            ax = axes[2]
-            ax.set_title("regions only")
-            im = ax.imshow(data_m_ps_filtered*ps_mask, cmap='gist_stern')
-            fig.colorbar(im, ax=ax)
-            plt.show()
+            self._clean_masked_data_ps_residuals(ps_mask, init_ps_model)
 
         self.reset_partial_data()
 
@@ -215,3 +192,33 @@ class ModelManager(object):
         self._image_data = np.copy(self._data_class.data)
         self._image_data_eff = np.copy(self._image_data)
         self.reset_partial_data()
+
+    def _clean_masked_data_ps_residuals(self, ps_mask, init_ps_model):
+        if self._ps_check is True:
+            import matplotlib.pyplot as plt
+            fig, axes = plt.subplots(1, 3, figsize=(12, 3.5))
+            ax = axes[0]
+            ax.set_title("before filtering")
+            im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
+            fig.colorbar(im, ax=ax)
+
+        ps_pixels = np.where(ps_mask > 1e-5)  # no need to consider pixels that are below this value
+        data_m_ps = self._image_data_eff - init_ps_model
+        n_scales = int(np.log2(min(*data_m_ps.shape)))  # maximal number of scales
+        starlet_coeffs = util.starlet_transorm(data_m_ps, n_scales)
+        # remove lower scales
+        data_m_ps_filtered = np.sum(starlet_coeffs[self._ps_min_scale_regions:], axis=0)
+        # replace pixels according to the mask values values
+        data_m_ps_new = data_m_ps_filtered*ps_mask + data_m_ps*(1-ps_mask)
+        self._image_data_eff[ps_pixels] = (data_m_ps_new + init_ps_model)[ps_pixels]
+
+        if self._ps_check is True:
+            ax = axes[1]
+            ax.set_title("after filtering")
+            im = ax.imshow(self._image_data_eff - init_ps_model, cmap='gist_stern')
+            fig.colorbar(im, ax=ax)
+            ax = axes[2]
+            ax.set_title("regions only")
+            im = ax.imshow(data_m_ps_filtered*ps_mask, cmap='gist_stern')
+            fig.colorbar(im, ax=ax)
+            plt.show()

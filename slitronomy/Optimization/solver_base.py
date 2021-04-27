@@ -418,7 +418,7 @@ class SparseSolverBase(ModelOperators):
             self._prepare_point_source(kwargs_ps, kwargs_special, init_ps_model, init_ps_amp)
 
         # fill masked pixels with background noise
-        self.fill_masked_data(self.noise.background_rms, init_ps_model=init_ps_model)
+        self.clean_masked_data(self.noise.background_rms, init_ps_model=init_ps_model)
 
         # WIP
         if self.no_point_source is False and self._ps_filter_residuals is True:

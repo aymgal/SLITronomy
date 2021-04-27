@@ -150,8 +150,8 @@ class ImageMask(object):
 
         if smoothed is True:
             # dilation followed by gaussian filtering with sigma = 1 pixel
-            mask_d = morphology.binary_dilation(mask).astype(float)
-            mask_s = ndimage.gaussian_filter(mask_d, 1, mode='nearest')
+            mask_s = morphology.binary_dilation(mask).astype(float)
+            mask_s = ndimage.gaussian_filter(mask_s, 1, mode='nearest')
             # re-normalize so max is 1
             mask = mask_s / mask_s.max()
 
