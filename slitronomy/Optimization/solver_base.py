@@ -159,10 +159,10 @@ class SparseSolverBase(ModelOperators):
         return image_model, all_param, logL_penalty
 
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
-        raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
+        raise NotImplementedError("This method must be implemented in class that inherits SparseSolverBase")
 
     def _ready(self):
-        raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
+        raise NotImplementedError("This method must be implemented in class that inherits SparseSolverBase")
 
     @property
     def track(self):

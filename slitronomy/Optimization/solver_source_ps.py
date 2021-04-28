@@ -18,7 +18,7 @@ class SparseSolverSourcePS(SparseSolverSource):
     def __init__(self, data_class, lens_model_class, image_numerics_class, 
                  source_numerics_class, source_model_class,
                  num_iter_source=10, num_iter_global=10, num_iter_weights=3, 
-                 fix_point_source_model=True, filter_point_source_residuals=False,
+                 fix_point_source_model=False, filter_point_source_residuals=False,
                  min_scale_point_source_residuals=2, radius_point_source_residuals=0.2,
                  check_point_source_residuals=False, **base_kwargs):
 
@@ -34,7 +34,7 @@ class SparseSolverSourcePS(SparseSolverSource):
         :param num_iter_global: number of iterations to alternate between source and point source optimisation. 
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
         :param fix_point_source_model: if True, does not invert for linear amplitude of point sources during optimization
-        Default: True.
+        Default: False.
         :param filter_point_source_residuals: if True, filter pixels in regions around point sources. Default: False.
         :param min_scale_point_source_residuals: if filter_point_source_residuals is True, minimum starlet scale arcs
         to be included in point source regions.

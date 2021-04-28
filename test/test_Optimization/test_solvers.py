@@ -60,8 +60,8 @@ class TestSparseSolverSource(object):
         kwargs_psf = {'psf_type': 'GAUSSIAN', 'fwhm': fwhm, 'truncation': 5, 'pixel_size': delta_pix}
         psf_class = PSF(**kwargs_psf)
         kernel = psf_class.kernel_point_source
-        kwargs_psf = {'psf_type': 'PIXEL', 'kernel_point_source': kernel, 'psf_error_map': np.ones_like(kernel) * 0.001}
-        psf_class = PSF(**kwargs_psf)
+        self.kwargs_psf = {'psf_type': 'PIXEL', 'kernel_point_source': kernel, 'psf_error_map': np.ones_like(kernel) * 0.001}
+        psf_class = PSF(**self.kwargs_psf)
 
         # 'EXERNAL_SHEAR': external shear
         kwargs_shear = {'gamma1': 0.01, 'gamma2': 0.01}  # gamma_ext: shear strength, psi_ext: shear angel (in radian)
@@ -161,15 +161,17 @@ class TestSparseSolverSource(object):
         self.kwargs_ps = kwargs_ps.copy()
         self.n_point_sources = len(point_amp)
         self.solver_source_ps_ana = SparseSolverSourcePS(data_class, self.lens_model_class, numerics, source_numerics, 
-                                                         self.source_model_class, 
-                                                         source_interpolation='bilinear', minimal_source_plane=False, 
-                                                         use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
-                                                         sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
-                                                         verbose=False, show_steps=False,
-                                                         min_threshold=5, threshold_increment_high_freq=1, threshold_decrease_type='exponential', 
+                                                         self.source_model_class, formulation='analysis',
+                                                         num_iter_source=self.num_iter_source, num_iter_global=self.num_iter_global, 
+                                                         num_iter_weights=self.num_iter_weights)
+        self.solver_source_ps_ana_fixps = SparseSolverSourcePS(data_class, self.lens_model_class, numerics, source_numerics, 
+                                                         self.source_model_class, formulation='analysis',
+                                                         fix_point_source_model=True,
                                                          num_iter_source=self.num_iter_source, num_iter_global=self.num_iter_global, 
                                                          num_iter_weights=self.num_iter_weights)
         self.solver_source_ps_ana.set_likelihood_mask(self.likelihood_mask)
+        self.solver_source_ps_ana_fixps.set_likelihood_mask(self.likelihood_mask)
+        
         # TODO: for now it's a dummy test, with no linear amplitude solver for point sources
         def _dummy_ps_linear_solver(kwargs_lens=None, kwargs_source=None, kwargs_lens_light=None, kwargs_ps=None,
                                     kwargs_extinction=None, kwargs_special=None, inv_bool=False, point_source_only=False,
@@ -178,6 +180,7 @@ class TestSparseSolverSource(object):
             param = np.ones_like(ra_image)
             return model, None, None, param
         self.solver_source_ps_ana.set_point_source_solver_func(_dummy_ps_linear_solver)
+        self.solver_source_ps_ana_fixps.set_point_source_solver_func(_dummy_ps_linear_solver)
 
     def test_solve_source_analysis(self):
         # source solver
@@ -286,7 +289,9 @@ class TestSparseSolverSource(object):
             self.solver_source_ps_ana.solve(self.kwargs_lens, self.kwargs_source, 
                                             kwargs_ps=self.kwargs_ps,
                                             kwargs_special=self.kwargs_special,
-                                            init_ps_model=self.ps_sim)
+                                            init_ps_model=self.ps_sim,
+                                            init_ps_amp=self.kwargs_ps[0]['point_amp'],
+                                            ps_error_map=self.kwargs_psf['psf_error_map'])
         assert image_model.shape == self.image_sim.shape
         len_param_theory = self.num_pix_source**2*self.n_scales_source + self.n_point_sources
         assert len(param) == len_param_theory
@@ -322,6 +327,20 @@ class TestSparseSolverSource(object):
         # test plot results
         fig = self.solver_source_ps_ana.plot_results()
         plt.close()
+
+    def test_solve_source_ps_analysis_fixed_ps(self):
+        # source solver
+        image_model, param, logL_penalty = \
+            self.solver_source_ps_ana_fixps.solve(self.kwargs_lens, self.kwargs_source, 
+                                            kwargs_ps=self.kwargs_ps,
+                                            kwargs_special=self.kwargs_special,
+                                            init_ps_model=self.ps_sim,
+                                            init_ps_amp=self.kwargs_ps[0]['point_amp'],
+                                            ps_error_map=self.kwargs_psf['psf_error_map'])
+        # get the track
+        track = self.solver_source_ps_ana_fixps.track
+        len_track_theory = self.num_iter_source*self.num_iter_weights
+        assert len(track['loss'][0, :]) == len_track_theory
 
 class TestRaise(unittest.TestCase):
 

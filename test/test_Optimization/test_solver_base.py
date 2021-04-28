@@ -175,10 +175,10 @@ class TestRaise(unittest.TestCase):
             kwargs_data['noise_map'] = 0.01 * np.ones((49, 60))
             data_nonsquare = ImageData(**kwargs_data)
             solver = SparseSolverBase(data_nonsquare, self.lens_model, self.numerics, self.source_numerics)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NotImplementedError):
             # solve is not fully implemented (on purpose) in the base class
             result = self.solver._ready()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NotImplementedError):
             # solve is not fully implemented (on purpose) in the base class
             result = self.solver._solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light)
         with self.assertRaises(ValueError):

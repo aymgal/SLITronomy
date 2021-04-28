@@ -178,8 +178,8 @@ class SparseSolverSourceLens(SparseSolverSource):
                     self._plotter.plot_step(HG_next, iter_1=j, iter_2=i, iter_3=i_l)
 
                 # update adaptive threshold
-                DS = self.Y - self.H(self.R(self.F(S)))  # image with lensed convolved source subtracted
-                DG = self.Y - self.R(HG)                 # image with convolved lens subtracted
+                DS = self.Y_eff - self.H(self.R(self.F(S)))  # image with lensed convolved source subtracted
+                DG = self.Y_eff - self.R(HG)                 # image with convolved lens subtracted
                 thresh_MOM = self._estimate_threshold_MOM(DS, DG)
                 thresh_dec = self._update_threshold(thresh, thresh_init_adapt, n_iter_adapt)
                 # choose the minimum between the MOM estimation and the 'classic' decreasing one

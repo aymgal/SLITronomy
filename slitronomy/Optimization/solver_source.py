@@ -78,7 +78,7 @@ class SparseSolverSource(SparseSolverBase):
         for j in range(self._n_iter_weights):
 
             # estimate initial threshold
-            thresh_init = self._estimate_threshold_source(self.Y)
+            thresh_init = self._estimate_threshold_source(self.Y_eff)
             thresh = thresh_init
 
             # initial hidden variables

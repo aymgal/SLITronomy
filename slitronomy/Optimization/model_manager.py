@@ -19,7 +19,10 @@ class ModelManager(object):
         self._ss_factor = self._numerics_class.grid_supersampling_factor
         self._conv = self._numerics_class.convolution_class
         if self._conv is not None:
-            self._conv_transpose = self._conv.copy_transpose()
+            try:
+                self._conv_transpose = self._conv.copy_transpose()
+            except NotImplementedError:
+                raise ValueError("Convolution class does not supported copy_transpose()")
         else:
             self._conv_transpose = None
         self._no_source_light = True
