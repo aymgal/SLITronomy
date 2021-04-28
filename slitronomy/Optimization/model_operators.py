@@ -18,22 +18,32 @@ class ModelOperators(ModelManager):
         self._fixed_spectral_norm_source = fixed_spectral_norm_source
 
     @property
-    def Y(self):
+    def Y_tilde(self):
         """
         Original imaging data.
         """
-        return self._image_data
+        return self.image_data
 
     @property
     def Y_eff(self):
         """
-        "Effective" imaging data.
+        Original imaging data, but possibly pre-processed for masked regions.
+        """
+        return self.effective_image_data
+
+    @property
+    def Y_p(self):
+        """
+        Partial imaging data.
         This can be the entire imaging data, or an updated version of it with a component subtracted
         """
-        return self._image_data_eff
+        return self.partial_image_data
 
     def M(self, image_2d):
         """Apply image plane mask"""
+        mask = self.likelihood_mask
+        if mask is None:
+            return image_2d
         return self._mask * image_2d
 
     def M_s(self, source_2d):
@@ -75,14 +85,14 @@ class ModelOperators(ModelManager):
         """alias method for inverse wavelet transform"""
         if not hasattr(self, '_n_scales_source'):
             raise ValueError("Wavelet scales have not been set")
-        return self._source_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_source,
+        return self._source_light_profile.function_2d(coeffs=array_2d, n_scales=self._n_scales_source,
                                               n_pixels=array_2d.size)
 
     def Phi_T_s(self, array_2d):
         """alias method for wavelet transform"""
         if not hasattr(self, '_n_scales_source'):
             raise ValueError("Wavelet scales have not been set")
-        return self._source_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_source)
+        return self._source_light_profile.decomposition_2d(image=array_2d, n_scales=self._n_scales_source)
 
     def Phi_l(self, array_2d):
         """alias method for inverse wavelet transform"""
@@ -90,7 +100,7 @@ class ModelOperators(ModelManager):
             raise ValueError("Wavelet operator needs lens light class")
         if not hasattr(self, '_n_scales_lens_light'):
             raise ValueError("Wavelet scales have not been set")
-        return self._lens_light.function_2d(coeffs=array_2d, n_scales=self._n_scales_lens_light,
+        return self._lens_light_profile.function_2d(coeffs=array_2d, n_scales=self._n_scales_lens_light,
                                             n_pixels=array_2d.size)
 
     def Phi_T_l(self, array_2d):
@@ -99,7 +109,7 @@ class ModelOperators(ModelManager):
             raise ValueError("Wavelet operator needs lens light class")
         if not hasattr(self, '_n_scales_lens_light'):
             raise ValueError("Wavelet scales have not been set")
-        return self._lens_light.decomposition_2d(image=array_2d, n_scales=self._n_scales_lens_light)
+        return self._lens_light_profile.decomposition_2d(image=array_2d, n_scales=self._n_scales_lens_light)
 
     @property
     def psf_kernel(self):
@@ -145,7 +155,8 @@ class ModelOperators(ModelManager):
             x = self.R(x)
             x = self.H(x)
             return x
-        return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10, seed=self.random_seed)
+        return util.spectral_norm(self.num_pix_image, _operator, _inverse_operator, 
+                                  num_iter=20, tol=1e-10, seed=self.random_seed)
 
     def compute_spectral_norm_lens(self):
         def _operator(x):
@@ -156,4 +167,5 @@ class ModelOperators(ModelManager):
             x = self.Phi_l(x)
             x = self.R(x)
             return x
-        return util.spectral_norm(self._num_pix, _operator, _inverse_operator, num_iter=20, tol=1e-10)
+        return util.spectral_norm(self.num_pix_image, _operator, _inverse_operator, 
+                                  num_iter=20, tol=1e-10)

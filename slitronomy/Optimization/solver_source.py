@@ -78,7 +78,7 @@ class SparseSolverSource(SparseSolverBase):
         for j in range(self._n_iter_weights):
 
             # estimate initial threshold
-            thresh_init = self._estimate_threshold_source(self.Y)
+            thresh_init = self._estimate_threshold_source(self.Y_eff)
             thresh = thresh_init
 
             # initial hidden variables
@@ -92,18 +92,18 @@ class SparseSolverSource(SparseSolverBase):
                 # get the proximal operator with current weights, convention is that it takes 2 arguments
                 prox_g = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights)
 
-                if self.algorithm == 'FISTA':
+                if self.algorithm == 'FB':
+                    S_next = algorithms.step_FB(S, grad_f, prox_g, mu)
+                    alpha_S_next = self.Phi_T_s(S_next)
+
+                elif self.algorithm == 'FISTA':
                     alpha_S_next, fista_xi_next, fista_t_next \
                         = algorithms.step_FISTA(alpha_S, fista_xi, fista_t, grad_f, prox_g, mu)
                     S_next = self.Phi_s(alpha_S_next)
 
-                elif self.algorithm == 'FB':
-                    S_next = algorithms.step_FB(S, grad_f, prox_g, mu)
-                    alpha_S_next = self.Phi_T_s(S_next)
-
                 # save current step to track
-                self._tracker.save(S=S, S_next=S_next, print_bool=(i % 30 == 0),
-                                   iteration_text="=== iteration {}-{} ===".format(j, i))
+                self._tracker.save(S=S, S_next=S_next, print_bool=(i % 10 == 0),
+                                   iteration_text="=== iteration {:03}-{:03} ===".format(j, i))
 
                 if self._show_steps and (i % ma.ceil(self._n_iter_source/2) == 0):
                     self._plotter.plot_step(S_next, iter_1=j, iter_2=i)
@@ -120,6 +120,9 @@ class SparseSolverSource(SparseSolverBase):
             # update weights if necessary
             if self._n_iter_weights > 1:
                 weights, _ = self._update_weights(alpha_S, threshold=self._k_min)
+
+        # reset data to original data
+        self.reset_partial_data()
 
         # store results
         self._tracker.finalize()
@@ -140,8 +143,8 @@ class SparseSolverSource(SparseSolverBase):
         returns the gradient of f = || Y' - HFS ||^2_2, where Y' = Y - HG
         with respect to S
         """
-        model = self.model_analysis(S, HG=None)
-        error = self.Y_eff - model
+        Y = self.model_analysis(S, HG=None)
+        error = self.Y_p - Y
         grad  = - self.F_T(self.R_T(self.H_T(error)))
         return grad
 
@@ -150,8 +153,8 @@ class SparseSolverSource(SparseSolverBase):
         returns the gradient of f = || Y' - H F Phi alpha_S ||^2_2, where Y' = Y - Phi_l alpha_HG
         with respect to alpha_S
         """
-        model = self.model_synthesis(alpha_S, alpha_HG=None)
-        error = self.Y_eff - model
+        Y = self.model_synthesis(alpha_S, alpha_HG=None)
+        error = self.Y_p - Y
         grad  = - self.Phi_T_s(self.F_T(self.R_T(self.H_T(error))))
         return grad
 

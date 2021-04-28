@@ -17,7 +17,8 @@ class SparseSolverSourceLens(SparseSolverSource):
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class, lens_light_model_class, 
-                 num_iter_global=10, num_iter_source=10, num_iter_lens=1, num_iter_weights=3, **base_kwargs):
+                 num_iter_global=10, num_iter_source=10, num_iter_lens=10, num_iter_weights=2, lens_light_model_map=None,
+                 **base_kwargs):
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
         :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
@@ -37,12 +38,13 @@ class SparseSolverSourceLens(SparseSolverSource):
         if base_kwargs.get('threshold_decrease_type', None) is None:
             base_kwargs['threshold_decrease_type'] = 'linear'
             
-        super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class,
-                                                     num_iter_source=num_iter_source, 
-                                                     num_iter_weights=num_iter_weights, **base_kwargs)
+        super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, 
+                                                     source_model_class, num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, 
+                                                     **base_kwargs)
         self.add_lens_light(lens_light_model_class)
         self._n_iter_global = num_iter_global
         self._n_iter_lens = num_iter_lens
+        self._init_lens_light_model = lens_light_model_map
 
     def _ready(self):
         return not self.no_source_light and not self.no_lens_light
@@ -81,7 +83,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         for j in range(self._n_iter_weights):
 
             # estimate initial threshold
-            model = self.Y_eff if j == 0 else self.model_analysis(S=S, HG=HG)
+            model = self.Y_p if j == 0 else self.model_analysis(S=S, HG=HG)
             thresh_init = self._estimate_threshold_MOM(model)  # first estimation from data itself
             thresh = thresh_init
             # some hidden variables carried along the loop for threshold update
@@ -90,9 +92,6 @@ class SparseSolverSourceLens(SparseSolverSource):
             ######### Loop over source and lens light at *fixed weights* ########
 
             for i in range(self._n_iter_global):
-
-                # if self._verbose:
-                #     print("threshold at iteration {}: {}".format(i, thresh))
 
                 # get the proximal operators with current threshold and weights
                 prox_g_s = lambda x, y: self.proximal_sparsity_source(x, threshold=thresh, weights=weights_source)
@@ -123,8 +122,8 @@ class SparseSolverSourceLens(SparseSolverSource):
 
                     # save current step to track
                     self._tracker.save(S=S, S_next=S_next, 
-                                       print_bool=(i % 30 == 0 and i_s % 30 == 0),
-                                       iteration_text="*** iteration {}-{}-{} ***".format(j, i, i_s))
+                                       print_bool=(i % 10 == 0 and i_s % 10 == 0),
+                                       iteration_text="{:03}-{:03}-{:03}".format(j, i, i_s))
                     
                     # update current estimate of source light and local parameters
                     S = S_next
@@ -163,8 +162,8 @@ class SparseSolverSourceLens(SparseSolverSource):
 
                     # save current step to track
                     self._tracker.save(HG=HG, HG_next=HG_next, 
-                                       print_bool=(i % 30 == 0 and i_l % 30 == 0),
-                                       iteration_text="=== iteration {}-{}-{} ===".format(j, i, i_l))
+                                       print_bool=(i % 10 == 0 and i_l % 10 == 0),
+                                       iteration_text = "{:03}-{:03}-{:03}".format(j, i, i_l))
 
                     # update current estimate of source light and local parameters
                     HG = HG_next
@@ -179,8 +178,8 @@ class SparseSolverSourceLens(SparseSolverSource):
                     self._plotter.plot_step(HG_next, iter_1=j, iter_2=i, iter_3=i_l)
 
                 # update adaptive threshold
-                DS = self.Y - self.H(self.R(self.F(S)))  # image with lensed convolved source subtracted
-                DG = self.Y - self.R(HG)                 # image with convolved lens subtracted
+                DS = self.Y_eff - self.H(self.R(self.F(S)))  # image with lensed convolved source subtracted
+                DG = self.Y_eff - self.R(HG)                 # image with convolved lens subtracted
                 thresh_MOM = self._estimate_threshold_MOM(DS, DG)
                 thresh_dec = self._update_threshold(thresh, thresh_init_adapt, n_iter_adapt)
                 # choose the minimum between the MOM estimation and the 'classic' decreasing one
@@ -199,8 +198,8 @@ class SparseSolverSourceLens(SparseSolverSource):
 
         ######### ######## end weights ######## ########
 
-        # reset effective data to original data
-        self.reset_data()
+        # reset data to original data
+        self.reset_partial_data()
 
         # store results
         self._tracker.finalize()
@@ -225,7 +224,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         with respect to HG
         """
         model = self.model_analysis(S=None, HG=HG)
-        error = self.Y_eff - model
+        error = self.Y_p - model
         grad  = - error
         return grad
 
@@ -235,7 +234,7 @@ class SparseSolverSourceLens(SparseSolverSource):
         with respect to alpha_HG
         """
         model = self.model_synthesis(alpha_S=None, alpha_HG=alpha_HG)
-        error = self.Y_eff - model
+        error = self.Y_p - model
         grad  = - self.Phi_T_l(error)
         return grad
 

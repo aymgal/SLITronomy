@@ -123,9 +123,9 @@ class TestSparseSolverBase(object):
     def test_subtract_lens_from_data(self):
         HG = np.ones((self.num_pix, self.num_pix))
         self.solver.subtract_lens_from_data(HG)
-        npt.assert_equal(self.solver.Y - HG, self.solver.Y_eff)
-        self.solver.reset_data()
-        npt.assert_equal(self.solver.Y, self.solver.Y_eff)
+        npt.assert_equal(self.solver.Y_tilde - HG, self.solver.Y_p)
+        self.solver.reset_partial_data()
+        npt.assert_equal(self.solver.Y_tilde, self.solver.Y_p)
 
 
 class TestRaise(unittest.TestCase):
@@ -175,16 +175,16 @@ class TestRaise(unittest.TestCase):
             kwargs_data['noise_map'] = 0.01 * np.ones((49, 60))
             data_nonsquare = ImageData(**kwargs_data)
             solver = SparseSolverBase(data_nonsquare, self.lens_model, self.numerics, self.source_numerics)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NotImplementedError):
             # solve is not fully implemented (on purpose) in the base class
             result = self.solver._ready()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NotImplementedError):
             # solve is not fully implemented (on purpose) in the base class
             result = self.solver._solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light)
         with self.assertRaises(ValueError):
             image_model = self.solver.image_model()
         with self.assertRaises(ValueError):
             image_model = self.solver.source_model
-
+            
 if __name__ == '__main__':
     pytest.main()

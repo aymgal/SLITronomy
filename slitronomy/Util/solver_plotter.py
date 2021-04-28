@@ -1,7 +1,9 @@
 __author__ = 'aymgal'
 
-import numpy as np
 import matplotlib.pyplot as plt
+plt.rc('image', interpolation='none', origin='lower')  # setup some defaults
+
+import numpy as np
 from matplotlib.colors import Normalize, LogNorm
 
 from slitronomy.Util import plot_util
@@ -39,7 +41,8 @@ class SolverPlotter(object):
 
     def plot_results(self, log_scale=False, vmin_image=None, vmax_image=None, normalised_res=True,
                      vmin_source=None, vmax_source=None, vmin_res=-6, vmax_res=6,
-                     cmap_image=None, cmap_source=None, fontsize=12, with_history=True, unconvolved=False):
+                     cmap_image=None, cmap_source=None, fontsize=12, 
+                     with_history=True, unconvolved=False, point_source_add=False):
         if cmap_image is None:
             cmap_image = self._cmap_1
         if cmap_source is None:
@@ -57,9 +60,9 @@ class SolverPlotter(object):
         # ====== IMAGING DATA ====== #
         ax = axes[0, 0]
         ax.set_title("imaging data", fontsize=fontsize)
-        data = self._solver.M(self._solver.Y)
-        norm = self._prepare_color_norm(data, log_scale, vmin_image, vmax_image)
-        im = ax.imshow(data, origin='lower', cmap=cmap_image, norm=norm)
+        masked_data = self._solver.M(self._solver.Y_tilde)
+        norm = self._prepare_color_norm(masked_data, log_scale, vmin_image, vmax_image)
+        im = ax.imshow(masked_data, cmap=cmap_image, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
         # ====== IMAGE MODEL ====== #
@@ -67,15 +70,13 @@ class SolverPlotter(object):
         if not self._solver.no_lens_light:
             ax.set_title("lens light model", fontsize=fontsize)
             img_model = self._solver.lens_light_model
-        # elif not self._solver.no_point_source:
-        #     ax.set_title("point source model")
-        #     img_model = self._solver.point_source_model
+            #img_model = self._solver.image_model(source_add=False, point_source_add=False)
         else:
             ax.set_title("image model", fontsize=fontsize)
-            img_model = self._solver.image_model(unconvolved=unconvolved)
+            img_model = self._solver.image_model(unconvolved=unconvolved, point_source_add=point_source_add)
             print("Negative image pixels ? {} (min = {:.2e})".format(np.any(img_model < 0), img_model.min()))
         norm = self._prepare_color_norm(img_model, log_scale, vmin_image, vmax_image)
-        im = ax.imshow(img_model, origin='lower', cmap=cmap_image, norm=norm)
+        im = ax.imshow(img_model, cmap=cmap_image, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
         # ====== SOURCE MODEL ====== #
@@ -84,7 +85,7 @@ class SolverPlotter(object):
         src_model = self._solver.source_model
         print("Negative source pixels ? {} (min = {:.2e})".format(np.any(src_model < 0), src_model.min()))
         norm = self._prepare_color_norm(src_model, log_scale, vmin_source, vmax_source)
-        im = ax.imshow(src_model, origin='lower', cmap=cmap_source, norm=norm)
+        im = ax.imshow(src_model, cmap=cmap_source, norm=norm)
         plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
 
         # ====== NORMALIZED RESIDUALS ====== #
@@ -129,10 +130,8 @@ class SolverPlotter(object):
             ax.plot(data, linestyle='none', marker='.', color=self._color_cycle[i], 
                     label='loss({})'.format(names[i]))
         ax.set_xlabel("iterations", fontsize=fontsize)
-        ax.set_ylabel(r"$||{\rm Y} - {\rm HFS}||_2^2\ /\ 2$", fontsize=fontsize)
-        if n_comp > 1:
-            ax.set_ylabel(r"$||{\rm Y} - {\rm G_H} - {\rm HFS}||_2^2\ /\ 2$", fontsize=fontsize)
-            ax.legend(loc='upper right')
+        ax.set_ylabel(r"$||{\rm \tilde{Y}} - {\rm Y}||_2^2\ /\ 2$", fontsize=fontsize)
+        ax.legend(loc='upper right')
 
         ax = axes[1, 1]
         ax.set_title("regularization", fontsize=fontsize)
@@ -177,7 +176,7 @@ class SolverPlotter(object):
         #ax.get_xaxis().set_visible(False)
         #ax.get_yaxis().set_visible(False)
         ax.set_title("true source", fontsize=fontsize)
-        im = ax.imshow(source_truth, origin='lower', cmap=cmap, vmin=0)
+        im = ax.imshow(source_truth, cmap=cmap, vmin=0)
         lims = (len(source_truth)/4, 3*len(source_truth)/4)  # zoom a bit on the image
         #ax.set_xlim(*lims)
         #ax.set_ylim(*lims)
@@ -193,7 +192,7 @@ class SolverPlotter(object):
             ax.set_title("model '{}'".format(name), fontsize=fontsize)
             #ax.get_xaxis().set_visible(False)
             #ax.get_yaxis().set_visible(False)
-            im = ax.imshow(source_model, origin='lower', cmap=cmap)
+            im = ax.imshow(source_model, cmap=cmap)
             #ax.set_xlim(*lims)
             #ax.set_ylim(*lims)
             plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
@@ -204,7 +203,7 @@ class SolverPlotter(object):
             ax.set_title("difference", fontsize=fontsize)
             #ax.set_xlim(*lims)
             #ax.set_ylim(*lims)
-            im = ax.imshow(residuals_source, origin='lower', cmap='RdBu_r', vmin=vmin_res, vmax=vmax_res)
+            im = ax.imshow(residuals_source, cmap='RdBu_r', vmin=vmin_res, vmax=vmax_res)
             plot_util.nice_colorbar_residuals(im, residuals_source, vmin_res, vmax_res,
                                                 label=r"f${}_{\rm model}$ - f${}_{\rm truth}$", fontsize=fontsize)
             
@@ -219,7 +218,7 @@ class SolverPlotter(object):
         ax = axes
         if title is not None:
             ax.set_title(title)
-        im = ax.imshow(image, origin='lower', **kwargs)
+        im = ax.imshow(image, **kwargs)
         plot_util.nice_colorbar(im)
         if show_now:
             plt.show()

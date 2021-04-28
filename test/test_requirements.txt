@@ -15,10 +15,9 @@ cosmohammer>=0.6.1
 emcee>=3.0.0
 dynesty
 pymultinest
-#pypolychord
 nestcheck
 multiprocess>=0.70.8
-lenstronomy>=1.6.0
+#lenstronomy>=1.6.0
 
 # for PySAP
 pybind11

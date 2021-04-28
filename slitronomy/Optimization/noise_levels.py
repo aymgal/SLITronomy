@@ -13,7 +13,8 @@ class NoiseLevels(object):
     taking into account lensing and optionally blurring and regridding error for pixelated reconstructions.
     """
 
-    def __init__(self, data_class, subgrid_res_source=1, include_regridding_error=False):
+    def __init__(self, data_class, subgrid_res_source=1, 
+                 include_regridding_error=False, include_point_source_error=False):
         """
         :param subgrid_res_source: resolution factor between image plane and source plane
         :param boost_where_zero: sets the multiplcative factor in fron tof the average noise levels
@@ -23,16 +24,32 @@ class NoiseLevels(object):
         """
         # background noise
         self._background_rms = data_class.background_rms
+        # exposure map / time
+        self._exposure_map = data_class.exposure_map
         # noise full covariance \simeq sqrt(poisson_rms^2 + gaussian_rms^2)
         self._noise_map_data = np.sqrt(data_class.C_D)
         self.include_regridding_error = include_regridding_error
         if self.include_regridding_error:
             self._initialise_regridding_error(data_class.data, data_class.pixel_width, 
                                               data_class.pixel_width/subgrid_res_source)
+        self.include_point_source_error = include_point_source_error
 
     @property
     def background_rms(self):
         return self._background_rms
+
+    @property
+    def effective_noise_map(self):
+        """Add quadratically the regridding error map and point source error map"""
+        if self.include_regridding_error:
+            regrid_error_map = self.regridding_error_map
+        else:
+            regrid_error_map = np.zeros_like(self.noise_map)
+        if self.include_point_source_error:
+            ps_error_map = self.point_source_error_map
+        else:
+            ps_error_map = np.zeros_like(self.noise_map)
+        return np.sqrt(self.noise_map**2 + regrid_error_map**2 + ps_error_map**2)
 
     @property
     def noise_map(self):
@@ -40,16 +57,22 @@ class NoiseLevels(object):
 
     @property
     def regridding_error_map(self):
-        if not self.include_regridding_error:
-            return np.zeros_like(self.noise_map)
         if not hasattr(self, '_regridding_error_map'):
             raise ValueError("Regridding error map has not be updated with magnification map")
         return self._regridding_error_map
 
     @property
-    def effective_noise_map(self):
-        """Add quadratically the regridding error map, if any"""
-        return np.sqrt(self.noise_map**2 + self.regridding_error_map**2)
+    def point_source_error_map(self):
+        if not hasattr(self, '_ps_error_map'):
+            raise ValueError("Point source error map has not been passed to solver")
+        return self._ps_error_map
+
+    def re_estimate_noise_map_for_ps(self, data, ps_mask, ps_model):
+        data_pos = (data - ps_model)*ps_mask + data*(1-ps_mask)
+        data_pos[data_pos < 0] = 0.
+        sigma = data_pos / self._exposure_map + self.background_rms ** 2
+        self._noise_map_data = np.sqrt(sigma) 
+        # TODO: create another field to backup the original noise map (which would be consistent with the original data)
 
     @property
     def levels_source(self):
@@ -71,8 +94,12 @@ class NoiseLevels(object):
         else:
             psf_T = psf_kernel.T
 
-        # map noise map to source plane
-        noise_diag = self.noise_map * np.sqrt(np.sum(psf_T**2))
+        # here we don't use the 'effective' noise map (that includes regridding and point source errors)
+        # so that the wavelet thresholding is only measured based on the 'original' data noise
+        noise_map = self.noise_map
+
+        # map noise values to source plane
+        noise_diag = noise_map * np.sqrt(np.sum(psf_T**2))
         noise_diag_up = upscale_transform(noise_diag)
         noise_source = image2source_transform(noise_diag_up)
 
@@ -116,20 +143,27 @@ class NoiseLevels(object):
         # starlet transform of a dirac impulse in image plane
         dirac = util.dirac_impulse(num_pix_image)
         dirac_coeffs2 = wavelet_transform_image(dirac)**2
-        
+
+        noise_map = self.effective_noise_map  #self.noise_map
+
         n_scale, n_pix1, npix2 = dirac_coeffs2.shape
         noise_levels = np.zeros((n_scale, n_pix1, npix2))
         for scale_idx in range(n_scale):
             scale_power2 = np.sum(dirac_coeffs2[scale_idx, :, :])
-            noise_levels[scale_idx, :, :] = self.noise_map * np.sqrt(scale_power2)
+            noise_levels[scale_idx, :, :] = noise_map * np.sqrt(scale_power2)
         self._noise_levels_img = noise_levels
 
     def _initialise_regridding_error(self, data_image, image_pixel_scale, source_pixel_scale):
         _, self._regrid_error_prefac = util.regridding_error_map_squared(mag_map=None, data_image=data_image,
-                                                                         image_pixel_scale=image_pixel_scale, source_pixel_scale=source_pixel_scale)
+                                                                         image_pixel_scale=image_pixel_scale, 
+                                                                         source_pixel_scale=source_pixel_scale)
 
     def update_regridding_error(self, magnification_map):
-        if not self.include_regridding_error:
-            return  # do nothing
-        regrid_error_map2, _ = util.regridding_error_map_squared(mag_map=magnification_map, noise_map2_prefactor=self._regrid_error_prefac)
+        if not hasattr(self, '_regrid_error_prefac'):
+            raise ValueError("Regridding error has not been initialised properly")
+        regrid_error_map2, _ = util.regridding_error_map_squared(mag_map=magnification_map, 
+                                                                 noise_map2_prefactor=self._regrid_error_prefac)
         self._regridding_error_map = np.sqrt(regrid_error_map2)
+
+    def update_point_source_error(self, ps_error_map):
+        self._ps_error_map = ps_error_map

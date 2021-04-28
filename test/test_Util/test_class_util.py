@@ -80,7 +80,7 @@ class TestClassUtil(object):
         data_class.update_data(image_sim)
     
         self.imageModel = imageModel
-        self.kwargs_sparse_solver = {}
+        self.kwargs_pixelbased = {}
 
     def test_create_solver_class(self):
         from slitronomy.Optimization.solver_source import SparseSolverSource
@@ -92,7 +92,7 @@ class TestClassUtil(object):
                                                       self.imageModel.ImageNumerics, source_numerics_class, 
                                                       self.imageModel.LensModel, 
                                                       source_model_class, lens_light_model_class, point_source_class,
-                                                      self.imageModel._extinction, self.kwargs_sparse_solver)
+                                                      self.imageModel._extinction, self.kwargs_pixelbased)
         assert isinstance(solver_class, SparseSolverSource)
 
         from slitronomy.Optimization.solver_source_lens import SparseSolverSourceLens
@@ -104,20 +104,20 @@ class TestClassUtil(object):
                                                       self.imageModel.ImageNumerics, source_numerics_class, 
                                                       self.imageModel.LensModel, 
                                                       source_model_class, lens_light_model_class, point_source_class,
-                                                      self.imageModel._extinction, self.kwargs_sparse_solver)
+                                                      self.imageModel._extinction, self.kwargs_pixelbased)
         assert isinstance(solver_class, SparseSolverSourceLens)
 
-        # from slitronomy.Optimization.solver_source_ps import SparseSolverSourcePS
-        # source_model_class = LightModel(['SLIT_STARLETS'])
-        # lens_light_model_class = LightModel([])
-        # point_source_class = PointSource(point_source_type_list=['SOURCE_POSITION'])
-        # source_numerics_class = NumericsSubFrame(self.imageModel.Data, self.imageModel.PSF, supersampling_factor=2)
-        # solver_class = class_util.create_solver_class(self.imageModel.Data, self.imageModel.PSF, 
-        #                                               self.imageModel.ImageNumerics, source_numerics_class, 
-        #                                               self.imageModel.LensModel, 
-        #                                               source_model_class, lens_light_model_class, point_source_class,
-        #                                               self.imageModel._extinction, self.kwargs_sparse_solver)
-        # assert isinstance(solver_class, SparseSolverSourcePS)
+        from slitronomy.Optimization.solver_source_ps import SparseSolverSourcePS
+        source_model_class = LightModel(['SLIT_STARLETS'])
+        lens_light_model_class = LightModel([])
+        point_source_class = PointSource(point_source_type_list=['SOURCE_POSITION'])
+        source_numerics_class = NumericsSubFrame(self.imageModel.Data, self.imageModel.PSF, supersampling_factor=2)
+        solver_class = class_util.create_solver_class(self.imageModel.Data, self.imageModel.PSF, 
+                                                      self.imageModel.ImageNumerics, source_numerics_class, 
+                                                      self.imageModel.LensModel, 
+                                                      source_model_class, lens_light_model_class, point_source_class,
+                                                      self.imageModel._extinction, self.kwargs_pixelbased)
+        assert isinstance(solver_class, SparseSolverSourcePS)
 
 
 class TestRaise(unittest.TestCase):
@@ -177,7 +177,7 @@ class TestRaise(unittest.TestCase):
         data_class.update_data(image_sim)
     
         self.imageModel = imageModel
-        self.kwargs_sparse_solver = {}
+        self.kwargs_pixelbased = {}
 
     def test_raise(self):
         with self.assertRaises(ValueError):
@@ -189,7 +189,7 @@ class TestRaise(unittest.TestCase):
                                                           self.imageModel.ImageNumerics, source_numerics_class, 
                                                           self.imageModel.LensModel, 
                                                           source_model_class, lens_light_model_class, point_source_class,
-                                                          self.imageModel._extinction, self.kwargs_sparse_solver)
+                                                          self.imageModel._extinction, self.kwargs_pixelbased)
         with self.assertRaises(ValueError):
             source_model_class = LightModel(['SLIT_STARLETS'])
             lens_light_model_class = LightModel(['SERSIC'])  # not supported
@@ -199,7 +199,7 @@ class TestRaise(unittest.TestCase):
                                                           self.imageModel.ImageNumerics, source_numerics_class, 
                                                           self.imageModel.LensModel, 
                                                           source_model_class, lens_light_model_class, point_source_class,
-                                                          self.imageModel._extinction, self.kwargs_sparse_solver)
+                                                          self.imageModel._extinction, self.kwargs_pixelbased)
         with self.assertRaises(ValueError):
             source_model_class = LightModel(['SLIT_STARLETS', 'SLIT_STARLETS'])  # not supported
             lens_light_model_class = LightModel(['SLIT_STARLETS'])  # not supported
@@ -209,7 +209,7 @@ class TestRaise(unittest.TestCase):
                                                           self.imageModel.ImageNumerics, source_numerics_class, 
                                                           self.imageModel.LensModel, 
                                                           source_model_class, lens_light_model_class, point_source_class,
-                                                          self.imageModel._extinction, self.kwargs_sparse_solver)
+                                                          self.imageModel._extinction, self.kwargs_pixelbased)
         with self.assertRaises(ValueError):
             source_model_class = LightModel(['SLIT_STARLETS'])
             lens_light_model_class = LightModel(['SLIT_STARLETS', 'SLIT_STARLETS'])  # not supported
@@ -219,7 +219,7 @@ class TestRaise(unittest.TestCase):
                                                           self.imageModel.ImageNumerics, source_numerics_class, 
                                                           self.imageModel.LensModel, 
                                                           source_model_class, lens_light_model_class, point_source_class,
-                                                          self.imageModel._extinction, self.kwargs_sparse_solver)
+                                                          self.imageModel._extinction, self.kwargs_pixelbased)
         with self.assertRaises(ValueError):
             source_model_class = LightModel([])  # not supported
             lens_light_model_class = LightModel(['SLIT_STARLETS'])
@@ -229,18 +229,7 @@ class TestRaise(unittest.TestCase):
                                                           self.imageModel.ImageNumerics, source_numerics_class, 
                                                           self.imageModel.LensModel, 
                                                           source_model_class, lens_light_model_class, point_source_class,
-                                                          self.imageModel._extinction, self.kwargs_sparse_solver)
-        with self.assertRaises(NotImplementedError):
-            # ask for source + point sources: no more supported temporarily
-            source_model_class = LightModel(['SLIT_STARLETS'])
-            lens_light_model_class = LightModel([])
-            point_source_class = PointSource(point_source_type_list=['SOURCE_POSITION'])
-            source_numerics_class = NumericsSubFrame(self.imageModel.Data, self.imageModel.PSF, supersampling_factor=2)
-            solver_class = class_util.create_solver_class(self.imageModel.Data, self.imageModel.PSF, 
-                                                          self.imageModel.ImageNumerics, source_numerics_class, 
-                                                          self.imageModel.LensModel, 
-                                                          source_model_class, lens_light_model_class, point_source_class,
-                                                          self.imageModel._extinction, self.kwargs_sparse_solver)
+                                                          self.imageModel._extinction, self.kwargs_pixelbased)
         with self.assertRaises(NotImplementedError):
             # ask for source + lens light + point sources: not supported
             source_model_class = LightModel(['SLIT_STARLETS'])
@@ -251,7 +240,7 @@ class TestRaise(unittest.TestCase):
                                                           self.imageModel.ImageNumerics, source_numerics_class, 
                                                           self.imageModel.LensModel, 
                                                           source_model_class, lens_light_model_class, point_source_class,
-                                                          self.imageModel._extinction, self.kwargs_sparse_solver)
+                                                          self.imageModel._extinction, self.kwargs_pixelbased)
 
 if __name__ == '__main__':
     pytest.main()

@@ -11,6 +11,7 @@ from slitronomy.Optimization.noise_levels import NoiseLevels
 from slitronomy.Util.solver_plotter import SolverPlotter
 from slitronomy.Util.solver_tracker import SolverTracker
 from slitronomy.Util import util
+from slitronomy.Util import mask_util
 
 
 class SparseSolverBase(ModelOperators):
@@ -21,14 +22,15 @@ class SparseSolverBase(ModelOperators):
     #TODO: raises an error when number of decomposition scales is not consistent with image size
     # (also when reducing source plane size, re-check consistency)
 
-    #TODO: create classes for lens and source models.
+    #TODO: create classes for lens, source and point source models.
     # E.g. the method project_on_original_grid_source should be attached to some new "SourceModel" class, not to the solver.
+    # or _get_ps_coordinates should be in a point source class.
 
     def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class,
-                 lens_light_mask=None, source_interpolation='bilinear',
+                 lens_light_mask=None, source_interpolation='bilinear', 
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='exponential',
-                 fixed_spectral_norm_source=0.98, include_regridding_error=False,
+                 fixed_spectral_norm_source=0.98, include_regridding_error=False, include_point_source_error=False,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
                  external_likelihood_penalty=False, random_seed=None,
                  verbose=False, show_steps=False, thread_count=1):
@@ -89,7 +91,8 @@ class SparseSolverBase(ModelOperators):
         
         # engine that computes noise levels in image / source plane, in wavelets space
         self.noise = NoiseLevels(data_class, subgrid_res_source=source_grid_class.supersampling_factor,
-                                 include_regridding_error=include_regridding_error)
+                                 include_regridding_error=include_regridding_error,
+                                 include_point_source_error=include_point_source_error)
 
         # threshold level k_min (in units of the noise)
         self._k_min = min_threshold
@@ -119,11 +122,9 @@ class SparseSolverBase(ModelOperators):
 
     def set_likelihood_mask(self, mask=None):
         self._set_likelihood_mask(mask)
-        # fill masked pixels with background noise
-        self.fill_masked_data(self.noise.background_rms)
 
     def solve(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None,
-              init_lens_light_model=None, init_ps_model=None):
+              init_lens_light_model=None, init_ps_model=None, init_ps_amp=None, ps_error_map=None):
         """
         main method to call from outside the class, calling self._solve()
 
@@ -133,8 +134,11 @@ class SparseSolverBase(ModelOperators):
         if not self._ready(): return
 
         # update lensing operator and noise levels
-        self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light,
-                            kwargs_special=kwargs_special, init_lens_light_model=init_lens_light_model, init_ps_model=init_ps_model)
+        self.prepare_solver(kwargs_lens, kwargs_source, kwargs_lens_light=kwargs_lens_light, 
+                            kwargs_ps=kwargs_ps, kwargs_special=kwargs_special, 
+                            init_lens_light_model=init_lens_light_model, 
+                            init_ps_model=init_ps_model, init_ps_amp=init_ps_amp, 
+                            ps_error_map=ps_error_map)
 
         # call solver
         image_model, coeffs_source, coeffs_lens_light, amps_ps \
@@ -143,7 +147,7 @@ class SparseSolverBase(ModelOperators):
         # concatenate optimized parameters (wavelets coefficients, point source amplitudes)
         all_param = np.concatenate([coeffs_source, coeffs_lens_light, amps_ps])
 
-        #WIP
+        # WIP: allows for an extra term to be returned by the solver
         if self._external_likelihood_penalty:
             if self.no_lens_light:
                 logL_penalty = self.regularization(S=self.source_model)
@@ -155,10 +159,10 @@ class SparseSolverBase(ModelOperators):
         return image_model, all_param, logL_penalty
 
     def _solve(self, kwargs_lens=None, kwargs_ps=None, kwargs_special=None):
-        raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
+        raise NotImplementedError("This method must be implemented in class that inherits SparseSolverBase")
 
     def _ready(self):
-        raise ValueError("This method must be implemented in class that inherits SparseSolverBase")
+        raise NotImplementedError("This method must be implemented in class that inherits SparseSolverBase")
 
     @property
     def track(self):
@@ -181,41 +185,43 @@ class SparseSolverBase(ModelOperators):
     @property
     def source_model(self):
         if not hasattr(self, '_source_model'):
-            raise ValueError("You must run the optimization before accessing the source estimate")
+            raise ValueError("No source model was optimised")
         return self._source_model
 
     @property
     def lens_light_model(self):
-        if not hasattr(self, '_lens_light_model') and not self.no_lens_light:
-            raise ValueError("You must run the optimization before accessing the lens estimate")
         if self.no_lens_light:
-            return None
+            return np.zeros_like(self.image_data)
+        elif not hasattr(self, '_lens_light_model'):
+            raise ValueError("No lens light model was optimised")
         return self._lens_light_model
 
     @property
     def point_source_model(self):
-        if not hasattr(self, '_ps_model') and not self.no_point_source:
-            raise ValueError("You must run the optimization before accessing the point source estimate")
         if self.no_point_source:
-            return None
+            return np.zeros_like(self.image_data)
+        elif not hasattr(self, '_ps_model'):
+            raise ValueError("No point source model was optimised")
         return self._ps_model
-
-    def image_model(self, unconvolved=False):
-        if self.no_lens_light and self.no_point_source:
+        
+    def image_model(self, unconvolved=False, source_add=True, lens_light_add=True, point_source_add=True):
+        if unconvolved and self.no_lens_light is False:
+            raise ValueError("Deconvolution is only supported for source model")
+        if unconvolved:
             S = self.source_model
-            if unconvolved:
-                return self.F(S)
-            return self.H(self.R(self.F(S)))
-        elif not self.no_point_source:
-            S, P = self.source_model, self.point_source_model
-            if unconvolved:
-                raise ValueError("Deconvolution is only supported for source light")
-            return self.H(self.R(self.F(S))) + P
+            model = self.F(S)
         else:
-            S, HG = self.source_model, self.lens_light_model
-            if unconvolved:
-                raise ValueError("Deconvolution is only supported for source light")
-            return self.H(self.R(self.F(S))) + HG
+            model = 0
+            if source_add:
+                S = self.source_model
+                model += self.H(self.R(self.F(S)))
+            if lens_light_add:
+                HG = self.lens_light_model
+                model += HG
+            if point_source_add:
+                P = self.point_source_model
+                model += P
+        return model
 
     @property
     def normalized_residuals_model(self):
@@ -258,6 +264,9 @@ class SparseSolverBase(ModelOperators):
         """
         number of effective data points (= number of unmasked pixels)
         """
+        mask = self.likelihood_mask
+        if mask is None:
+            return np.prod(self.image_data.shape)
         return int(np.sum(self._mask))
 
     @property
@@ -306,15 +315,12 @@ class SparseSolverBase(ModelOperators):
     def normalized_residuals(self, S=None, HG=None, P=None):
         """ returns ( HFS + HG + P - Y ) / sigma """
         residuals = self.residuals(S=S, HG=HG, P=P)
-        if hasattr(self, '_ps_error'):
-            sigma = self.noise.effective_noise_map + self._ps_error
-        else:
-            sigma = self.noise.effective_noise_map
+        sigma = self.noise.effective_noise_map
         return self.M(residuals / sigma)
 
     def reduced_chi2(self, S=None, HG=None, P=None):
-        red_res = self.normalized_residuals(S=S, HG=HG, P=P)
-        chi2 = np.sum(red_res**2)
+        norm_res = self.normalized_residuals(S=S, HG=HG, P=P)
+        chi2 = np.sum(norm_res**2)
         return chi2 / self.num_data_points
 
     def mean_squared_error(self, S=None, HG=None, P=None):
@@ -352,6 +358,12 @@ class SparseSolverBase(ModelOperators):
             return self._gradient_loss_analysis_source(S=array_S)
         elif self._formulation == 'synthesis':
             return self._gradient_loss_synthesis_source(alpha_S=array_S)
+
+    def gradient_loss_source_ps(self, array_S, array_P):
+        if self._formulation == 'analysis':
+            return self._gradient_loss_analysis_source_ps(S=array_S, P=array_P)
+        elif self._formulation == 'synthesis':
+            raise NotImplementedError("'synthesis' formulation for source + PS is not supported" )
 
     def gradient_loss_lens(self, array_HG):
         if self._formulation == 'analysis':
@@ -392,30 +404,42 @@ class SparseSolverBase(ModelOperators):
         elif self._formulation == 'synthesis':
             return 'FISTA'
 
-    def prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, 
-                       kwargs_special=None, init_lens_light_model=None, init_ps_model=None):
+    def prepare_solver(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None,
+                       kwargs_special=None, init_lens_light_model=None, init_ps_model=None, init_ps_amp=None,
+                       ps_error_map=None):
         """
         Update state of the solver : operators, noise levels, ...
-        The order of the following updates matters!
+        The order of the steps matters!
         """
+        # update lensing operator with lens model
         _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
+        # initialiase noise terms
         if self.noise.include_regridding_error is True:
             magnification_map = self.lensingOperator.magnification_map(kwargs_lens)
             self.noise.update_regridding_error(magnification_map)
 
-        self._prepare_source(kwargs_source)
-        if not self.no_lens_light:
-            # TODO: support upsampling/downsampling operator for image plane noise levels
-            self._prepare_lens_light(kwargs_lens_light)
-
-        # lens light initial model, if any
-        self._init_lens_light_model = init_lens_light_model
+        if self.noise.include_point_source_error is True:
+            self.noise.update_point_source_error(ps_error_map)
         
-        # point source initial model, if any
-        if not self.no_point_source and init_ps_model is None:
-            raise ValueError("A rough point source model is required to optimize point source amplitudes")
-        self._init_ps_model = init_ps_model
+        # setup and initialize the point source components
+        if self.no_point_source is False:
+            self._prepare_point_source(kwargs_ps, kwargs_special, init_ps_model, init_ps_amp)
+
+        # fill masked pixels with background noise
+        self.clean_masked_data(self.noise.background_rms, init_ps_model=init_ps_model)
+
+        # update the noise map used for thresholding based on 'cleaned' data from point sources
+        if self.no_point_source is False and self._ps_filter_residuals is True:
+            self.noise.re_estimate_noise_map_for_ps(self.effective_image_data, 
+                                                    self.likelihood_mask,
+                                                    init_ps_model)
+
+        # setup and initialize the rest of the components of the models
+        # (that might depend on the update noise map above)
+        self._prepare_source(kwargs_source)
+        if self.no_lens_light is False:
+            self._prepare_lens_light(kwargs_lens_light, init_lens_light_model)
 
     def _prepare_source(self, kwargs_source):
         """
@@ -432,10 +456,10 @@ class SparseSolverBase(ModelOperators):
         self.set_source_wavelet_scales(n_scales_new)
         # update spectral norm of operators
         self.update_spectral_norm_source()
-        # update wavelets noise levels in source plane
+        # update wavelet noise levels in source plane
         self.update_source_noise_levels()
 
-    def _prepare_lens_light(self, kwargs_lens_light):
+    def _prepare_lens_light(self, kwargs_lens_light, init_lens_light_model):
         """
         updates lens light number of decomposition scales, spectral norm and noise levels
         related to the operator Phi_T_l( . )
@@ -443,6 +467,7 @@ class SparseSolverBase(ModelOperators):
         Spectral norm and noise levels related to the Phi_T_l operator
         are not updated if the number of decomposition scales has not changed
         """
+        # TODO: support upsampling/downsampling operator for image plane noise levels
         # get n_scales for lens light before update
         n_scales_old = self.n_scales_lens_light
         n_scales_new = kwargs_lens_light[0]['n_scales']
@@ -456,8 +481,46 @@ class SparseSolverBase(ModelOperators):
         if n_scales_old is None or n_scales_new != n_scales_old:
             # update spectral norm of operators
             self.update_spectral_norm_lens()
-            # update wavelets noise levels in image plane
+            # update wavelet noise levels in image plane
             self.update_image_noise_levels()
+        # lens light initial model, if any
+        if getattr(self, '_init_lens_light_model', None) is not None:
+            print("SparseSolverBase: warning, initial guess for lens light is being updated")
+        self._init_lens_light_model = init_lens_light_model
+
+    def _prepare_point_source(self, kwargs_ps, kwargs_special, init_ps_model, init_ps_amp):
+        if init_ps_model is None:
+            raise ValueError("A rough point source model is required")
+        # initialize point source model (a map of pixels) and individual amplitudes
+        self._init_ps_model = init_ps_model
+        self._init_ps_amp = init_ps_amp
+        # build a mask for point source regions
+        if self._ps_filter_residuals is True:
+            mask_shape = self.image_data.shape
+            delta_pix = self.data_pixel_width
+            ra_ps_list, dec_ps_list = self._get_ps_coordinates(kwargs_ps, kwargs_special)
+            # translate the PS coordinates so origin is lower left
+            ra_ps_pix, dec_ps_pix = self.data_coord2pix(ra_ps_list, dec_ps_list)
+            ra_ps_lowerleft, dec_ps_lowerleft = ra_ps_pix * delta_pix, dec_ps_pix * delta_pix
+            # construct the mask with 0s in point source regions, 1s elsewhere
+            ps_mask_list = mask_util.get_point_source_mask(mask_shape, delta_pix,
+                                                           dec_ps_lowerleft, ra_ps_lowerleft,
+                                                           self._ps_radius_regions,
+                                                           smoothed=True)
+            self._set_point_source_mask(ps_mask_list)
+
+    @staticmethod
+    def _get_ps_coordinates(kwargs_ps, kwargs_special):
+        ra_ps, dec_ps = kwargs_ps[0]['ra_image'], kwargs_ps[0]['dec_image']
+        if 'delta_x_image' in kwargs_special:
+            delta_x, delta_y = kwargs_special['delta_x_image'], kwargs_special['delta_y_image']
+            delta_x_new = np.zeros(len(ra_ps))
+            delta_x_new[0:len(delta_x)] = delta_x[:]
+            delta_y_new = np.zeros(len(dec_ps))
+            delta_y_new[0:len(delta_y)] = delta_y[:]
+            ra_ps  = ra_ps  + delta_x_new
+            dec_ps = dec_ps + delta_y_new
+        return ra_ps, dec_ps
 
     def update_source_noise_levels(self):
         self.noise.update_source_levels(self.num_pix_image, self.num_pix_source,
@@ -483,7 +546,7 @@ class SparseSolverBase(ModelOperators):
             weights_HG = None
         return weights_S, weights_HG
 
-    def _estimate_threshold_source(self, data, fraction=0.9):
+    def _estimate_threshold_source(self, data, fraction=0.9, exclude_mask=None):
         """
         estimate maximum threshold, in units of noise, used for thresholding wavelets
         coefficients during optimization
@@ -494,6 +557,8 @@ class SparseSolverBase(ModelOperators):
             Imaging data.
         fraction : float, optional
             From 0 to 1, fraction of the maximum value of the image in transformed space, normalized by noise, that is returned as a threshold.
+        exclude_mask : array_like
+            Binary mask to exclude (where == 1) some pixels from being included in the threshold estimate (e.g. high residuals at point source locations)
         
         Returns
         -------
@@ -502,13 +567,26 @@ class SparseSolverBase(ModelOperators):
         """
         if self._threshold_decrease_type == 'none':
             return self._k_min
+
+        if exclude_mask is None:
+            exclude_mask = np.ones_like(data)
+
+        # get pre-computed noise esimate in source plane
         noise_no_coarse = self.noise.levels_source[:-1, :, :]
-        # compute threshold wrt to the source component
-        coeffs = self.Phi_T_s(self.F_T(self.R_T(self.H_T(data))))
+
+        # compute coefficients of the source component
+        data_  = data * exclude_mask
+        coeffs = self.Phi_T_s(self.F_T(self.R_T(self.H_T(data_))))
         coeffs_no_coarse = coeffs[:-1, :, :]
         coeffs_norm = self.M_s(coeffs_no_coarse / noise_no_coarse)
-        coeffs_norm[noise_no_coarse == 0] = 0
-        return fraction * np.max(coeffs_norm)  # returns a fraction of max value, so only the highest coeffs is able to enter the solution
+
+        # indices to consider
+        indices = np.where(noise_no_coarse != 0)
+        max_value = np.max(coeffs_norm[indices])
+
+        # fraction of max value, so only the highest coeffs is able to enter the solution
+        threshold = fraction * max_value
+        return threshold
 
     def _estimate_threshold_MOM(self, data_minus_HFS, data_minus_HG=None):
         """
