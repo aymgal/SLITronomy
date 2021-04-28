@@ -40,16 +40,18 @@ def test_get_point_source_mask():
 def test_get_point_source_mask():
     mask_shape = (10, 10)
     delta_pix = 1
-    center_list = [None, (4, 8), (1, 1)]
+    center_list = [None, (4, 8), (1, 1), (3, 2)]
     margin = 3
-    radius_list = [3, 2, 3.5]
-    axis_ratio_list = [0.8, 0.9, 0.4]
-    angle_list = [0.8, 0.9, 0.66]
+    radius_list = [3, 2, 3.5, 1]
+    axis_ratio_list = [None, 0.9, 0.4, 0.2]
+    angle_list = [None, 10, 20, 40]
     operation_list = ['union', 'inter', 'subtract']
-    inverted_list = [True, False, False]
+    inverted_list = [True, False, False, True]
     kwargs_square = {
         'mask_type': 'square',
         'margin': margin,
+        'operation_list': operation_list,
+        'inverted_list': operation_list,
     }
     kwargs_circle = {
         'mask_type': 'circle',
