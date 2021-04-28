@@ -151,7 +151,7 @@ class TestSparseSolverSource(object):
                                                       source_interpolation='bilinear', minimal_source_plane=False, 
                                                       use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                                                       sparsity_prior_norm=1, force_positivity=True, formulation='synthesis',
-                                                      verbose=False, show_steps=False,
+                                                      verbose=False, show_steps=False, external_likelihood_penalty=True,
                                                       min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='linear', 
                                                       num_iter_global=self.num_iter_global, num_iter_source=self.num_iter_source, 
                                                       num_iter_lens=self.num_iter_lens, num_iter_weights=self.num_iter_weights)
@@ -196,6 +196,14 @@ class TestSparseSolverSource(object):
 
         # access models
         image_model = self.solver_source_ana.image_model()
+        assert image_model.shape == self.image_sim.shape
+        image_model = self.solver_source_ana.image_model(unconvolved=True)
+        assert image_model.shape == self.image_sim.shape
+        image_model = self.solver_source_ana.image_model(point_source_add=False)
+        assert image_model.shape == self.image_sim.shape
+        image_model = self.solver_source_ana.image_model(lens_light_add=False)
+        assert image_model.shape == self.image_sim.shape
+        image_model = self.solver_source_ana.image_model(source_add=False)
         assert image_model.shape == self.image_sim.shape
         source_light = self.solver_source_ana.source_model
         assert source_light.shape == (self.num_pix_source, self.num_pix_source)
