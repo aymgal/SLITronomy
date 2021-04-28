@@ -41,6 +41,9 @@ class ModelOperators(ModelManager):
 
     def M(self, image_2d):
         """Apply image plane mask"""
+        mask = self.likelihood_mask
+        if mask is None:
+            return image_2d
         return self._mask * image_2d
 
     def M_s(self, source_2d):

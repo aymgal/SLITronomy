@@ -92,16 +92,14 @@ class ModelManager(object):
         """Replace masked pixels with background noise
         This affects the ORIGINAL imaging data as well!
         """
-        if not hasattr(self, '_mask'):
-            raise ValueError("No likelihood mask has been setup")
-
-        if self.random_seed is not None:
-            np.random.seed(self.random_seed)
-
         # fill masked pixels (excluded from the likelihood) with background noise
-        noise = background_rms * np.random.randn(*self._image_data_eff.shape)
-        masked_pixels = np.where(self._mask == 0)
-        self._image_data_eff[masked_pixels] = noise[masked_pixels]
+        mask = self.likelihood_mask
+        if mask is not None:
+            if self.random_seed is not None:
+                np.random.seed(self.random_seed)
+            noise = background_rms * np.random.randn(*self._image_data_eff.shape)
+            masked_pixels = np.where(mask == 0)
+            self._image_data_eff[masked_pixels] = noise[masked_pixels]
 
         # fill point sources with a filtered version of the data
         ps_mask = self.point_source_mask(split=False)

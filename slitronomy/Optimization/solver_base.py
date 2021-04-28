@@ -264,6 +264,9 @@ class SparseSolverBase(ModelOperators):
         """
         number of effective data points (= number of unmasked pixels)
         """
+        mask = self.likelihood_mask
+        if mask is None:
+            return np.prod(self.image_data.shape)
         return int(np.sum(self._mask))
 
     @property
