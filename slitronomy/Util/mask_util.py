@@ -4,7 +4,7 @@ from skimage import morphology
 import matplotlib.pyplot as plt
 
 
-def get_point_source_mask(mask_shape, delta_pix, dec_list, ra_list, radius, 
+def get_point_source_mask(mask_shape, delta_pix, ra_list, dec_list, radius, 
                           smoothed=False, split_masks=True):
     """
     Based on point source positions, construct a pixel mask with masked pixels
@@ -20,7 +20,8 @@ def get_point_source_mask(mask_shape, delta_pix, dec_list, ra_list, radius,
             'operation_list': ['inter']*(len(dec_list)-1),
         }
         mask_class = ImageMask(mask_shape=mask_shape, delta_pix=delta_pix, **mask_kwargs)
-        mask_list = [mask_class.get_mask()]
+        mask = mask_class.get_mask()
+        return mask
     else:
         mask_list = []
         for ra, dec in zip(dec_list, ra_list):
@@ -32,8 +33,7 @@ def get_point_source_mask(mask_shape, delta_pix, dec_list, ra_list, radius,
             }
             mask_class = ImageMask(mask_shape, delta_pix, **mask_kwargs)
             mask_list.append(mask_class.get_mask(smoothed=smoothed, show_details=False))
-
-    return mask_list
+        return mask_list
 
 
 class ImageMask(object):
@@ -62,6 +62,9 @@ class ImageMask(object):
         combine successive component masks in the above list: 'union', 'inter', 'subtract'
         :param inverted_list: only supported for 'circle' and 'ellipse' masks, invert (True) or not (False) each component mask
         """
+        if len(mask_shape) != 2:
+            raise ValueError("Only 2D arrays are supported for mask creation (for now)")
+
         self.mask_type = mask_type
         self._mask_shape = mask_shape
         self._delta_pix = delta_pix
@@ -180,10 +183,7 @@ class ImageMask(object):
         else:
             mask = np.zeros(self._mask_shape)
             m = int(margin)
-            if len(mask.shape) == 2:
-                mask[m:-m, m:-m] = 1
-            else:
-                raise ValueError("Only 2D arrays are supported for mask creation (for now)")
+            mask[m:-m, m:-m] = 1
             return self._invert(mask) if inverted else mask
 
     def _create_circular_mask(self, radius=5, center=None, inverted=False):
@@ -191,10 +191,7 @@ class ImageMask(object):
             return np.ones(self._mask_shape)
         else:
             r = radius
-            if len(self._mask_shape) == 2:
-                nx, ny = self._mask_shape
-            else:
-                raise ValueError("Only 2D arrays are supported for mask creation (for now)")
+            nx, ny = self._mask_shape
             if center is None:
                 cx, cy = int(nx/2), int(ny/2)  # by default : center of the image
             else:
@@ -210,10 +207,7 @@ class ImageMask(object):
             return np.ones(self._mask_shape)
         else:
             r = radius
-            if len(self._mask_shape) == 2:
-                nx, ny = self._mask_shape
-            else:
-                raise ValueError("Only 2D arrays are supported for mask creation (for now)")
+            nx, ny = self._mask_shape
             if center is None:
                 cx, cy = int(nx/2), int(ny/2)  # by default : center of the image
             else:

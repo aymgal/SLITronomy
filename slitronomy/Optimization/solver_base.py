@@ -504,7 +504,7 @@ class SparseSolverBase(ModelOperators):
             ra_ps_lowerleft, dec_ps_lowerleft = ra_ps_pix * delta_pix, dec_ps_pix * delta_pix
             # construct the mask with 0s in point source regions, 1s elsewhere
             ps_mask_list = mask_util.get_point_source_mask(mask_shape, delta_pix,
-                                                           ra_ps_lowerleft, dec_ps_lowerleft,
+                                                           dec_ps_lowerleft, ra_ps_lowerleft,
                                                            self._ps_radius_regions,
                                                            smoothed=True)
             self._set_point_source_mask(ps_mask_list)
