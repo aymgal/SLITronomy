@@ -144,25 +144,15 @@ class SparseSolverSourcePS(SparseSolverSource):
 
                 ######### ######## end source light ######## ########
 
-                if self.fixed_point_source_model:
-                    # no linear inversion for point source to be performed
-                    # and no need to loop over the source again
+                if self.fixed_point_source_model is True:
+                    # break the loop for iterative point source amplitude refinement
                     break
-
                 else:
-                    # subtract source light for point source linear amplitude optimization
-                    self.subtract_source_from_data(S)
+                    # based on current source model, re-estimate individual point amplitudes
+                    self._solve_point_source_amplitudes(S, kwargs_lens, kwargs_ps, kwargs_special)
 
-                    # solve for point source amplitudes
-                    data_response = util.image2array(self.Y_p)[self._mask_1d]
-                    P, ps_error, ps_cov_param, ps_param = self._ps_solver(kwargs_lens=kwargs_lens, kwargs_ps=kwargs_ps, 
-                                                                          kwargs_special=kwargs_special, inv_bool=False,
-                                                                          data_response_external=data_response)
-
-                    self.reset_partial_data()
-
-                if self._show_steps and i % ma.ceil(self._n_iter_global/2) == 0 and i_s == self._n_iter_source-1:
-                    self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
+                    if self._show_steps and i % ma.ceil(self._n_iter_global/2) == 0 and i_s == self._n_iter_source-1:
+                        self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
 
             ######### ######## end point source ######## ########
 
@@ -171,6 +161,9 @@ class SparseSolverSourcePS(SparseSolverSource):
                 weights, _ = self._update_weights(alpha_S)
 
         ######### ######## end weights ######## ########
+
+        # re-estimate individual point amplitudes through weighted least squares
+        self._solve_point_source_amplitudes(S, kwargs_lens, kwargs_ps, kwargs_special)
 
         # reset effective data to original data
         self.reset_partial_data()
@@ -212,4 +205,13 @@ class SparseSolverSourcePS(SparseSolverSource):
         grad  = - self.F_T(self.R_T(self.H_T(error)))
         return grad
 
-    
+    def _solve_point_source_amplitudes(self, S, kwargs_lens, kwargs_ps, kwargs_special):
+        # subtract source light for point source linear amplitude optimization
+        self.subtract_source_from_data(S)
+
+        # solve for point source amplitudes
+        data_response = util.image2array(self.Y_p)[self._mask_1d]
+        P, ps_error, ps_cov_param, ps_param = self._ps_solver(kwargs_lens=kwargs_lens, kwargs_ps=kwargs_ps, 
+                                                              kwargs_special=kwargs_special, inv_bool=False,
+                                                              data_response_external=data_response)
+        self.reset_partial_data()
