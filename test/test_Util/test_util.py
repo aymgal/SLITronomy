@@ -147,18 +147,20 @@ def test_spectral_norm():
 
     starlets = SLIT_Starlets()
     n_scales = 3
-    n_pixels = num_pix**2
+    n_pix_x = num_pix
+    n_pix_y = num_pix
     operator = lambda X: starlets.decomposition_2d(X, n_scales)
-    inverse_operator = lambda X: starlets.function_2d(X, n_scales, n_pixels)
+    inverse_operator = lambda X: starlets.function_2d(X, n_scales, n_pix_x, n_pix_y)
     npt.assert_almost_equal(1.0, util.spectral_norm(num_pix, operator, inverse_operator), decimal=8)
 
 def test_generate_initial_guess():
     num_pix = 20
     n_scales = 3
-    n_pixels = num_pix**2
+    n_pix_x = num_pix
+    n_pix_y = num_pix
     starlets = SLIT_Starlets()
     transform = lambda X: starlets.decomposition_2d(X, n_scales)
-    inverse_transform = lambda X: starlets.function_2d(X, n_scales, n_pixels)
+    inverse_transform = lambda X: starlets.function_2d(X, n_scales, n_pix_x, n_pix_y)
 
     guess_direct_space, guess_transf_space = util.generate_initial_guess(num_pix, n_scales, transform, inverse_transform, 
                                                                          guess_type='null')

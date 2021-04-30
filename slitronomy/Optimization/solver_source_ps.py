@@ -149,7 +149,7 @@ class SparseSolverSourcePS(SparseSolverSource):
                     break
                 else:
                     # based on current source model, re-estimate individual point amplitudes
-                    self._solve_point_source_amplitudes(S, kwargs_lens, kwargs_ps, kwargs_special)
+                    P, _, _, ps_param = self._solve_point_source_amplitudes(S, kwargs_lens, kwargs_ps, kwargs_special)
 
                     if self._show_steps and i % ma.ceil(self._n_iter_global/2) == 0 and i_s == self._n_iter_source-1:
                         self._plotter.plot_step(S_next, iter_1=j, iter_2=i, iter_3=i_s)
@@ -163,7 +163,7 @@ class SparseSolverSourcePS(SparseSolverSource):
         ######### ######## end weights ######## ########
 
         # re-estimate individual point amplitudes through weighted least squares
-        self._solve_point_source_amplitudes(S, kwargs_lens, kwargs_ps, kwargs_special)
+        P, _, _, ps_param = self._solve_point_source_amplitudes(S, kwargs_lens, kwargs_ps, kwargs_special)
 
         # reset effective data to original data
         self.reset_partial_data()
@@ -215,3 +215,4 @@ class SparseSolverSourcePS(SparseSolverSource):
                                                               kwargs_special=kwargs_special, inv_bool=False,
                                                               data_response_external=data_response)
         self.reset_partial_data()
+        return P, ps_error, ps_cov_param, ps_param
