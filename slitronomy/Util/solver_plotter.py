@@ -82,11 +82,14 @@ class SolverPlotter(object):
         # ====== SOURCE MODEL ====== #
         ax = axes[0, 2]
         ax.set_title("source model", fontsize=fontsize)
-        src_model = self._solver.source_model
-        print("Negative source pixels ? {} (min = {:.2e})".format(np.any(src_model < 0), src_model.min()))
-        norm = self._prepare_color_norm(src_model, log_scale, vmin_source, vmax_source)
-        im = ax.imshow(src_model, cmap=cmap_source, norm=norm)
-        plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
+        if self._solver.no_source_light is False:
+            src_model = self._solver.source_model
+            print("Negative source pixels ? {} (min = {:.2e})".format(np.any(src_model < 0), src_model.min()))
+            norm = self._prepare_color_norm(src_model, log_scale, vmin_source, vmax_source)
+            im = ax.imshow(src_model, cmap=cmap_source, norm=norm)
+            plot_util.nice_colorbar(im, label="flux", fontsize=fontsize)
+        else:
+            ax.get_xaxis().set_visible(False); ax.get_yaxis().set_visible(False)
 
         # ====== NORMALIZED RESIDUALS ====== #
         ax = axes[0, 3]
