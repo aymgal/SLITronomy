@@ -48,6 +48,8 @@ class ModelOperators(ModelManager):
 
     def M_s(self, source_2d):
         """Apply source plane mask"""
+        if self._lensing_op is None:
+            return source_2d
         return self._lensing_op.sourcePlane.effective_mask * source_2d
 
     def H(self, array_2d):
@@ -64,10 +66,14 @@ class ModelOperators(ModelManager):
 
     def F(self, source_2d):
         """alias method for lensing from source plane to image plane"""
+        if self._lensing_op is None:
+            return source_2d
         return self._lensing_op.source2image_2d(source_2d)
 
     def F_T(self, image_2d):
         """alias method for ray-tracing from image plane to source plane"""
+        if self._lensing_op is None:
+            return image_2d
         return self._lensing_op.image2source_2d(image_2d)
 
     def R(self, image_2d):

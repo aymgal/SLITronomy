@@ -156,10 +156,14 @@ class ModelManager(object):
 
     @property
     def num_pix_image(self):
+        if self._lensing_op is None:
+            return len(self.image_data)
         return self._lensing_op.imagePlane.num_pix
 
     @property
     def num_pix_source(self):
+        if self._lensing_op is None:
+            return None
         return self._lensing_op.sourcePlane.num_pix
 
     @property
@@ -188,7 +192,8 @@ class ModelManager(object):
     def _set_likelihood_mask(self, mask):
         self._mask = mask
         self._mask_1d = util.image2array(mask)
-        self._lensing_op.set_likelihood_mask(mask)
+        if self._lensing_op is not None:
+            self._lensing_op.set_likelihood_mask(mask)
 
     def _prepare_data(self):
         num_pix_x, num_pix_y = self._data_class.num_pixel_axes

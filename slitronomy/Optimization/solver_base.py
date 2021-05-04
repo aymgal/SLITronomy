@@ -79,11 +79,14 @@ class SparseSolverBase(ModelOperators):
             raise ValueError("Only square images are supported")
         image_grid_class = image_numerics_class.grid_class
         source_grid_class = source_numerics_class.grid_class
-        lensing_operator_class = LensingOperator(lens_model_class, image_grid_class, source_grid_class, num_pix_x,
-                                                 lens_light_mask=lens_light_mask,
-                                                 minimal_source_plane=minimal_source_plane, min_num_pix_source=min_num_pix_source,
-                                                 use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
-                                                 source_interpolation=source_interpolation, verbose=verbose)
+        if lens_model_class is None or len(lens_model_class.lens_model_list) == 0:
+            lensing_operator_class = None
+        else:
+            lensing_operator_class = LensingOperator(lens_model_class, image_grid_class, source_grid_class, num_pix_x,
+                                                     lens_light_mask=lens_light_mask,
+                                                     minimal_source_plane=minimal_source_plane, min_num_pix_source=min_num_pix_source,
+                                                     use_mask_for_minimal_source_plane=use_mask_for_minimal_source_plane,
+                                                     source_interpolation=source_interpolation, verbose=verbose)
 
         super(SparseSolverBase, self).__init__(data_class, lensing_operator_class, image_numerics_class,
                                                fixed_spectral_norm_source=fixed_spectral_norm_source,
@@ -184,6 +187,8 @@ class SparseSolverBase(ModelOperators):
 
     @property
     def source_model(self):
+        if self.no_source_light:
+            return np.zeros_like(self.image_data)
         if not hasattr(self, '_source_model'):
             raise ValueError("No source model was optimised")
         return self._source_model
@@ -192,7 +197,7 @@ class SparseSolverBase(ModelOperators):
     def lens_light_model(self):
         if self.no_lens_light:
             return np.zeros_like(self.image_data)
-        elif not hasattr(self, '_lens_light_model'):
+        if not hasattr(self, '_lens_light_model'):
             raise ValueError("No lens light model was optimised")
         return self._lens_light_model
 
@@ -200,25 +205,25 @@ class SparseSolverBase(ModelOperators):
     def point_source_model(self):
         if self.no_point_source:
             return np.zeros_like(self.image_data)
-        elif not hasattr(self, '_ps_model'):
+        if not hasattr(self, '_ps_model'):
             raise ValueError("No point source model was optimised")
         return self._ps_model
         
     def image_model(self, unconvolved=False, source_add=True, lens_light_add=True, point_source_add=True):
         if unconvolved and self.no_lens_light is False:
             raise ValueError("Deconvolution is only supported for source model")
-        if unconvolved:
+        if unconvolved and self.no_source_light is False:
             S = self.source_model
             model = self.F(S)
         else:
             model = 0
-            if source_add:
+            if source_add and self.no_source_light is False:
                 S = self.source_model
                 model += self.H(self.R(self.F(S)))
-            if lens_light_add:
+            if lens_light_add and self.no_lens_light is False:
                 HG = self.lens_light_model
                 model += HG
-            if point_source_add:
+            if point_source_add and self.no_point_source is False:
                 P = self.point_source_model
                 model += P
         return model
@@ -411,16 +416,16 @@ class SparseSolverBase(ModelOperators):
         Update state of the solver : operators, noise levels, ...
         The order of the steps matters!
         """
-        # update lensing operator with lens model
-        _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
+        if self.lensingOperator is not None:
+            # update lensing operator with lens model
+            _, _ = self.lensingOperator.update_mapping(kwargs_lens, kwargs_special=kwargs_special)
 
-        # initialiase noise terms
-        if self.noise.include_regridding_error is True:
-            magnification_map = self.lensingOperator.magnification_map(kwargs_lens)
-            self.noise.update_regridding_error(magnification_map)
-
-        if self.noise.include_point_source_error is True:
-            self.noise.update_point_source_error(ps_error_map)
+            # initialiase noise terms
+            if self.noise.include_regridding_error is True:
+                magnification_map = self.lensingOperator.magnification_map(kwargs_lens)
+                self.noise.update_regridding_error(magnification_map)
+            if self.noise.include_point_source_error is True:
+                self.noise.update_point_source_error(ps_error_map)
         
         # setup and initialize the point source components
         if self.no_point_source is False:
@@ -437,7 +442,8 @@ class SparseSolverBase(ModelOperators):
 
         # setup and initialize the rest of the components of the models
         # (that might depend on the update noise map above)
-        self._prepare_source(kwargs_source)
+        if self.no_source_light is False:
+            self._prepare_source(kwargs_source)
         if self.no_lens_light is False:
             self._prepare_lens_light(kwargs_lens_light, init_lens_light_model)
 
@@ -530,13 +536,16 @@ class SparseSolverBase(ModelOperators):
     def update_image_noise_levels(self):
         self.noise.update_image_levels(self.num_pix_image, self.Phi_T_l)
 
-    def _update_weights(self, alpha_S, alpha_HG=None, threshold=None):
-        lambda_S = np.copy(self.noise.levels_source)
-        if threshold is None:
-            threshold = self._k_min
-        lambda_S[1:, :, :] *= threshold
-        lambda_S[0, :, :] *= (threshold + self._increm_high_freq)
-        weights_S  = 1. / ( 1 + np.exp(10 * (alpha_S - lambda_S)) )  # fixed Eq. (C.1)
+    def _update_weights(self, alpha_S=None, alpha_HG=None, threshold=None):
+        if alpha_S is not None:
+            lambda_S = np.copy(self.noise.levels_source)
+            if threshold is None:
+                threshold = self._k_min
+            lambda_S[1:, :, :] *= threshold
+            lambda_S[0, :, :] *= (threshold + self._increm_high_freq)
+            weights_S  = 1. / ( 1 + np.exp(10 * (alpha_S - lambda_S)) )  # fixed Eq. (C.1)
+        else:
+            weights_S = None
         if alpha_HG is not None:
             lambda_HG = np.copy(self.noise.levels_image)
             lambda_HG[1:, :, :] *= threshold
@@ -579,6 +588,42 @@ class SparseSolverBase(ModelOperators):
         coeffs = self.Phi_T_s(self.F_T(self.R_T(self.H_T(data_))))
         coeffs_no_coarse = coeffs[:-1, :, :]
         coeffs_norm = self.M_s(coeffs_no_coarse / noise_no_coarse)
+
+        # indices to consider
+        indices = np.where(noise_no_coarse != 0)
+        max_value = np.max(coeffs_norm[indices])
+
+        # fraction of max value, so only the highest coeffs is able to enter the solution
+        threshold = fraction * max_value
+        return threshold
+
+    def _estimate_threshold_lens(self, data, fraction=0.9):
+        """
+        estimate maximum threshold, in units of noise, used for thresholding wavelets
+        coefficients during optimization
+        
+        Parameters
+        ----------
+        data : array_like
+            Imaging data.
+        fraction : float, optional
+            From 0 to 1, fraction of the maximum value of the image in transformed space, normalized by noise, that is returned as a threshold.
+        
+        Returns
+        -------
+        float
+            Threshold level.
+        """
+        if self._threshold_decrease_type == 'none':
+            return self._k_min
+
+        # get pre-computed noise esimate in source plane
+        noise_no_coarse = self.noise.levels_image[:-1, :, :]
+
+        # compute coefficients of the source component
+        coeffs = self.Phi_T_l(data)
+        coeffs_no_coarse = coeffs[:-1, :, :]
+        coeffs_norm = self.M(coeffs_no_coarse / noise_no_coarse)
 
         # indices to consider
         indices = np.where(noise_no_coarse != 0)

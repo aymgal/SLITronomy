@@ -144,6 +144,7 @@ class NoiseLevels(object):
         dirac = util.dirac_impulse(num_pix_image)
         dirac_coeffs2 = wavelet_transform_image(dirac)**2
 
+        # TODO: if it happens that noise_map is a constant value, not need to initialise a full array
         noise_map = self.effective_noise_map  #self.noise_map
 
         n_scale, n_pix1, npix2 = dirac_coeffs2.shape
@@ -151,6 +152,7 @@ class NoiseLevels(object):
         for scale_idx in range(n_scale):
             scale_power2 = np.sum(dirac_coeffs2[scale_idx, :, :])
             noise_levels[scale_idx, :, :] = noise_map * np.sqrt(scale_power2)
+
         self._noise_levels_img = noise_levels
 
     def _initialise_regridding_error(self, data_image, image_pixel_scale, source_pixel_scale):

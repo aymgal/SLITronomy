@@ -31,15 +31,16 @@ class SparseSolverSource(SparseSolverBase):
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
         """
         # remove settings not related to this solver
-        _ = base_kwargs.pop('num_iter_lens', None)
-        _ = base_kwargs.pop('num_iter_global', None)
-
-        # define default threshold decrease strategy
-        if base_kwargs.get('threshold_decrease_type', None) is None:
-            base_kwargs['threshold_decrease_type'] = 'exponential'
+        # _ = base_kwargs.pop('num_iter_lens', None)
+        # _ = base_kwargs.pop('num_iter_global', None)
 
         super(SparseSolverSource, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class,
                                                  **base_kwargs)
+
+        # define default threshold decrease strategy
+        if 'threshold_decrease_type' not in base_kwargs:
+            self._threshold_decrease_type = 'exponential'
+
         self.add_source_light(source_model_class)
         self._n_iter_source = num_iter_source
         if self._sparsity_prior_norm == 1:

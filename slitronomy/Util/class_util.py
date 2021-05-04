@@ -15,10 +15,14 @@ def create_solver_class(data_class, psf_class, image_numerics_class, source_nume
     """
     # check source model
     model_list = source_model_class.profile_type_list
-    if len(model_list) != 1:
+    if len(model_list) == 0:
+        source_light_bool = False
+    elif len(model_list) != 1:
         raise ValueError("There must be the a single source profile in the list for pixel-based modelling")
     elif model_list[0] not in _support_profiles:
         raise ValueError("Only {} are supported pixel-based light profiles".format(_support_profiles))
+    else:
+        source_light_bool = True
 
     # check lens light model
     model_list = lens_light_model_class.profile_type_list
@@ -40,20 +44,28 @@ def create_solver_class(data_class, psf_class, image_numerics_class, source_nume
         raise ValueError("Differential extinction is not yet supported by the SLITronomy solver")
 
     # depending on the configuration, create the right solver instance
-    if lens_light_bool is False and point_source_bool is False:
+    if source_light_bool is True and point_source_bool is False and lens_light_bool is False:
         from slitronomy.Optimization.solver_source import SparseSolverSource
         solver_class = SparseSolverSource(data_class, lens_model_class, image_numerics_class, source_numerics_class,
                                           source_model_class, **kwargs_sparse_solver)
     
-    elif point_source_bool is False and lens_light_bool is True:
+    elif source_light_bool is True and point_source_bool is False and lens_light_bool is True:
         from slitronomy.Optimization.solver_source_lens import SparseSolverSourceLens
         solver_class = SparseSolverSourceLens(data_class, lens_model_class, image_numerics_class, source_numerics_class, 
                                               source_model_class, lens_light_model_class, **kwargs_sparse_solver)
     
-    elif point_source_bool is True and lens_light_bool is False:
+    elif source_light_bool is True and point_source_bool is True and lens_light_bool is False:
         from slitronomy.Optimization.solver_source_ps import SparseSolverSourcePS
         solver_class = SparseSolverSourcePS(data_class, lens_model_class, image_numerics_class, source_numerics_class, 
                                             source_model_class, **kwargs_sparse_solver)
+
+    elif source_light_bool is False and point_source_bool is False and lens_light_bool is True:
+        # Warning: in SLITronomy, modelling the lens light only uses the 'unlensed source' solver
+        # which is boils down to simple deconvolution + denoising problem
+        from slitronomy.Optimization.solver_lens import SparseSolverLens
+        solver_class = SparseSolverLens(data_class, image_numerics_class, lens_light_model_class,
+                                        lens_model_class, source_model_class, source_numerics_class,
+                                        **kwargs_sparse_solver)
     
     else:
         raise NotImplementedError("SLITronomy solver for pixel-based modelling of source + lens light + point sources has not been implemented")
