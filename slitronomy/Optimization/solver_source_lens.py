@@ -6,19 +6,19 @@ import copy
 import numpy as np
 import math as ma
 
-from slitronomy.Optimization.solver_source import SparseSolverSource
+from slitronomy.Optimization.solver_base import SparseSolverBase
 from slitronomy.Optimization import algorithms
-from slitronomy.Optimization import proximals
 from slitronomy.Util import util
 
 
-class SparseSolverSourceLens(SparseSolverSource):
+class SparseSolverSourceLens(SparseSolverBase):
 
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
-    def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class, lens_light_model_class, 
-                 num_iter_global=10, num_iter_source=10, num_iter_lens=10, num_iter_weights=2, lens_light_model_map=None,
-                 **base_kwargs):
+    def __init__(self, data_class, image_numerics_class, source_numerics_class, 
+                 source_model_class, lens_light_model_class, lens_model_class, 
+                 num_iter_global=10, num_iter_source=10, num_iter_lens=10, num_iter_weights=2, 
+                 lens_light_model_map=None, **base_kwargs):
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
         :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
@@ -28,24 +28,31 @@ class SparseSolverSourceLens(SparseSolverSource):
         :param lens_light_model_class: lenstronomy.light_model.LightModel instance describing the lens light.
         :param num_iter_global: number of iterations to alternate between source and lens light. 
         :param num_iter_source: number of iterations for sparse optimization of the source light. 
-        :param num_iter_lens: number of iterations for sparse optimization of the lens light. 
         :param num_iter_weights: number of iterations for l1-norm re-weighting scheme.
         :param base_kwargs: keyword arguments for SparseSolverBase.
 
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'linear'.
         """
-        # define default threshold decrease strategy
-        if base_kwargs.get('threshold_decrease_type', None) is None:
-            base_kwargs['threshold_decrease_type'] = 'linear'
-            
-        super(SparseSolverSourceLens, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, 
-                                                     source_model_class, num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, 
+        super(SparseSolverSourceLens, self).__init__(data_class, image_numerics_class, 
+                                                     source_numerics_class, 
+                                                     lens_model_class=lens_model_class,
                                                      **base_kwargs)
-        self.add_lens_light(lens_light_model_class)
-        self._n_iter_global = num_iter_global
-        self._n_iter_lens = num_iter_lens
-        self._init_lens_light_model = lens_light_model_map
 
+        self.add_source_light(source_model_class)
+        self.add_lens_light(lens_light_model_class)
+
+        # define default threshold decrease strategy
+        if 'threshold_decrease_type' not in base_kwargs:
+            self._threshold_decrease_type = 'linear'
+
+        self._n_iter_source = num_iter_source
+        self._n_iter_lens = num_iter_lens
+        self._n_iter_global = num_iter_global
+        if self._sparsity_prior_norm == 1:
+            self._n_iter_weights = num_iter_weights
+        else:
+            self._n_iter_weights = 1   # reweighting scheme only defined for l1-norm sparsity
+        
     def _ready(self):
         return not self.no_source_light and not self.no_lens_light
 
@@ -217,71 +224,3 @@ class SparseSolverSourceLens(SparseSolverSource):
         
         model = self.image_model(unconvolved=False)
         return model, coeffs_S_1d, coeffs_HG_1d, []
-
-    def _gradient_loss_analysis_lens(self, HG):
-        """
-        returns the gradient of f = || Y' - HG ||^2_2, where Y' = Y - HFS
-        with respect to HG
-        """
-        model = self.model_analysis(S=None, HG=HG)
-        error = self.Y_p - model
-        grad  = - error
-        return grad
-
-    def _gradient_loss_synthesis_lens(self, alpha_HG):
-        """
-        returns the gradient of f = || Y' - Phi_l alpha_HG ||^2_2, where Y' = Y - H F Phi_s alpha_S
-        with respect to alpha_HG
-        """
-        model = self.model_synthesis(alpha_S=None, alpha_HG=alpha_HG)
-        error = self.Y_p - model
-        grad  = - self.Phi_T_l(error)
-        return grad
-
-    def _proximal_sparsity_analysis_lens(self, HG, threshold, weights):
-        """
-        returns the proximal operator of the regularisation term
-            g = lambda * |Phi^T HG|_0
-        or
-            g = lambda * |Phi^T HG|_1
-        """
-        n_scales = self._n_scales_lens_light
-        level_const = threshold * np.ones(n_scales)
-        level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
-        level_pixels = weights * self.noise.levels_image
-
-        alpha_HG = self.Phi_T_l(HG)
-
-        # apply proximal operator
-        step = 1  # because threshold is already expressed in data units
-        alpha_HG_proxed = proximals.prox_sparsity_wavelets(alpha_HG, step=step, level_const=level_const, level_pixels=level_pixels,
-                                                          l_norm=self._sparsity_prior_norm)
-        HG_proxed = self.Phi_l(alpha_HG_proxed)
-
-        if self._force_positivity:
-            HG_proxed = proximals.prox_positivity(HG_proxed)
-
-        return HG_proxed
-
-    def _proximal_sparsity_synthesis_lens(self, alpha_HG, threshold, weights):
-        """
-        returns the proximal operator of the regularisation term
-            g = lambda * |alpha_HG|_0
-        or
-            g = lambda * |alpha_HG|_1
-        """
-        n_scales = self._n_scales_lens_light
-        level_const = threshold * np.ones(n_scales)
-        level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
-        level_pixels = weights * self.noise.levels_image
-
-        # apply proximal operator
-        step = 1  # because threshold is already expressed in data units
-        alpha_HG_proxed = proximals.prox_sparsity_wavelets(alpha_HG, step=step, level_const=level_const, level_pixels=level_pixels,
-                                                          l_norm=self._sparsity_prior_norm)
-
-        #TODO: positivity applied in starlets space ?
-        # if self._force_positivity:
-        #     alpha_HG_proxed = proximals.prox_positivity(alpha_HG_proxed)
-
-        return alpha_HG_proxed

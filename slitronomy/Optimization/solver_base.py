@@ -8,6 +8,7 @@ import numpy as np
 from slitronomy.Optimization.model_operators import ModelOperators
 from slitronomy.Lensing.lensing_operator import LensingOperator
 from slitronomy.Optimization.noise_levels import NoiseLevels
+from slitronomy.Optimization import proximals
 from slitronomy.Util.solver_plotter import SolverPlotter
 from slitronomy.Util.solver_tracker import SolverTracker
 from slitronomy.Util import util
@@ -26,8 +27,8 @@ class SparseSolverBase(ModelOperators):
     # E.g. the method project_on_original_grid_source should be attached to some new "SourceModel" class, not to the solver.
     # or _get_ps_coordinates should be in a point source class.
 
-    def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class,
-                 lens_light_mask=None, source_interpolation='bilinear', 
+    def __init__(self, data_class, image_numerics_class, source_numerics_class,
+                 lens_model_class=None, lens_light_mask=None, source_interpolation='bilinear', 
                  minimal_source_plane=False, use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                  min_threshold=3, threshold_increment_high_freq=1, threshold_decrease_type='exponential',
                  fixed_spectral_norm_source=0.98, include_regridding_error=False, include_point_source_error=False,
@@ -190,7 +191,7 @@ class SparseSolverBase(ModelOperators):
         if self.no_source_light:
             return np.zeros_like(self.image_data)
         if not hasattr(self, '_source_model'):
-            raise ValueError("No source model was optimised")
+            raise RuntimeError("No source model has been optimised")
         return self._source_model
 
     @property
@@ -198,7 +199,7 @@ class SparseSolverBase(ModelOperators):
         if self.no_lens_light:
             return np.zeros_like(self.image_data)
         if not hasattr(self, '_lens_light_model'):
-            raise ValueError("No lens light model was optimised")
+            raise RuntimeError("No lens light model has been optimised")
         return self._lens_light_model
 
     @property
@@ -206,7 +207,7 @@ class SparseSolverBase(ModelOperators):
         if self.no_point_source:
             return np.zeros_like(self.image_data)
         if not hasattr(self, '_ps_model'):
-            raise ValueError("No point source model was optimised")
+            raise RuntimeError("No point source model has been optimised")
         return self._ps_model
         
     def image_model(self, unconvolved=False, source_add=True, lens_light_add=True, point_source_add=True):
@@ -216,7 +217,7 @@ class SparseSolverBase(ModelOperators):
             S = self.source_model
             model = self.F(S)
         else:
-            model = 0
+            model = np.zeros_like(self.image_data)
             if source_add and self.no_source_light is False:
                 S = self.source_model
                 model += self.H(self.R(self.F(S)))
@@ -364,11 +365,45 @@ class SparseSolverBase(ModelOperators):
         elif self._formulation == 'synthesis':
             return self._gradient_loss_synthesis_source(alpha_S=array_S)
 
+    def _gradient_loss_analysis_source(self, S):
+        """
+        returns the gradient of f = || Y' - HFS ||^2_2, where Y' = Y - HG
+        with respect to S
+        """
+        Y = self.model_analysis(S, HG=None)
+        error = self.Y_p - Y
+        grad  = - self.F_T(self.R_T(self.H_T(error)))
+        return grad
+
+    def _gradient_loss_synthesis_source(self, alpha_S):
+        """
+        returns the gradient of f = || Y' - H F Phi alpha_S ||^2_2, where Y' = Y - Phi_l alpha_HG
+        with respect to alpha_S
+        """
+        Y = self.model_synthesis(alpha_S, alpha_HG=None)
+        error = self.Y_p - Y
+        grad  = - self.Phi_T_s(self.F_T(self.R_T(self.H_T(error))))
+        return grad
+
     def gradient_loss_source_ps(self, array_S, array_P):
         if self._formulation == 'analysis':
             return self._gradient_loss_analysis_source_ps(S=array_S, P=array_P)
         elif self._formulation == 'synthesis':
             raise NotImplementedError("'synthesis' formulation for source + PS is not supported" )
+
+    def _gradient_loss_analysis_source_ps(self, S, P):
+        """
+        returns the gradient of f = || Y' - (HFS + P) ||^2_2, where Y' = Y - HG
+        with respect to S.
+        """
+        if self.fixed_point_source_model:
+            P_ = self._init_ps_model
+        else:
+            P_ = P
+        model = self.model_analysis(S, HG=None, P=P_)
+        error = self.Y_p - model
+        grad  = - self.F_T(self.R_T(self.H_T(error)))
+        return grad
 
     def gradient_loss_lens(self, array_HG):
         if self._formulation == 'analysis':
@@ -376,17 +411,42 @@ class SparseSolverBase(ModelOperators):
         elif self._formulation == 'synthesis':
             return self._gradient_loss_synthesis_lens(alpha_HG=array_HG)
 
-    def proximal_sparsity_source(self, array, threshold, weights):
-        if self._formulation == 'analysis':
-            return self._proximal_sparsity_analysis_source(array, threshold, weights)
-        elif self._formulation == 'synthesis':
-            return self._proximal_sparsity_synthesis_source(array, threshold, weights)
+    def _gradient_loss_analysis_lens(self, HG):
+        """
+        returns the gradient of f = || Y' - HG ||^2_2, where Y' = Y - HFS
+        with respect to HG
+        """
+        model = self.model_analysis(S=None, HG=HG)
+        error = self.Y_p - model
+        grad  = - error
+        return grad
 
-    def proximal_sparsity_lens(self, array, threshold, weights):
-        if self._formulation == 'analysis':
-            return self._proximal_sparsity_analysis_lens(array, threshold, weights)
-        elif self._formulation == 'synthesis':
-            return self._proximal_sparsity_synthesis_lens(array, threshold, weights)
+    def _gradient_loss_synthesis_lens(self, alpha_HG):
+        """
+        returns the gradient of f = || Y' - Phi_l alpha_HG ||^2_2, where Y' = Y - H F Phi_s alpha_S
+        with respect to alpha_HG
+        """
+        model = self.model_synthesis(alpha_S=None, alpha_HG=alpha_HG)
+        error = self.Y_p - model
+        grad  = - self.Phi_T_l(error)
+        return grad
+
+    def proximal_sparsity_source(self, array_S, threshold, weights):
+        array_proxed =  proximals.full_prox_sparsity_positivity(array_S, self.Phi_T_s, self.Phi_s, 
+                                                                weights, self.noise.levels_source, 
+                                                                threshold, self._increm_high_freq,
+                                                                self._n_scales_source, self._sparsity_prior_norm,
+                                                                self._formulation, self._force_positivity)
+        #  then we set to 0 every pixel that is outside the 'support' in source plane
+        array_proxed = self.apply_source_plane_mask(array_proxed)
+        return array_proxed
+
+    def proximal_sparsity_lens(self, array_HG, threshold, weights):
+        return proximals.full_prox_sparsity_positivity(array_HG, self.Phi_T_l, self.Phi_l, 
+                                                       weights, self.noise.levels_image, 
+                                                       threshold, self._increm_high_freq,
+                                                       self._n_scales_lens_light, self._sparsity_prior_norm,
+                                                       self._formulation, self._force_positivity)
 
     def subtract_source_from_data(self, S):
         """Update "effective" data by subtracting the input source light estimation"""
