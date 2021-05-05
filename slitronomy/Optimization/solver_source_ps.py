@@ -6,22 +6,21 @@ import copy
 import numpy as np
 import math as ma
 
-from slitronomy.Optimization.solver_source import SparseSolverSource
+from slitronomy.Optimization.solver_base import SparseSolverBase
 from slitronomy.Optimization import algorithms
 from slitronomy.Util import util
 
 
-class SparseSolverSourcePS(SparseSolverSource):
+class SparseSolverSourcePS(SparseSolverBase):
 
     """Implements the original SLIT algorithm with point source support"""
 
-    def __init__(self, data_class, lens_model_class, image_numerics_class, 
-                 source_numerics_class, source_model_class,
+    def __init__(self, data_class, image_numerics_class, 
+                 source_numerics_class, source_model_class, lens_model_class,
                  num_iter_source=10, num_iter_global=10, num_iter_weights=3, 
                  fix_point_source_model=False, filter_point_source_residuals=False,
                  min_scale_point_source_residuals=2, radius_point_source_residuals=0.2,
                  check_point_source_residuals=False, **base_kwargs):
-
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
         :param lens_model_class: lenstronomy.lens_model.LensModel instance describing the lens mass model.
@@ -44,20 +43,24 @@ class SparseSolverSourcePS(SparseSolverSource):
         
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
         """
-        # remove settings not related to this solver
-        _ = base_kwargs.pop('num_iter_lens', None)
-
-        # define default threshold decrease strategy
-        if base_kwargs.get('threshold_decrease_type', None) is None:
-            base_kwargs['threshold_decrease_type'] = 'exponential'
-            
-        super(SparseSolverSourcePS, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class,
-                                                   num_iter_source=num_iter_source, num_iter_weights=num_iter_weights, 
+        super(SparseSolverSourcePS, self).__init__(data_class, image_numerics_class, source_numerics_class, 
+                                                   lens_model_class=lens_model_class,
                                                    **base_kwargs)
+        # define default threshold decrease strategy
+        if 'threshold_decrease_type' not in base_kwargs:
+            self._threshold_decrease_type = 'exponential'
+
+        self.add_source_light(source_model_class)
         self.add_point_source(fix_point_source_model, filter_point_source_residuals,
                               radius_point_source_residuals, min_scale_point_source_residuals,
                               check_point_source_residuals)
+
         self._n_iter_global = num_iter_global
+        self._n_iter_source = num_iter_source
+        if self._sparsity_prior_norm == 1:
+            self._n_iter_weights = num_iter_weights
+        else:
+            self._n_iter_weights = 1   # reweighting scheme only defined for l1-norm sparsity
 
     def _ready(self):
         return not self.no_source_light and not self.no_point_source
@@ -188,22 +191,6 @@ class SparseSolverSourcePS(SparseSolverSource):
 
         model = self.image_model(unconvolved=False)
         return model, coeffs_S_1d, [], amps_P
-
-    def _gradient_loss_analysis_source_ps(self, S, P):
-        """
-        returns the gradient of f = || Y' - (HFS + P) ||^2_2, where Y' = Y - HG
-        with respect to S.
-
-        This method is slightly different from the parent class, since it supports point sources.
-        """
-        if self.fixed_point_source_model:
-            P_ = self._init_ps_model
-        else:
-            P_ = P
-        model = self.model_analysis(S, HG=None, P=P_)
-        error = self.Y_p - model
-        grad  = - self.F_T(self.R_T(self.H_T(error)))
-        return grad
 
     def _solve_point_source_amplitudes(self, S, kwargs_lens, kwargs_ps, kwargs_special):
         # subtract source light for point source linear amplitude optimization

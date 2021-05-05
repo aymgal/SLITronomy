@@ -14,6 +14,7 @@ from slitronomy.Util import util
 from slitronomy.Optimization.solver_source import SparseSolverSource
 from slitronomy.Optimization.solver_source_lens import SparseSolverSourceLens
 from slitronomy.Optimization.solver_source_ps import SparseSolverSourcePS
+from slitronomy.Optimization.solver_lens import SparseSolverLens
 
 from lenstronomy.ImSim.image_model import ImageModel
 from lenstronomy.Data.imaging_data import ImageData
@@ -133,8 +134,8 @@ class TestSparseSolverSource(object):
         # SOLVER SOURCE, with analysis formulation
         self.source_model_class = LightModel(['SLIT_STARLETS'])
         self.kwargs_source = [{'n_scales': self.n_scales_source}]
-        self.solver_source_ana = SparseSolverSource(data_class, self.lens_model_class, numerics, source_numerics, 
-                                                    self.source_model_class, 
+        self.solver_source_ana = SparseSolverSource(data_class, numerics, source_numerics, 
+                                                    self.source_model_class, self.lens_model_class,
                                                     source_interpolation='bilinear', minimal_source_plane=False, 
                                                     use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                                                     sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
@@ -146,8 +147,8 @@ class TestSparseSolverSource(object):
         # SOLVER SOURCE + LENS, with synthesis formulation
         self.lens_light_model_class = LightModel(['SLIT_STARLETS'])
         self.kwargs_lens_light = [{'n_scales': self.n_scales_lens}]
-        self.solver_lens_syn = SparseSolverSourceLens(data_class, self.lens_model_class, numerics, source_numerics, 
-                                                      self.source_model_class, self.lens_light_model_class,
+        self.solver_lens_syn = SparseSolverSourceLens(data_class, numerics, source_numerics, 
+                                                      self.source_model_class, self.lens_light_model_class, self.lens_model_class,
                                                       source_interpolation='bilinear', minimal_source_plane=False, 
                                                       use_mask_for_minimal_source_plane=True, min_num_pix_source=20,
                                                       sparsity_prior_norm=1, force_positivity=True, formulation='synthesis',
@@ -160,12 +161,12 @@ class TestSparseSolverSource(object):
         # # SOLVER SOURCE + PS, with analysis formulation
         self.kwargs_ps = kwargs_ps.copy()
         self.n_point_sources = len(point_amp)
-        self.solver_source_ps_ana = SparseSolverSourcePS(data_class, self.lens_model_class, numerics, source_numerics, 
-                                                         self.source_model_class, formulation='analysis',
+        self.solver_source_ps_ana = SparseSolverSourcePS(data_class, numerics, source_numerics, 
+                                                         self.source_model_class, self.lens_model_class, formulation='analysis',
                                                          num_iter_source=self.num_iter_source, num_iter_global=self.num_iter_global, 
                                                          num_iter_weights=self.num_iter_weights)
-        self.solver_source_ps_ana_fixps = SparseSolverSourcePS(data_class, self.lens_model_class, numerics, source_numerics, 
-                                                         self.source_model_class, formulation='analysis',
+        self.solver_source_ps_ana_fixps = SparseSolverSourcePS(data_class, numerics, source_numerics, 
+                                                         self.source_model_class, self.lens_model_class, formulation='analysis',
                                                          fix_point_source_model=True,
                                                          num_iter_source=self.num_iter_source, num_iter_global=self.num_iter_global, 
                                                          num_iter_weights=self.num_iter_weights)
@@ -381,8 +382,9 @@ class TestRaise(unittest.TestCase):
         psf = PSF(psf_type='NONE')
         self.numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf)
         self.source_numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf, supersampling_factor=self.subgrid_res_source)
-        self.solver_source_lens = SparseSolverSourceLens(self.data, self.lens_model_class, self.numerics, self.source_numerics,
+        self.solver_source_lens = SparseSolverSourceLens(self.data, self.numerics, self.source_numerics,
                                                          self.source_model_class, self.lens_light_model_class,
+                                                         lens_model_class=self.lens_model_class,
                                                          num_iter_source=8, num_iter_lens=8, num_iter_weights=2)
         
     def test_raise(self):

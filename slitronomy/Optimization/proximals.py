@@ -37,3 +37,39 @@ def prox_positivity(image_input):
     image = np.copy(image_input)
     image[image < 0] = 0.
     return image
+
+
+def full_prox_sparsity_positivity(image, transform, inverse_transform,
+                                  weights, noise_levels, thresh, thresh_increm, 
+                                  n_scales, l_norm, formulation, force_positivity):
+    """
+    returns the proximal operator of the regularisation term
+        g = lambda * |Phi^T HG|_0
+    or
+        g = lambda * |Phi^T HG|_1
+    """
+    level_const = thresh * np.ones(n_scales)
+    level_const[0] += thresh_increm  # possibly a stronger threshold for first decomposition levels (small scales features)
+    level_pixels = weights * noise_levels
+
+    if formulation == 'analysis':
+        coeffs = transform(image)
+    elif formulation == 'synthesis':
+        coeffs = image
+
+    # apply proximal operator
+    step = 1  # because threshold is already expressed in data units
+    coeffs_proxed = prox_sparsity_wavelets(coeffs, step=step, 
+                                           level_const=level_const, 
+                                           level_pixels=level_pixels,
+                                           l_norm=l_norm)
+    if formulation == 'analysis':
+        image_proxed = inverse_transform(coeffs_proxed)
+    elif formulation == 'synthesis':
+        image_proxed = coeffs_proxed
+
+    if force_positivity and formulation == 'analysis':
+        image_proxed = prox_positivity(image_proxed)
+    # TODO: apply positivity also in 'synthesis' formulation (i.e. to coeffs in starlet space?)
+
+    return image_proxed

@@ -8,7 +8,6 @@ import math as ma
 
 from slitronomy.Optimization.solver_base import SparseSolverBase
 from slitronomy.Optimization import algorithms
-from slitronomy.Optimization import proximals
 from slitronomy.Util import util
 
 
@@ -16,7 +15,8 @@ class SparseSolverSource(SparseSolverBase):
 
     """Implements an improved version of the original SLIT algorithm (https://github.com/herjy/SLIT)"""
 
-    def __init__(self, data_class, lens_model_class, image_numerics_class, source_numerics_class, source_model_class, 
+    def __init__(self, data_class, image_numerics_class, source_numerics_class, 
+                 source_model_class, lens_model_class,
                  num_iter_source=10, num_iter_weights=3, **base_kwargs):
         """
         :param data_class: lenstronomy.imaging_data.ImageData instance describing the data.
@@ -31,15 +31,16 @@ class SparseSolverSource(SparseSolverBase):
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
         """
         # remove settings not related to this solver
-        _ = base_kwargs.pop('num_iter_lens', None)
-        _ = base_kwargs.pop('num_iter_global', None)
+        # _ = base_kwargs.pop('num_iter_lens', None)
+        # _ = base_kwargs.pop('num_iter_global', None)
+
+        super(SparseSolverSource, self).__init__(data_class, image_numerics_class, source_numerics_class,
+                                                 lens_model_class=lens_model_class, **base_kwargs)
 
         # define default threshold decrease strategy
-        if base_kwargs.get('threshold_decrease_type', None) is None:
-            base_kwargs['threshold_decrease_type'] = 'exponential'
+        if 'threshold_decrease_type' not in base_kwargs:
+            self._threshold_decrease_type = 'exponential'
 
-        super(SparseSolverSource, self).__init__(data_class, lens_model_class, image_numerics_class, source_numerics_class,
-                                                 **base_kwargs)
         self.add_source_light(source_model_class)
         self._n_iter_source = num_iter_source
         if self._sparsity_prior_norm == 1:
@@ -138,75 +139,55 @@ class SparseSolverSource(SparseSolverBase):
         model = self.image_model(unconvolved=False)
         return model, coeffs_S_1d, [], []
 
-    def _gradient_loss_analysis_source(self, S):
-        """
-        returns the gradient of f = || Y' - HFS ||^2_2, where Y' = Y - HG
-        with respect to S
-        """
-        Y = self.model_analysis(S, HG=None)
-        error = self.Y_p - Y
-        grad  = - self.F_T(self.R_T(self.H_T(error)))
-        return grad
+    # def _proximal_sparsity_analysis_source(self, S, threshold, weights):
+    #     """
+    #     returns the proximal operator of the regularisation term
+    #         g = lambda * |Phi^T S|_0
+    #     or
+    #         g = lambda * |Phi^T S|_1
+    #     """
+    #     n_scales = self._n_scales_source
+    #     level_const = threshold * np.ones(n_scales)
+    #     level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
+    #     level_pixels = weights * self.noise.levels_source
 
-    def _gradient_loss_synthesis_source(self, alpha_S):
-        """
-        returns the gradient of f = || Y' - H F Phi alpha_S ||^2_2, where Y' = Y - Phi_l alpha_HG
-        with respect to alpha_S
-        """
-        Y = self.model_synthesis(alpha_S, alpha_HG=None)
-        error = self.Y_p - Y
-        grad  = - self.Phi_T_s(self.F_T(self.R_T(self.H_T(error))))
-        return grad
+    #     alpha_S = self.Phi_T_s(S)
 
-    def _proximal_sparsity_analysis_source(self, S, threshold, weights):
-        """
-        returns the proximal operator of the regularisation term
-            g = lambda * |Phi^T S|_0
-        or
-            g = lambda * |Phi^T S|_1
-        """
-        n_scales = self._n_scales_source
-        level_const = threshold * np.ones(n_scales)
-        level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
-        level_pixels = weights * self.noise.levels_source
+    #     # apply proximal operator
+    #     step = 1  # because threshold is already expressed in data units
+    #     alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, level_const=level_const, level_pixels=level_pixels,
+    #                                                       l_norm=self._sparsity_prior_norm)
+    #     S_proxed = self.Phi_s(alpha_S_proxed)
 
-        alpha_S = self.Phi_T_s(S)
+    #     if self._force_positivity:
+    #         S_proxed = proximals.prox_positivity(S_proxed)
 
-        # apply proximal operator
-        step = 1  # because threshold is already expressed in data units
-        alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, level_const=level_const, level_pixels=level_pixels,
-                                                          l_norm=self._sparsity_prior_norm)
-        S_proxed = self.Phi_s(alpha_S_proxed)
+    #     # finally, set to 0 every pixel that is outside the 'support' in source plane
+    #     S_proxed = self.apply_source_plane_mask(S_proxed)
+    #     return S_proxed
 
-        if self._force_positivity:
-            S_proxed = proximals.prox_positivity(S_proxed)
+    # def _proximal_sparsity_synthesis_source(self, alpha_S, threshold, weights):
+    #     """
+    #     returns the proximal operator of the regularisation term
+    #         g = lambda * |alpha_S|_0
+    #     or
+    #         g = lambda * |alpha_S|_1
+    #     """
+    #     n_scales = self._n_scales_source
+    #     level_const = threshold * np.ones(n_scales)
+    #     level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
+    #     level_pixels = weights * self.noise.levels_source
 
-        # finally, set to 0 every pixel that is outside the 'support' in source plane
-        S_proxed = self.apply_source_plane_mask(S_proxed)
-        return S_proxed
+    #     # apply proximal operator
+    #     step = 1  # because threshold is already expressed in data units
+    #     alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, level_const=level_const, level_pixels=level_pixels,
+    #                                                       l_norm=self._sparsity_prior_norm)
 
-    def _proximal_sparsity_synthesis_source(self, alpha_S, threshold, weights):
-        """
-        returns the proximal operator of the regularisation term
-            g = lambda * |alpha_S|_0
-        or
-            g = lambda * |alpha_S|_1
-        """
-        n_scales = self._n_scales_source
-        level_const = threshold * np.ones(n_scales)
-        level_const[0] += self._increm_high_freq  # possibly a stronger threshold for first decomposition levels (small scales features)
-        level_pixels = weights * self.noise.levels_source
+    #     #TODO: positivity applied in starlets space ?
+    #     # if self._force_positivity:
+    #     #     alpha_S_proxed = proximals.prox_positivity(alpha_S_proxed)
 
-        # apply proximal operator
-        step = 1  # because threshold is already expressed in data units
-        alpha_S_proxed = proximals.prox_sparsity_wavelets(alpha_S, step=step, level_const=level_const, level_pixels=level_pixels,
-                                                          l_norm=self._sparsity_prior_norm)
-
-        #TODO: positivity applied in starlets space ?
-        # if self._force_positivity:
-        #     alpha_S_proxed = proximals.prox_positivity(alpha_S_proxed)
-
-        # finally, set to 0 every pixel that is outside the 'support' in source plane
-        for ns in range(n_scales):
-            alpha_S_proxed[ns, :, :] = self.apply_source_plane_mask(alpha_S_proxed[ns, :, :])
-        return alpha_S_proxed
+    #     # finally, set to 0 every pixel that is outside the 'support' in source plane
+    #     for ns in range(n_scales):
+    #         alpha_S_proxed[ns, :, :] = self.apply_source_plane_mask(alpha_S_proxed[ns, :, :])
+    #     return alpha_S_proxed
