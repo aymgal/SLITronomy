@@ -65,7 +65,7 @@ install:
   - cd $PACKAGES_DIR
   - git clone https://github.com/aymgal/pysap.git
   - cd pysap
-  - git checkout dev-aym
+  - git checkout master
   - pip install .
   # - pip install -e git://github.com/aymgal/pysap@dev-aym#egg=pysap
 
