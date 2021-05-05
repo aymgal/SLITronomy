@@ -62,6 +62,8 @@ install:
   - cd $ORIGINAL_PATH
   - cd ..
   - mkdir $PACKAGES_DIR
+
+  # to install pySAP from a specific fork
   # - cd $PACKAGES_DIR
   # - git clone https://github.com/aymgal/pysap.git
   # - cd pysap
