@@ -25,3 +25,4 @@ pyqtgraph>=0.10.0
 progressbar2>=3.34.3
 nibabel
 modopt
+python-pysap

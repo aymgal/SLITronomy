@@ -58,15 +58,15 @@ install:
   - pip install -r test/test_requirements.txt
   # - pip install python-pysap
 
-  # install the right branch of the fork of pysap
-  - cd $ORIGINAL_PATH
-  - cd ..
-  - mkdir $PACKAGES_DIR
-  - cd $PACKAGES_DIR
-  - git clone https://github.com/aymgal/pysap.git
-  - cd pysap
-  - git checkout master
-  - pip install .
+  # # install the right branch of the fork of pysap
+  # - cd $ORIGINAL_PATH
+  # - cd ..
+  # - mkdir $PACKAGES_DIR
+  # - cd $PACKAGES_DIR
+  # - git clone https://github.com/aymgal/pysap.git
+  # - cd pysap
+  # - git checkout master
+  # - pip install .
   # - pip install -e git://github.com/aymgal/pysap@dev-aym#egg=pysap
 
   # install the right branch of the fork of lenstronomy
