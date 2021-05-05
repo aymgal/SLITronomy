@@ -41,12 +41,14 @@ class SolverPlotter(object):
 
     def plot_results(self, log_scale=False, vmin_image=None, vmax_image=None, normalised_res=True,
                      vmin_source=None, vmax_source=None, vmin_res=-6, vmax_res=6,
-                     cmap_image=None, cmap_source=None, fontsize=12, 
+                     cmap_image=None, cmap_source=None, cmap_residuals=None, fontsize=12, 
                      with_history=True, unconvolved=False, point_source_add=False):
         if cmap_image is None:
             cmap_image = self._cmap_1
         if cmap_source is None:
             cmap_source = self._cmap_1
+        if cmap_residuals is None:
+            cmap_residuals = self._cmap_2
 
         n_comp = self._solver.track['loss'].shape[0]
         names = self._solver.component_names
@@ -97,7 +99,7 @@ class SolverPlotter(object):
             residuals_map = self._solver.normalized_residuals_model
             ax.set_title(r"norm. residuals", fontsize=fontsize)
             im = ax.imshow(residuals_map, 
-                           origin='lower', cmap=self._cmap_2, vmin=vmin_res, vmax=vmax_res)
+                           origin='lower', cmap=cmap_residuals, vmin=vmin_res, vmax=vmax_res)
             text = r"$\chi^2={:.2f}$".format(self._solver.best_fit_reduced_chi2)
             ax.text(0.05, 0.05, text, color='black', fontsize=15, 
                     horizontalalignment='left', verticalalignment='bottom',
@@ -112,7 +114,7 @@ class SolverPlotter(object):
             scale = np.std(residuals_map)
             vmin_res, vmax_res = vmin_res*scale, vmax_res*scale
             im = ax.imshow(residuals_map, 
-                           origin='lower', cmap=self._cmap_2, vmin=vmin_res, vmax=vmax_res)
+                           origin='lower', cmap=cmap_residuals, vmin=vmin_res, vmax=vmax_res)
             text = r"MSE$=${:.2e}".format(self._solver.best_fit_mean_squared_error)
             ax.text(0.05, 0.05, text, color='black', fontsize=15, 
                     horizontalalignment='left', verticalalignment='bottom',
