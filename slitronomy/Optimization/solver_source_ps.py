@@ -43,9 +43,6 @@ class SparseSolverSourcePS(SparseSolverBase):
         
         If not set or set to None, 'threshold_decrease_type' in base_kwargs defaults to 'exponential'.
         """
-        # remove settings not related to this solver
-        # _ = base_kwargs.pop('num_iter_lens', None)
-            
         super(SparseSolverSourcePS, self).__init__(data_class, image_numerics_class, source_numerics_class, 
                                                    lens_model_class=lens_model_class,
                                                    **base_kwargs)
