@@ -75,7 +75,7 @@ class TestSparseSolverBase(object):
         source_numerics = NumericsSubFrame(pixel_grid=data, psf=psf, supersampling_factor=self.subgrid_res_source)
 
         # init the solver
-        self.solver = SparseSolverBase(data, lens_model, numerics, source_numerics, 
+        self.solver = SparseSolverBase(data, numerics, source_numerics, lens_model_class=lens_model,
                  source_interpolation='bilinear', minimal_source_plane=True, 
                  use_mask_for_minimal_source_plane=True, min_num_pix_source=self.min_num_pix_source,
                  sparsity_prior_norm=1, force_positivity=True, formulation='analysis',
@@ -161,30 +161,19 @@ class TestRaise(unittest.TestCase):
         psf = PSF(psf_type='NONE')
         self.numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf)
         self.source_numerics = NumericsSubFrame(pixel_grid=self.data, psf=psf, supersampling_factor=self.subgrid_res_source)
-        self.solver = SparseSolverBase(self.data, self.lens_model, self.numerics, self.source_numerics)
+        self.solver = SparseSolverBase(self.data, self.numerics, self.source_numerics, lens_model_class=self.lens_model)
         
     def test_raise(self):
         with self.assertRaises(ValueError):
             # wrong sparsitiy norm
-            solver = SparseSolverBase(self.data, self.lens_model, self.numerics, self.source_numerics,
-                                      sparsity_prior_norm=2)
-        with self.assertRaises(ValueError):
-            # non sqaure image
-            kwargs_data = copy.deepcopy(self.kwargs_data)
-            kwargs_data['image_data'] = np.ones((49, 60))
-            kwargs_data['noise_map'] = 0.01 * np.ones((49, 60))
-            data_nonsquare = ImageData(**kwargs_data)
-            solver = SparseSolverBase(data_nonsquare, self.lens_model, self.numerics, self.source_numerics)
+            solver = SparseSolverBase(self.data, self.numerics, self.source_numerics,
+                                      lens_model_class=self.lens_model, sparsity_prior_norm=2)
         with self.assertRaises(NotImplementedError):
             # solve is not fully implemented (on purpose) in the base class
             result = self.solver._ready()
         with self.assertRaises(NotImplementedError):
             # solve is not fully implemented (on purpose) in the base class
             result = self.solver._solve(self.kwargs_lens, self.kwargs_source, self.kwargs_lens_light)
-        with self.assertRaises(ValueError):
-            image_model = self.solver.image_model()
-        with self.assertRaises(ValueError):
-            image_model = self.solver.source_model
             
 if __name__ == '__main__':
     pytest.main()

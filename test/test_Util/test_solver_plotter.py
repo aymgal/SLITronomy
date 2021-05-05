@@ -64,8 +64,8 @@ class TestSolverPlotter(object):
         source_numerics_class = NumericsSubFrame(pixel_grid=data_class, psf=PSF(psf_type='NONE'), supersampling_factor=1)
 
         # init sparse solver
-        self.solver = SparseSolverSource(data_class, lens_model_class, image_numerics_class, source_numerics_class,
-                                         source_model_class, num_iter_source=10)
+        self.solver = SparseSolverSource(data_class, image_numerics_class, source_numerics_class,
+                                         source_model_class, lens_model_class, num_iter_source=10)
 
         # init the plotter
         self.plotter = SolverPlotter(self.solver, show_now=False)
